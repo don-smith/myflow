@@ -1,18 +1,21 @@
 ---
 name: land
-description: Use at the end of a major piece of work to bring the cycle to a clean close — review the work, document what changed, capture lessons, and prepare for the next cycle
+description: Use at the end of a major piece of work after validation and review pass — bring the cycle to a clean close through commit, documentation, reflection, and integration
 ---
 
 # Land
 
-Bring the current piece of work to a clean close. Review what was built, document what changed, capture lessons, and leave the codebase ready for the next cycle.
+## Overview
+
+Bring the current piece of work to a clean close. Commit the code, document what shipped, reflect on the cycle, capture lessons, reconcile memory, and prepare for the next piece of work.
+
+Land is **stage 5 of the 5-stage Don's Flow pipeline** (after Validate & Review). It no longer contains code review or architectural review — those live in stages 2 and 4. This skill focuses on closeout: commit, document, reflect, update, and close.
 
 ## When to Use
 
-- A design phase is complete and agreed
-- An implementation plan has been fully executed and verified
-- Any significant milestone where the project state has materially changed
-- Before starting the next piece of work
+- After stage 4 (Validate & Review) passes — validation report clean, code-review at zero blockers
+- When implementation is verified, reviewed, and ready to ship
+- At any significant milestone where the project state has materially changed and you want to close cleanly
 
 This is a **cycle boundary** — the moment between "we finished that" and "what's next."
 
@@ -21,83 +24,101 @@ This is a **cycle boundary** — the moment between "we finished that" and "what
 - Mid-work checkpoints (that's normal commit discipline)
 - Bug fixes or small refactors that don't change the project's shape
 - Session endings where the work isn't at a natural completion point (just commit and note what's unfinished)
+- When code review or architectural review is still needed (those happen in stages 2 and 4)
 
 ## The Process
 
-Land has 10 ordered sub-steps. **Each sub-step is a conversation between agent and human, not unilateral execution.** Surface findings or work for the step, get review, decide together when to advance. See [`docs/ways-of-working.md`](../../../docs/ways-of-working.md) §"Development Lifecycle" for the canonical descriptions.
+Land has 9 steps in 3 groups. **Each step is a conversation between agent and human, not unilateral execution.** Surface findings or work for the step, get review, decide together when to advance.
 
-**Hard ordering rule:** all reviews (1–3) precede all documentation work (4–7). Documentation describes what is true; if a review changes what is true, doc work is wasted.
+### Group 1 — Commit & Document
 
-### 1. Code review
+Ship the code and record what shipped.
 
-Comprehensive, back-and-forth review of all code that landed during this cycle. Find issues; fix small ones now, table substantive ones in `docs/tabled.md`. Often a substantial conversation in itself.
+#### 1. Commit
 
-### 2. Architectural review
+Group staged/unstaged changes into logical, atomic commits. Use `/skill:commit [message-hint]` for structured commits. On a feature branch, you may commit close-out artifacts (as-built, retro, memory updates) separately. On `main`, present commit groupings for human approval.
 
-Did this work introduce new patterns? Stress the architecture? Indicate that an existing pattern should change? Find structural issues — fix small ones now, table substantive ones.
+#### 2. As-Built Documentation
 
-### 3. Security review
+Once the code is committed, capture what changed and why in `docs/changes/`. Use the `as-built-documentation` skill — it handles the synthesis, writing, and cleanup of superseded plans. This is the permanent record; specs and plans are scaffolding, as-builts are durable.
 
-Scope to the change. Find issues, fix small ones now, table substantive ones. (Once `docs/security-register.md` and the security-review skill exist, follow that playbook.)
+### Group 2 — Reflect & Reconcile
 
-### 4. As-built documentation
+Look back at what happened and what we learned.
 
-Once the code is final, capture what changed and why in `docs/changes/` (project-level) or per-repo `docs/changes/`. Use the `as-built-documentation` skill — it handles the synthesis, writing, and cleanup of superseded plans.
+#### 3. Retro
 
-### 5. Doc / knowledge-graph review
+Reflect on the cycle. What went well, what was hard, patterns to capture, anti-patterns to nudge against. Produce a permanent retro doc at `docs/retros/YYYY-MM-DD-<topic>.md`. **Start by reading the previous retro in `docs/retros/`** — this threads the continual-improvement loop forward across cycles. Retro closes off the cycle's work — process improvement, not scope.
 
-Sweep over docs touched by this cycle. Add or refresh README files in the significant folders we worked in, per the incremental "build by touched folder" pattern (see WoW §"README knowledge graph"). Look for stale, contradictory, or low-signal docs and prune. Keep signal-to-noise high.
+#### 4. Capturing Learnings
 
-If unsure where new information should live, consult [`docs/memory.md`](../../../docs/memory.md).
+Run `capturing-learnings` — review tabled observations and apply the promotion rule: **once is a moment; twice is a pattern.** Promote twice-seen patterns to skills, runbooks, or memory entries.
 
-### 6. AGENTS.md updates
+### Group 3 — Update & Close
 
-Root and repo-level. Only update what actually changed.
+Update shared context and close the branch.
 
-### 7. Memory reconcile
+#### 5. Doc / Knowledge-Graph Review
 
-Review persistent memory (markdown files in `docs/memory/` and any auto-loaded project memory) against the new state. Correct stale entries, remove redundancies, add new feedback / project / reference / user memories warranted by the cycle. Memory is a thin index pointing at authoritative sources, not a duplication.
+Sweep over docs touched by this cycle. Add or refresh README files in the significant folders we worked in, per the incremental "build by touched folder" pattern. Look for stale, contradictory, or low-signal docs and prune. Keep signal-to-noise high.
 
-### 8. Retro
+#### 6. AGENTS.md Updates
 
-Reflect on the cycle. What went well, what was hard, patterns to capture, anti-patterns to nudge against. Produce a permanent retro doc at `docs/retros/YYYY-MM-DD-<topic>.md`. Retro **closes off the cycle's work** — process improvement, not scope. Scope changes already got captured in steps 1–3 as tabled items / memories.
+Root and repo-level. Only update what actually changed during this cycle.
 
-**Start by reading the previous retro in `docs/retros/`** — this threads the continual-improvement loop forward across cycles.
+#### 7. Memory Reconcile
 
-### 9. Status review + tabled-items confirmation + next piece of work
+Review persistent memory (`docs/memory/`) against the new state. Correct stale entries, remove redundancies, add new memories warranted by the cycle. Memory is a thin index pointing at authoritative sources, not a duplication.
 
-Walk through `docs/status.md` intentionally with the cycle's tabled items in hand. Decide what belongs in "Recently Completed," "What's Next," what to prune. **Resolve every tabled item** — either decide-now (document the decision and remove the entry) or move-to-status (substance moves to "What's Next" and the entry is removed). `docs/tabled.md` should end the cycle empty (or near-empty). Identify the next piece of work — usually the highest-priority moved-to-status item.
+#### 8. Status Review + Tabled Items Resolution
 
-### 10. Integrate
+Walk through `docs/status.md` with the cycle's tabled items in hand. Update Recently Completed and What's Next. **Resolve every tabled item in `docs/tabled.md`** — either decide-now (document the decision and remove the entry) or move-to-status (substance moves to What's Next). `docs/tabled.md` should end the cycle empty or near-empty. Identify the next piece of work — usually the highest-priority moved-to-status item.
 
-If on a **feature branch**, invoke the **finishing-a-development-branch** skill to handle merge/PR/cleanup decisions.
+#### 9. Integrate
 
-If on **main**, stage all close-out changes in appropriately grouped commits and present a summary for review. Do NOT commit unilaterally — let the human approve groupings first.
+If on a **feature branch**, invoke the **`finishing-a-development-branch`** skill to handle merge/PR/cleanup decisions.
+
+If on **`main`**, stage all close-out changes in appropriately grouped commits and present a summary for review. Do NOT commit unilaterally — let the human approve groupings first.
 
 ## Key Principles
 
-- **Each sub-step is a conversation.** Surface findings, get review, advance together. Don't execute multiple sub-steps in a single agent turn without human checkpoints.
-- **This skill owns the sequence; child skills own the execution.** Don't duplicate instructions that live in referenced skills (`as-built-documentation`, `finishing-a-development-branch`).
+- **Each step is a conversation.** Surface findings, get review, advance together. Don't execute multiple steps in a single agent turn without human checkpoints.
+- **This skill owns the sequence; child skills own the execution.** Don't duplicate instructions that live in referenced skills (`as-built-documentation`, `finishing-a-development-branch`, `capturing-learnings`).
 - **Documents live where their scope lives.** Repo-specific docs in the repo. Cross-repo / project-level docs at the root.
 - **Set up the next agent for success.** Every step should leave the codebase navigable: tabled items resolved, status current, retro filed, memories reconciled.
+- **Reviews happen before land.** Code review and architectural review live in stages 2 and 4 of the pipeline — do not re-review during closeout unless something changed.
 
 ## Anti-patterns
 
-- **Merge before close-out.** Don't partial-merge an in-flight branch and then try to retroactively close out a subset. Close the branch as a complete piece of work, table the continuation, pick up next on a fresh branch.
-- **Treating a sub-step as a checkbox.** Each is a conversation. Rushing produces work that needs walking back.
-- **Carrying tabled items across cycles.** Step 9 resolves every one.
+- **Merge before close-out.** Don't partial-merge an in-flight branch and then try to retroactively close out a subset. Close the branch as a complete piece of work.
+- **Treating a step as a checkbox.** Each is a conversation. Rushing produces work that needs walking back.
+- **Carrying tabled items across cycles.** Step 8 resolves every one.
+- **Re-reviewing code during closeout.** Code review and architectural review happen in stages 2 and 4. If new issues surface during closeout, table them — don't re-open review.
+- **Skipping the retro.** The retro is the mechanism that improves the process. Without it, the same friction repeats cycle after cycle.
 
-## Development Lifecycle Context
+## Pipeline Context
 
-This project uses a skills-driven development lifecycle (RPIV pipeline + Superpowers-style closeout):
+Land is stage 5 of the 5-stage Don's Flow pipeline:
 
-1. **Discover** — Interview-driven intent capture (`/skill:discover` from RPIV)
-2. **Research** — Codebase context and precedent mapping (`/skill:research` from RPIV)
-3. **Design / Blueprint** — Architecture and phased planning (`/skill:design`, `/skill:blueprint`, or `/skill:explore` from RPIV)
-4. **Plan** — Implementation plan sequencing (`/skill:plan` from RPIV, when design and plan are separate)
-5. **Implement** — Phased execution (`/skill:implement` from RPIV)
-6. **Verify** — Validation against the plan's success criteria (`/skill:validate` from RPIV, guided by `verification-before-completion` discipline)
-7. **Review / Commit** — Code review and atomic commits (`/skill:code-review` and `/skill:commit` from RPIV)
-8. **Land** — This skill. The 10 sub-steps above bring the cycle to a clean close.
+1. **Discover & Align** — shape the work (`brainstorming`, `discover`, `explore`)
+2. **Research & Design** — decide the approach (`research`, `design`, `architecture-review`, `blueprint`/`plan`)
+3. **Implement** — build it (`implement` + TDD, subagents, `verification-before-completion`)
+4. **Validate & Review** — verify it (`validate`, `code-review`, `receiving-code-review`, `revise`)
+5. **Land & Learn** — close it (this skill)
 
-Not every piece of work goes through all stages. Small changes may skip brainstorming and planning. The workflow adapts to size and complexity.
+Every stage produces an artifact consumed by the next. `epiphany-tabling` runs across stages 2-4. `capturing-learnings` checks in after stages 1, 2, 4, and 5.
+
+## Related practices
+
+- `dons-flow` — the 5-stage pipeline map; invokes land at stage 5
+- `as-built-documentation` — handles step 2 synthesis and cleanup
+- `finishing-a-development-branch` — handles step 9 merge/PR decisions
+- `capturing-learnings` — step 4 promotion rule and checkpoint
+- `writing-retros` — step 3 retro format
+- `epiphany-tabling` — the in-flight practice that feeds tabled items resolved in step 8
+- `commit` — RPIV structured commits (step 1)
+
+## See also
+
+- Pipeline visual: `docs/dons-flow-v3-pipeline.html`
+- Pipeline spec: `docs/superpowers/specs/2026-06-14-dons-flow-v3-pipeline-design.md`
