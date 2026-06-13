@@ -175,7 +175,7 @@ Discover → Research → Design/Blueprint → Plan → Implement → Validate �
 
 **What it produces:** `.rpiv/artifacts/reviews/<slug>_<scope>.md`
 
-**Integration note:** The `land` skill's step 1 (code review) can consume this artifact. Fix small findings now; table substantive ones to `docs/tabled/`.
+**Integration note:** The `land` skill's step 1 (code review) can consume this artifact. Fix small findings now; table substantive ones in `docs/tabled.md`.
 
 ### 8. Commit — atomic, logical commits
 
@@ -243,8 +243,7 @@ Your codebase should contain these documents and folders. They are owned by the 
 
 | Path | Purpose |
 |---|---|
-| `docs/tabled.md` | Working memory for epiphanies and deferred work |
-| `docs/tabled/` | Optional per-item tabled docs (resolved to empty each cycle) |
+| `docs/tabled.md` | Working memory for epiphanies and deferred work (resolved to empty each cycle) |
 | `docs/status.md` | Living status: Recently Completed, What's Next, etc. |
 | `docs/memory/` | Persistent project/session memory entries |
 | `docs/memory/MEMORY.md` | Index of memory entries |

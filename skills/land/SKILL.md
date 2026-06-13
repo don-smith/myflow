@@ -30,7 +30,7 @@ Land has 10 ordered sub-steps. **Each sub-step is a conversation between agent a
 
 ### 1. Code review
 
-Comprehensive, back-and-forth review of all code that landed during this cycle. Find issues; fix small ones now, table substantive ones to `docs/tabled/`. Often a substantial conversation in itself.
+Comprehensive, back-and-forth review of all code that landed during this cycle. Find issues; fix small ones now, table substantive ones in `docs/tabled.md`. Often a substantial conversation in itself.
 
 ### 2. Architectural review
 
@@ -66,7 +66,7 @@ Reflect on the cycle. What went well, what was hard, patterns to capture, anti-p
 
 ### 9. Status review + tabled-items confirmation + next piece of work
 
-Walk through `docs/status.md` intentionally with the cycle's tabled items in hand. Decide what belongs in "Recently Completed," "What's Next," what to prune. **Resolve every tabled item** — either decide-now (document the decision and delete the tabled doc) or move-to-status (substance moves to "What's Next" and the tabled doc is deleted). `docs/tabled/` should end the cycle empty (just `.gitkeep`). Identify the next piece of work — usually the highest-priority moved-to-status item.
+Walk through `docs/status.md` intentionally with the cycle's tabled items in hand. Decide what belongs in "Recently Completed," "What's Next," what to prune. **Resolve every tabled item** — either decide-now (document the decision and remove the entry) or move-to-status (substance moves to "What's Next" and the entry is removed). `docs/tabled.md` should end the cycle empty (or near-empty). Identify the next piece of work — usually the highest-priority moved-to-status item.
 
 ### 10. Integrate
 

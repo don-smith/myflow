@@ -7,7 +7,6 @@ This workflow expects a small set of project-owned documents in every repo that 
 ```
 docs/
   tabled.md              # Working memory for epiphanies and deferred work
-  tabled/                # Optional per-item tabled docs (keep .gitkeep)
   status.md              # Living status: Recently Completed, What's Next
   memory/
     MEMORY.md            # Index of memory entries

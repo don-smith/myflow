@@ -149,7 +149,6 @@ Expected:
 | Path | Purpose |
 |---|---|
 | `docs/tabled.md` | Working memory for deferred ideas |
-| `docs/tabled/` | Optional per-item tabled docs |
 | `docs/status.md` | Living status |
 | `docs/memory/` | Persistent memory + `MEMORY.md` index |
 | `docs/changes/` | As-built documentation |
@@ -162,7 +161,7 @@ Expected:
 If the user approves, create missing conventions:
 
 ```bash
-mkdir -p docs/{tabled,memory,changes,retros,runbooks}
+mkdir -p docs/{memory,changes,retros,runbooks}
 touch docs/tabled.md docs/status.md docs/memory/MEMORY.md AGENTS.md
 ```
 
