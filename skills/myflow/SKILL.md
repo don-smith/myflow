@@ -259,4 +259,4 @@ Your codebase should contain these documents and folders. They are owned by the 
 - `verification-before-completion` — evidence-first discipline
 - `docs/runbooks/monitor-upstream-evolution.md` — upstream tracking
 - Pipeline visual: `docs/myflow-v3-pipeline.html`
-- Pipeline spec: `docs/superpowers/specs/2026-06-14-myflow-v3-pipeline-design.md`
+- Pipeline spec: `docs/specs/2026-06-14-myflow-v3-pipeline-design.md`

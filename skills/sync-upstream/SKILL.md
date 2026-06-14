@@ -8,7 +8,7 @@ description: Run the upstream sync script to clone/pull Superpowers and RPIV, di
 Keep an eye on upstream changes to **Superpowers** and **RPIV** — not to incorporate, but to stay informed. This skill runs a script that:
 
 1. Clones or pulls `obra/superpowers` into `vendor/superpowers-source/`.
-2. Copies selected Superpowers skills into `vendor/superpowers/skills/` (the vendored copy that ships with the package).
+2. Copies selected Superpowers skills into `vendor/superpowers/skills/` (for diffing against what's in the repo).
 3. Clones or pulls `juicesharp/rpiv-mono` to review RPIV changes.
 4. Compares the current HEAD of each repo against the last-synced hash.
 5. Emits a dated report in `docs/memory/upstream-sync-YYYY-MM-DD.md`.
