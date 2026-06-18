@@ -45,7 +45,6 @@ export interface LocaleConfig {
 export const I18N_STATE_KEY = Symbol.for("i18n");
 const I18N_RUNTIME_KEY = Symbol.for("i18n.runtime");
 
-const LOCALE_CONFIG_PATH = configPath("i18n", "locale.json");
 const DEFAULT_FALLBACK_LOCALE = "en";
 
 // Supported locales — alphabetical by code (so the /languages picker stays
@@ -64,6 +63,15 @@ export const SUPPORTED_LOCALES: readonly { code: string; label: string }[] = [
 	{ code: "ru", label: "Русский" },
 	{ code: "uk", label: "Українська" },
 ];
+
+// ---------------------------------------------------------------------------
+// Config path — computed lazily so MYFLOW_HOME/HOME overrides from test setup
+// are picked up at call time rather than captured once at module load.
+// ---------------------------------------------------------------------------
+
+function localeConfigPath(): string {
+	return configPath("i18n", "locale.json");
+}
 
 // ---------------------------------------------------------------------------
 // Translation registry — Map<namespace, Map<locale, strings>>.
@@ -181,7 +189,7 @@ export function getActiveLocale(): string | undefined {
 // ---------------------------------------------------------------------------
 
 export function loadLocaleConfig(): LocaleConfig {
-	return loadJsonConfig<LocaleConfig>(LOCALE_CONFIG_PATH);
+	return loadJsonConfig<LocaleConfig>(localeConfigPath());
 }
 
 /**
@@ -197,7 +205,7 @@ export function loadLocaleConfig(): LocaleConfig {
 export function saveLocaleConfig(locale: string | undefined): boolean {
 	const config: LocaleConfig = {};
 	if (locale) config.locale = locale;
-	return saveJsonConfig(LOCALE_CONFIG_PATH, config);
+	return saveJsonConfig(localeConfigPath(), config);
 }
 
 // ---------------------------------------------------------------------------

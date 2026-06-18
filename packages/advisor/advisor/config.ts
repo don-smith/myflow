@@ -9,7 +9,9 @@ import type { GuidanceFields } from "@myflow/config";
 import { configPath, loadJsonConfig, saveJsonConfig } from "@myflow/config";
 import { EFFORT_ORDINAL } from "./messages.js";
 
-const ADVISOR_CONFIG_PATH = configPath("advisor", "advisor.json");
+function advisorConfigPath(): string {
+	return configPath("advisor", "advisor.json");
+}
 
 export type DisabledForModelsEntry = string | { model: string; minEffort?: ThinkingLevel };
 
@@ -20,8 +22,8 @@ interface AdvisorConfig {
 	disabledForModels?: DisabledForModelsEntry[];
 }
 
-export function loadAdvisorConfig(): AdvisorConfig {
-	return loadJsonConfig<AdvisorConfig>(ADVISOR_CONFIG_PATH);
+	export function loadAdvisorConfig(): AdvisorConfig {
+	return loadJsonConfig<AdvisorConfig>(advisorConfigPath());
 }
 
 export function validateDisabledForModels(value: unknown): DisabledForModelsEntry[] {
@@ -46,5 +48,5 @@ export function saveAdvisorConfig(key: string | undefined, effort: ThinkingLevel
 	else delete config.modelKey;
 	if (effort) config.effort = effort;
 	else delete config.effort;
-	return saveJsonConfig(ADVISOR_CONFIG_PATH, config);
+	return saveJsonConfig(advisorConfigPath(), config);
 }

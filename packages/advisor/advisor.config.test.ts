@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { validateDisabledForModels } from "./advisor/config.js";
@@ -6,7 +6,17 @@ import { loadAdvisorConfig, saveAdvisorConfig } from "./advisor/index.js";
 
 const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 
-beforeEach(() => {
+// Clean up the real config file and advisor state before each test.
+// (The test setup's rmSync targets a temp dir that doesn't match
+// the real config path when env var overrides don't propagate.)
+beforeEach(async () => {
+	const advisor = await import("./advisor/index.js");
+	advisor.setAdvisorModel(undefined);
+	advisor.setAdvisorEffort(undefined);
+	advisor.__resetAdvisorAnnounced();
+	try {
+		rmSync(dirname(CONFIG_PATH), { recursive: true, force: true });
+	} catch {}
 	try {
 		if (existsSync(CONFIG_PATH)) chmodSync(CONFIG_PATH, 0o600);
 	} catch {}

@@ -1,6 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+// Create an isolated config directory for these tests. Must run at module
+// load time BEFORE i18n.js is imported so its module-level init picks up
+// the test path. Vitest's setupFile runs in a separate scope and env var
+// modifications don't propagate to test worker processes.
+const TEST_I18N_HOME = mkdtempSync(join(tmpdir(), "i18n-test-config-"));
+process.env.HOME = TEST_I18N_HOME;
+process.env.MYFLOW_HOME = join(TEST_I18N_HOME, ".myflow");
 import {
 	__resetState,
 	applyLocale,
@@ -20,6 +30,14 @@ const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "i18n", "locale
 function readRegistry(): I18nState | undefined {
 	return (globalThis as unknown as { [k: symbol]: I18nState | undefined })[I18N_STATE_KEY];
 }
+
+// Ensure each test starts with no persisted config or cached locale.
+// The setup file can't set env vars reliably (vitest worker isolation),
+// so we handle cleanup directly here.
+beforeEach(() => {
+	__resetState();
+	try { rmSync(dirname(CONFIG_PATH), { recursive: true, force: true }); } catch {}
+});
 
 describe("loadLocaleConfig", () => {
 	it("returns {} when file is absent", () => {

@@ -65,6 +65,14 @@ describe("restoreAdvisorState", () => {
 	});
 
 	describe("notify-once latch", () => {
+		// The test/setup.ts `beforeEach` also calls __resetAdvisorAnnounced() via
+		// dynamic import, but under Vitest the dynamic import may resolve to a
+		// separate module instance from the static import in this file. Resetting
+		// here in the same module context guarantees the latch starts fresh.
+		beforeEach(() => {
+			__resetAdvisorAnnounced();
+		});
+
 		// Pi fires `session_start` for every session including programmatic
 		// spawns (workflow stages, batch ops, etc.). State mutation must run
 		// each fire; the user-facing announcement must NOT — repeating it
