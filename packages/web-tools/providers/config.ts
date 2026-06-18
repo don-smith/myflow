@@ -1,5 +1,5 @@
 /**
- * Single typed reader/writer for ~/.config/web-tools/config.json.
+ * Single typed reader/writer for ~/.myflow/config/web-tools/config.json.
  *
  * Owns the canonical WebToolsConfigSchema. All schema fields are optional and
  * unknown keys pass through (additionalProperties: true) so existing configs

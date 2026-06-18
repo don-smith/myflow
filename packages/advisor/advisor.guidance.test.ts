@@ -11,7 +11,7 @@ import {
 	saveAdvisorConfig,
 } from "./advisor/index.js";
 
-const CONFIG_PATH = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 
 function writeConfig(data: Record<string, unknown>): void {
 	mkdirSync(dirname(CONFIG_PATH), { recursive: true });

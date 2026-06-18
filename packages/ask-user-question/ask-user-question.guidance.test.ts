@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_PROMPT_GUIDELINES, DEFAULT_PROMPT_SNIPPET, registerAskUserQuestionTool } from "./ask-user-question.js";
 
 const TOOL_NAME = "ask_user_question";
-const CONFIG_PATH = join(process.env.HOME!, ".config", "ask-user-question", "config.json");
+const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "ask-user-question", "config.json");
 const DEFAULT_GUIDELINES_LENGTH = DEFAULT_PROMPT_GUIDELINES.length;
 
 function writeConfig(data: Record<string, unknown>): void {

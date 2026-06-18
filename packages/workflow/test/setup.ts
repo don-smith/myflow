@@ -5,7 +5,7 @@ import { beforeEach } from "vitest";
 
 // Stub HOME to a fresh tmpdir at module-load — BEFORE any production module is
 // imported — so module-level `homedir()` captures resolve to the test home and
-// the user-layer workflow overlay (`~/.config/workflow`) never leaks the
+// the user-layer workflow overlay (`~/.myflow/config/workflow`) never leaks the
 // developer's real config into a run.
 const TEST_HOME = mkdtempSync(join(tmpdir(), "workflow-test-home-"));
 process.env.HOME = TEST_HOME;
@@ -21,5 +21,5 @@ beforeEach(async () => {
 	internal.__resetLoadCache();
 	internal.__resetSkillContracts();
 
-	rmSync(join(TEST_HOME, ".config", "workflow"), { recursive: true, force: true });
+	rmSync(join(TEST_HOME, ".myflow", "config", "workflow"), { recursive: true, force: true });
 });

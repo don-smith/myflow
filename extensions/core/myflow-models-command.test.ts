@@ -49,7 +49,7 @@ function makeCtx(hasUI = true) {
 	} as unknown as ExtensionContext;
 }
 
-const CONFIG_PATH = join(process.env.HOME!, ".config", "@myflow/pi", "models.json");
+const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "@myflow/pi", "models.json");
 
 beforeEach(() => {
 	vi.restoreAllMocks();

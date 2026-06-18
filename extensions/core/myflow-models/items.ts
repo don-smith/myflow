@@ -47,7 +47,7 @@ export const MSG_SAVE_FAILED = "Failed to save models.json (disk error or permis
 export const MSG_RESET_ALL = "All model overrides cleared.";
 export const MSG_RESET_ALL_TITLE = "Reset ALL model overrides?";
 export const MSG_RESET_ALL_BODY = [
-	"This clears every override in `~/.config/@myflow/pi/models.json` (defaults,",
+	"This clears every override in `~/.myflow/config/@myflow/pi/models.json` (defaults,",
 	"agents, stages, skills, presets). This cannot be undone.",
 	"",
 	"Per-agent overrides already written into agent frontmatter revert on the",

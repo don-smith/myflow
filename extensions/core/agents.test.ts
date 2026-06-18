@@ -998,7 +998,7 @@ describe("agent frontmatter injection", () => {
 
 	const REAL_AGENT = "codebase-analyzer.md";
 	const writeModels = (config: unknown) => {
-		const dir = join(homedir(), ".config", "@myflow/pi");
+		const dir = join(homedir(), ".myflow", "config", "@myflow/pi");
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(join(dir, "models.json"), JSON.stringify(config), "utf-8");
 	};

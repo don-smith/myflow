@@ -64,7 +64,7 @@ export function aliasSkills(w: Workflow, aliases: Record<string, string>): Workf
  * every `stage.skill` already reflects the final target.
  *
  * No-op warnings attribute to the source layer: each layer's alias map is
- * walked separately so a user-layer typo points at `~/.config/workflow/`
+ * walked separately so a user-layer typo points at `~/.myflow/config/workflow/`
  * and a project-layer typo points at `<cwd>/.myflow/workflows/`. A key declared
  * in BOTH layers and no-op in both emits two warnings (one per layer) so the
  * user fixes both files.

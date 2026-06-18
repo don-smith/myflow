@@ -1,6 +1,6 @@
 /**
  * models-config — TypeBox schema, loader, and codec for
- * ~/.config/@myflow/pi/models.json.
+ * ~/.myflow/config/@myflow/pi/models.json.
  *
  * Per-agent and per-stage model/effort overrides. Fail-soft: missing or
  * malformed JSON degrades to empty config (no overrides). Unknown model

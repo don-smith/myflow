@@ -221,7 +221,7 @@ export const DEFAULTS: ResolvedGitHubOptions = {
 	clonePath: join(tmpdir(), "pi-github-repos"),
 };
 
-// Two-tier opt-in: user config (~/.config/web-tools/config.json under
+// Two-tier opt-in: user config (~/.myflow/config/web-tools/config.json under
 // `interceptors.github`) wins over the consumer programmatic default passed
 // to registerWebTools. Object form implies opt-in; `enabled: false` inside
 // an object is redundant but accepted. Boolean `false` at any tier turns

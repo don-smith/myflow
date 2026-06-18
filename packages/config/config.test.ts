@@ -17,7 +17,7 @@ import {
 // Temporary config directory — isolated per test
 // ---------------------------------------------------------------------------
 
-const TMP_BASE = join(process.env.HOME!, ".config");
+const TMP_BASE = join(process.env.HOME!, ".myflow", "config");
 
 function tmpConfigPath(name: string): string {
 	return join(TMP_BASE, name, "config.json");
@@ -29,7 +29,7 @@ function writeTmpConfig(path: string, data: unknown): void {
 }
 
 afterEach(() => {
-	// Clean up test-specific config dirs — not the whole .config
+	// Clean up test-specific config dirs — not the whole .myflow/config
 	const dirs = ["myflow-test-load", "myflow-test-save"];
 	for (const d of dirs) {
 		rmSync(join(TMP_BASE, d), { recursive: true, force: true });
@@ -41,19 +41,19 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("configPath", () => {
-	it("resolves to ~/.config/<name>/config.json by default", () => {
+	it("resolves to ~/.myflow/config/<name>/config.json by default", () => {
 		const result = configPath("todo");
-		expect(result).toMatch(/\.config[/\\]todo[/\\]config\.json$/);
+		expect(result).toMatch(/\.myflow[/\\]config[/\\]todo[/\\]config\.json$/);
 	});
 
 	it("supports custom filename", () => {
 		const result = configPath("advisor", "advisor.json");
-		expect(result).toMatch(/\.config[/\\]advisor[/\\]advisor\.json$/);
+		expect(result).toMatch(/\.myflow[/\\]config[/\\]advisor[/\\]advisor\.json$/);
 	});
 
 	it("supports voice.json", () => {
 		const result = configPath("voice", "voice.json");
-		expect(result).toMatch(/\.config[/\\]voice[/\\]voice\.json$/);
+		expect(result).toMatch(/\.myflow[/\\]config[/\\]voice[/\\]voice\.json$/);
 	});
 });
 

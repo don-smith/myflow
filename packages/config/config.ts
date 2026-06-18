@@ -17,14 +17,21 @@ import { Value } from "typebox/value";
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve a config file path under `~/.config/<name>/`.
+ * Resolve a config file path under `~/.myflow/config/<name>/`.
  *
- * @param name — package directory name (e.g. "todo")
+ * Override the base directory with `MYFLOW_HOME` env var (same env var used
+ * by the repo-store resolver in `skills/_shared/repo-store.mjs`).
+ *
+ * Previously resolved under `~/.config/<name>/`, scattering MyFlow config
+ * across the filesystem. Now consolidated under a single MyFlow home.
+ *
+ * @param name — package directory name (e.g. "todo", "advisor")
  * @param file — config filename (defaults to "config.json")
  * @returns absolute path to the config file
  */
 export function configPath(name: string, file: string = "config.json"): string {
-	return join(homedir(), ".config", name, file);
+	const myflowHome = process.env.MYFLOW_HOME || join(homedir(), ".myflow");
+	return join(myflowHome, "config", name, file);
 }
 
 // ---------------------------------------------------------------------------

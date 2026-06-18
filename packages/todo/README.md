@@ -36,7 +36,7 @@ Then restart your Pi session.
 pi install npm:@myflow/i18n
 ```
 
-With the SDK present, locale resolves from `--locale <code>` → `~/.config/i18n/locale.json` → `LANG` / `LC_ALL` → English. The `/languages` interactive picker and `pi --locale <code>` startup flag are also enabled. Without the SDK, the extension stays online and renders English at every call site - no warning, no crash. Users who installed via `pi install npm:@myflow/pi` + `/myflow-setup` get the SDK automatically.
+With the SDK present, locale resolves from `--locale <code>` → `~/.myflow/config/i18n/locale.json` → `LANG` / `LC_ALL` → English. The `/languages` interactive picker and `pi --locale <code>` startup flag are also enabled. Without the SDK, the extension stays online and renders English at every call site - no warning, no crash. Users who installed via `pi install npm:@myflow/pi` + `/myflow-setup` get the SDK automatically.
 
 ## Tool
 

@@ -7,7 +7,7 @@
  *
  * API key resolution precedence per provider (first wins):
  *   1. Per-provider environment variable (e.g. BRAVE_SEARCH_API_KEY, TAVILY_API_KEY)
- *   2. apiKeys[provider] field in ~/.config/web-tools/config.json
+ *   2. apiKeys[provider] field in ~/.myflow/config/web-tools/config.json
  *   3. (Brave only, legacy) apiKey field in config.json
  */
 

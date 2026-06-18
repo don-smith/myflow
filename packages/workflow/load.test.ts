@@ -3,7 +3,7 @@
  *
  * Each test writes a config / pack fixture under a temp cwd, loads
  * it, and asserts the merged `LoadedWorkflows` shape. The user-level
- * overlays (`~/.config/workflow/config.ts` and the `packs/`
+ * overlays (`~/.myflow/config/workflow/config.ts` and the `packs/`
  * dir) are exercised via the same temp-tree pattern — cleaned
  * between tests so one test's overlay doesn't leak into the next.
  */

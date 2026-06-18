@@ -161,7 +161,7 @@ describe("/advisor — save failure (persist-first ordering, review I2)", () => 
 		if (process.platform === "win32") return;
 		const { mkdirSync, rmSync } = await import("node:fs");
 		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 		mkdirSync(dirname(configPath), { recursive: true });
 		// Force EISDIR on writeFileSync — same trick the web-tools save-failure
 		// test uses. Drives saveAdvisorConfig → false through the real disk path.
@@ -193,7 +193,7 @@ describe("/advisor — save failure (persist-first ordering, review I2)", () => 
 		if (process.platform === "win32") return;
 		const { mkdirSync, rmSync } = await import("node:fs");
 		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 		mkdirSync(dirname(configPath), { recursive: true });
 		mkdirSync(configPath, { recursive: true });
 		try {
@@ -253,7 +253,7 @@ describe("restoreAdvisorState — blocklist", () => {
 	it("skips tool activation when executor is blocked but still sets model", async () => {
 		const { writeFileSync, mkdirSync } = await import("node:fs");
 		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 		mkdirSync(dirname(configPath), { recursive: true });
 		writeFileSync(
 			configPath,
@@ -277,7 +277,7 @@ describe("restoreAdvisorState — blocklist", () => {
 	it("activates tool when executor is not blocked", async () => {
 		const { writeFileSync, mkdirSync } = await import("node:fs");
 		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 		mkdirSync(dirname(configPath), { recursive: true });
 		writeFileSync(
 			configPath,
@@ -612,7 +612,7 @@ describe("restoreAdvisorState — effort-aware blocklist", () => {
 	it("skips tool activation when effort at threshold", async () => {
 		const { writeFileSync, mkdirSync } = await import("node:fs");
 		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 		mkdirSync(dirname(configPath), { recursive: true });
 		writeFileSync(
 			configPath,
@@ -637,7 +637,7 @@ describe("restoreAdvisorState — effort-aware blocklist", () => {
 	it("activates tool when effort below threshold", async () => {
 		const { writeFileSync, mkdirSync } = await import("node:fs");
 		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 		mkdirSync(dirname(configPath), { recursive: true });
 		writeFileSync(
 			configPath,

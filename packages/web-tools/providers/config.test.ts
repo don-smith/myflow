@@ -16,7 +16,7 @@ function writeRaw(contents: string): void {
 }
 
 describe("getConfigPath", () => {
-	it("returns the canonical ~/.config/web-tools/config.json", () => {
+	it("returns the canonical ~/.myflow/config/web-tools/config.json", () => {
 		expect(getConfigPath()).toBe(CONFIG_PATH);
 	});
 });

@@ -7,8 +7,8 @@
  * they installed.
  *
  * Paths (per layer):
- *   user    — config  `~/.config/workflow/config.ts`
- *             packs   `~/.config/workflow/packs/*.ts`
+ *   user    — config  `~/.myflow/config/workflow/config.ts`
+ *             packs   `~/.myflow/config/workflow/packs/*.ts`
  *   project — config  `<cwd>/.myflow/workflows/config.ts`
  *             packs   `<cwd>/.myflow/workflows/packs/*.ts`
  *
@@ -190,7 +190,7 @@ export async function loadWorkflows(cwd: string): Promise<LoadedWorkflows> {
 
 	// One-time legacy migration advisories — each independent, each a warning
 	// (advisory, never blocks the run). The new `.myflow/workflows/` (project) and
-	// `~/.config/workflow/config.ts` (user) locations are the only ones
+	// `~/.myflow/config/workflow/config.ts` (user) locations are the only ones
 	// read; these probes point the user at each move so nothing is silently
 	// ignored / stranded.
 	pushLegacyNotices(cwd, userPaths, acc);
@@ -258,7 +258,7 @@ export async function loadWorkflows(cwd: string): Promise<LoadedWorkflows> {
  * `.myflow/workflows/` move left behind:
  *   - project dashed dir   `<cwd>/.workflow/`           → config.ts + packs/
  *   - orphaned run JSONLs   `<cwd>/.myflow/workflows/*.jsonl`   → runs/
- *   - user-layer rename     `~/.config/workflow/workflows.config.ts` → config.ts
+ *   - user-layer rename     `~/.myflow/config/workflow/workflows.config.ts` → config.ts
  */
 function pushLegacyNotices(cwd: string, userPaths: OverlayPaths, acc: LoadAccumulator): void {
 	if (existsSync(join(cwd, ".workflow"))) {

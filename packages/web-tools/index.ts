@@ -4,7 +4,7 @@
  * Registers the `web_search` and `web_fetch` tools, plus the
  * `/web-tools` slash command. Body lives in `web-tools.ts`.
  *
- * Config persists at ~/.config/web-tools/config.json. Per-provider env
+ * Config persists at ~/.myflow/config/web-tools/config.json. Per-provider env
  * vars (e.g. BRAVE_SEARCH_API_KEY, TAVILY_API_KEY) win over the config file.
  */
 

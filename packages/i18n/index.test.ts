@@ -22,7 +22,7 @@ import { __resetState, applyLocale, getActiveLocale } from "./i18n.js";
 import { showLanguagePicker } from "./i18n-ui.js";
 import registerI18n from "./index.js";
 
-const LOCALE_CONFIG_PATH = join(process.env.HOME!, ".config", "i18n", "locale.json");
+const LOCALE_CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "i18n", "locale.json");
 
 function registerAndCaptureLanguages() {
 	const { pi, captured } = createMockPi();

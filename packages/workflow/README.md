@@ -41,8 +41,8 @@ The loader merges workflows from three layers (each later layer overrides earlie
 
 ```
 built-in (programmatic — registered by sibling packages like @myflow/pi)
-  ← user packs        (~/.config/workflow/packs/*.ts, alpha-sorted)
-  ← user config       (~/.config/workflow/config.ts)
+  ← user packs        (~/.myflow/config/workflow/packs/*.ts, alpha-sorted)
+  ← user config       (~/.myflow/config/workflow/config.ts)
   ← project packs     (<cwd>/.myflow/workflows/packs/*.ts, alpha-sorted)
   ← project config    (<cwd>/.myflow/workflows/config.ts)
 ```

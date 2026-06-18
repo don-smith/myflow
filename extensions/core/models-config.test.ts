@@ -14,7 +14,7 @@ const TEST_HOME = process.env.HOME!;
 
 describe("models-config", () => {
 	describe("loadModelsConfig", () => {
-		const configDir = join(TEST_HOME, ".config", "@myflow/pi");
+		const configDir = join(TEST_HOME, ".myflow", "config", "@myflow/pi");
 		const configFilePath = join(configDir, "models.json");
 
 		beforeEach(() => {
@@ -271,7 +271,7 @@ describe("models-config", () => {
 	});
 
 	describe("loadModelsConfig cache", () => {
-		const configDir = join(TEST_HOME, ".config", "@myflow/pi");
+		const configDir = join(TEST_HOME, ".myflow", "config", "@myflow/pi");
 		const configFilePath = join(configDir, "models.json");
 
 		beforeEach(() => {

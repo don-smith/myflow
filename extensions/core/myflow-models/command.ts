@@ -51,7 +51,7 @@ import {
 
 export function registerRpivModelsCommand(pi: ExtensionAPI): void {
 	pi.registerCommand("myflow-models", {
-		description: "Configure model and reasoning overrides in ~/.config/@myflow/pi/models.json",
+		description: "Configure model and reasoning overrides in ~/.myflow/config/@myflow/pi/models.json",
 		handler: async (_args: string, ctx: ExtensionContext) => {
 			if (!requireInteractive(ctx)) return;
 			await runCascade(ctx, pi);

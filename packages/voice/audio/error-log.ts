@@ -7,7 +7,7 @@
  * transcript and no breadcrumbs.
  *
  * This module appends one line per failure to
- * `~/.config/voice/errors.log`. Writes are best-effort and synchronous —
+ * `~/.myflow/config/voice/errors.log`. Writes are best-effort and synchronous —
  * a write failure is itself swallowed (we cannot log the log failure without
  * re-entering the same hazard).
  */

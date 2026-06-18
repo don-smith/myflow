@@ -35,7 +35,7 @@ Pick one as the active backend; switch any time without losing the others' keys.
 - **GitHub URL interceptor (opt-in)** - github.com URLs route through `gh`/`git` for full repository content (file tree, README, individual file contents) instead of the rendered HTML page. Off by default; enable per-user via config or per-consumer at registration time. See [§GitHub URL interceptor](#github-url-interceptor).
 - **Large-page spillover** - oversized responses truncate inline and spill the full body to a temp file the model can read on demand.
 - **SSRF guard** - refuses loopback, RFC 1918, link-local, and cloud-metadata addresses (`localhost`, `127.0.0.0/8`, `10.0.0.0/8`, `169.254.0.0/16`, `172.16.0.0/12`, `192.168.0.0/16`, `::1`, `fc00::/7`, `fe80::/10`).
-- **Interactive setup** - `/web-tools` lists providers (active one first, configured ones marked) and writes to `~/.config/web-tools/config.json` (chmod 0600); per-provider env vars also work and take precedence over persisted keys.
+- **Interactive setup** - `/web-tools` lists providers (active one first, configured ones marked) and writes to `~/.myflow/config/web-tools/config.json` (chmod 0600); per-provider env vars also work and take precedence over persisted keys.
 
 ## Install
 
@@ -120,7 +120,7 @@ Throws on invalid URL, non-http(s) protocol, private/loopback hostnames (SSRF gu
 First match wins:
 
 1. The active provider's environment variable: `BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SERPER_API_KEY`, `EXA_API_KEY`, `YOUCOM_API_KEY`, `JINA_API_KEY`, `FIRECRAWL_API_KEY`, `PERPLEXITY_API_KEY`, `SEARXNG_API_KEY`, or `OLLAMA_API_KEY`
-2. `apiKeys.<provider>` field in `~/.config/web-tools/config.json`
+2. `apiKeys.<provider>` field in `~/.myflow/config/web-tools/config.json`
 3. Legacy `apiKey` field (Brave only — auto-migrated to the new shape on next save)
 
 The active provider is `config.provider` (set by `/web-tools`); falls back to `brave` if absent.
@@ -135,7 +135,7 @@ export SEARXNG_URL=http://localhost:8080
 export SEARXNG_API_KEY=…
 ```
 
-Resolution order for the URL: `SEARXNG_URL` env var → `baseUrls.searxng` in `~/.config/web-tools/config.json` → default `http://localhost:8080`. `/web-tools` prompts for the URL first and the (optional) API key second.
+Resolution order for the URL: `SEARXNG_URL` env var → `baseUrls.searxng` in `~/.myflow/config/web-tools/config.json` → default `http://localhost:8080`. `/web-tools` prompts for the URL first and the (optional) API key second.
 
 Your instance must have `json` enabled in `settings.yml` under `search.formats` — default SearXNG installs ship with JSON disabled and will return `403 Forbidden` otherwise (per the [SearXNG search API docs](https://docs.searxng.org/dev/search_api.html)). The provider surfaces that case with an actionable hint. SearXNG's `web_fetch` reuses the same raw-HTTP + HTML-to-text pipeline as Brave/Serper, so URLs returned by `web_search` can be fetched without any extra setup.
 
@@ -200,7 +200,7 @@ The provider automatically uses the correct API paths:
 Routes github.com URLs through `gh` / `git` to return repository content (file tree, README, file content) instead of the rendered HTML. **Off by default.** Opt in two ways:
 
 ```json
-// ~/.config/web-tools/config.json — end-user opt-in
+// ~/.myflow/config/web-tools/config.json — end-user opt-in
 { "interceptors": { "github": true } }
 ```
 
@@ -236,7 +236,7 @@ Replace the boolean shorthand with an object to tune the defaults; object form i
 
 ## Executor guidance overrides
 
-Override the `promptSnippet` / `promptGuidelines` the model sees for each tool by editing `~/.config/web-tools/config.json`. Note the per-tool nesting under `guidance.web_search` / `guidance.web_fetch` — this differs from the flat `guidance` shape used by single-tool siblings (`advisor`, `todo`, `ask-user-question`):
+Override the `promptSnippet` / `promptGuidelines` the model sees for each tool by editing `~/.myflow/config/web-tools/config.json`. Note the per-tool nesting under `guidance.web_search` / `guidance.web_fetch` — this differs from the flat `guidance` shape used by single-tool siblings (`advisor`, `todo`, `ask-user-question`):
 
 ```json
 {

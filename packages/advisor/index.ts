@@ -6,7 +6,7 @@
  * re-evaluation, thinking_level_select re-evaluation) that together
  * implement the advisor-strategy pattern.
  *
- * Config persists at ~/.config/advisor/advisor.json. Tool name
+ * Config persists at ~/.myflow/config/advisor/advisor.json. Tool name
  * preserved verbatim from @myflow/pi@7525a5d.
  */
 

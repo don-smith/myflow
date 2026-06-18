@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { validateDisabledForModels } from "./advisor/config.js";
 import { loadAdvisorConfig, saveAdvisorConfig } from "./advisor/index.js";
 
-const CONFIG_PATH = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 
 beforeEach(() => {
 	try {

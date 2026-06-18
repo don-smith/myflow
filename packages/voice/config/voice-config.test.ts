@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadVoiceConfig, saveVoiceConfig } from "./voice-config.js";
 
-const CONFIG_PATH = join(homedir(), ".config", "voice", "voice.json");
+const CONFIG_PATH = join(homedir(), ".myflow", "config", "voice", "voice.json");
 
 describe("loadVoiceConfig", () => {
 	it("returns empty object when config file is missing", () => {

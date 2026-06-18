@@ -1,8 +1,8 @@
 /**
  * Overlay file system paths for the user and project layers.
  *
- *   user    — config `~/.config/workflow/config.ts`
- *             packs  `~/.config/workflow/packs/*.ts`
+ *   user    — config `~/.myflow/config/workflow/config.ts`
+ *             packs  `~/.myflow/config/workflow/packs/*.ts`
  *   project — config `<cwd>/.myflow/workflows/config.ts`
  *             packs  `<cwd>/.myflow/workflows/packs/*.ts`
  *
@@ -27,7 +27,7 @@ export function projectOverlayPaths(cwd: string): OverlayPaths {
 	return { configFile: join(root, "config.ts"), packsDir: join(root, "packs") };
 }
 
-/** User overlay paths under `~/.config/workflow/`. */
+/** User overlay paths under `~/.myflow/config/workflow/`. */
 export function userOverlayPaths(): OverlayPaths {
 	return {
 		configFile: configPath("workflow", "config.ts"),

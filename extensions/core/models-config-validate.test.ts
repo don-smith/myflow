@@ -13,7 +13,7 @@ import { loadWorkflowMap } from "./models-config-sources.js";
 import { registerModelsConfigValidation } from "./models-config-validate.js";
 
 function writeModels(config: unknown) {
-	const dir = join(process.env.HOME!, ".config", "@myflow/pi");
+	const dir = join(process.env.HOME!, ".myflow", "config", "@myflow/pi");
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, "models.json"), JSON.stringify(config), "utf-8");
 }

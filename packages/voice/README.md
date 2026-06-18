@@ -24,7 +24,7 @@ Talk to [Pi Agent](https://github.com/badlogic/pi-mono) instead of typing. `voic
 - **Localized UI** — overlay, status bar, and settings render in German, English, Spanish, French, Portuguese (European + Brazilian), Russian, and Ukrainian when [`@myflow/i18n`](https://www.npmjs.com/package/@myflow/i18n) is installed. Falls back to English when it isn't.
 - **Honest first-run UX** — the splash overlay shows download progress (percent + bytes), then `Extracting…`, `Verifying…`, `Loading engine…`, `Initializing mic…` before the dictation overlay opens. Half-loaded states never reach you.
 - **Configurable cancel keybinding** — bind cancel to whatever your fingers prefer; no longer hardcoded to `Esc`.
-- **Errors persisted, not swallowed** — recognition failures land in `~/.config/voice/errors.log` so you can see why a phrase didn't transcribe.
+- **Errors persisted, not swallowed** — recognition failures land in `~/.myflow/config/voice/errors.log` so you can see why a phrase didn't transcribe.
 
 ## Install
 
@@ -67,7 +67,7 @@ The first time you run `/voice`, the splash overlay downloads the Whisper base m
 
 ## Configuration
 
-`voice` works without any config file. To customize, drop a JSON file at `~/.config/voice/voice.json`:
+`voice` works without any config file. To customize, drop a JSON file at `~/.myflow/config/voice/voice.json`:
 
 ```json
 {
@@ -102,7 +102,7 @@ The microphone is the OS default input — `voice` does not expose device select
 - **"Microphone init failed"** on the splash — grant your terminal app microphone access (System Settings → Privacy & Security → Microphone on macOS), then re-run `/voice`.
 - **Transcript looks like "Thanks for watching"** — Whisper hallucinated on near-silence; either speak louder/closer, or leave the hallucination filter on (the default).
 - **`/voice` not found** — restart your Pi session after install. If it's still missing, confirm the entry exists in `~/.pi/agent/settings.json`.
-- **Recognition errors** — check `~/.config/voice/errors.log` for the underlying sherpa-onnx error.
+- **Recognition errors** — check `~/.myflow/config/voice/errors.log` for the underlying sherpa-onnx error.
 
 ## Related packages
 

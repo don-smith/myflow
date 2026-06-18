@@ -9,7 +9,7 @@
  *
  * Locale detection priority (resolved in index.ts):
  *   1. --locale CLI flag
- *   2. ~/.config/i18n/locale.json
+ *   2. ~/.myflow/config/i18n/locale.json
  *   3. process.env.LANG / LC_ALL (Unix convention)
  *   4. English default (locale === undefined)
  *
@@ -17,7 +17,7 @@
  * `globalThis[Symbol.for("i18n")]` as `{ locale, namespaces }` for
  * introspection and zero-import escape hatches.
  *
- * Config persists at ~/.config/i18n/locale.json (chmod 0o600, best-effort writes).
+ * Config persists at ~/.myflow/config/i18n/locale.json (chmod 0o600, best-effort writes).
  */
 
 import { configPath, loadJsonConfig, saveJsonConfig } from "@myflow/config";

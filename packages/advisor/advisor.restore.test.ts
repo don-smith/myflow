@@ -4,7 +4,7 @@ import { createMockCtx, createMockPi } from "@myflow/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { __resetAdvisorAnnounced, getAdvisorEffort, getAdvisorModel, restoreAdvisorState } from "./advisor/index.js";
 
-const CONFIG_PATH = join(process.env.HOME!, ".config", "advisor", "advisor.json");
+const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
 
 function writeConfig(contents: object) {
 	mkdirSync(dirname(CONFIG_PATH), { recursive: true });

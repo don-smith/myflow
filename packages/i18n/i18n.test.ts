@@ -15,7 +15,7 @@ import {
 	tr,
 } from "./i18n.js";
 
-const CONFIG_PATH = join(process.env.HOME!, ".config", "i18n", "locale.json");
+const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "i18n", "locale.json");
 
 function readRegistry(): I18nState | undefined {
 	return (globalThis as unknown as { [k: symbol]: I18nState | undefined })[I18N_STATE_KEY];

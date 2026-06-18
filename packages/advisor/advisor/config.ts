@@ -1,5 +1,5 @@
 /**
- * config — persisted advisor config (~/.config/advisor/advisor.json) and
+ * config — persisted advisor config (~/.myflow/config/advisor/advisor.json) and
  * the provider:id key codec. Owns the AdvisorConfig shape, load/validate/save,
  * and the modelKey (join) / parseModelKey (split) inverse pair (L4-04).
  */

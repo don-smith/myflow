@@ -13,7 +13,7 @@ i18n/localization SDK for Pi extensions. Pick a UI language interactively or via
 ## Features
 
 - **One shared locale dial** for every Pi extension that adopts the SDK - `/languages` switches them all at once.
-- **`/languages` slash command** with an interactive picker; persists the choice to `~/.config/i18n/locale.json` (chmod `0600`) and reports a clear error if disk persistence fails.
+- **`/languages` slash command** with an interactive picker; persists the choice to `~/.myflow/config/i18n/locale.json` (chmod `0600`) and reports a clear error if disk persistence fails.
 - **`--locale <code>` CLI flag** for one-shot or scripted launches.
 - **Auto-detects** `process.env.LANG` / `LC_ALL` so most Unix users get a localized UI without configuration.
 - **Tiny SDK surface for authors** - `registerStrings(namespace, byLocale)`, `scope(namespace)`, `tr(namespace, key, fallback)`. Render-time lookups, English fallback per missing key, no module-init baking.
@@ -47,10 +47,10 @@ pi --locale uk
 Or edit the config file directly:
 
 ```bash
-echo '{"locale":"uk"}' > ~/.config/i18n/locale.json
+echo '{"locale":"uk"}' > ~/.myflow/config/i18n/locale.json
 ```
 
-Locale detection priority: `--locale` flag → `~/.config/i18n/locale.json` → `process.env.LANG` / `LC_ALL` → English default. The auto-detection paths (config file, env vars) work even without this package installed - any extension that `import`s the SDK as a peer dep gets the registered locale at module init. Only the picker (`/languages`) and the flag (`--locale`) require this package to be loaded as a Pi extension.
+Locale detection priority: `--locale` flag → `~/.myflow/config/i18n/locale.json` → `process.env.LANG` / `LC_ALL` → English default. The auto-detection paths (config file, env vars) work even without this package installed - any extension that `import`s the SDK as a peer dep gets the registered locale at module init. Only the picker (`/languages`) and the flag (`--locale`) require this package to be loaded as a Pi extension.
 
 Other Pi extensions that integrate the SDK pick up your choice automatically.
 

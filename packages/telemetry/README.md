@@ -30,7 +30,7 @@ Then restart your Pi session.
 Env-first, file-second.
 
 1. Environment variables — `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_ID`, `MLFLOW_TRACKING_TOKEN`. Set these and you don't need a config file.
-2. `~/.config/telemetry/config.json`:
+2. `~/.myflow/config/telemetry/config.json`:
 
 ```json
 {

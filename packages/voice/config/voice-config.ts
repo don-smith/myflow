@@ -1,6 +1,6 @@
 /**
  * voice-config — persistence of optional voice settings at
- * `~/.config/voice/voice.json`.
+ * `~/.myflow/config/voice/voice.json`.
  *
  * Load is crash-resistant: malformed JSON or missing file resolves to an
  * empty config (warning emitted via `config.loadJsonConfig`).

@@ -16,7 +16,7 @@ const HEADER_TITLE = "UI Language";
 const HEADER_PROSE =
 	"Choose the locale used for @myflow/* TUI strings (sentinel rows, hints, " +
 	"submit labels, preview text). LLM-facing copy stays English. Selection " +
-	"persists at ~/.config/i18n/locale.json.";
+	"persists at ~/.myflow/config/i18n/locale.json.";
 
 function selectListTheme(theme: Theme) {
 	return {

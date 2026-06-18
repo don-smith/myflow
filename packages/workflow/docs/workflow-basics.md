@@ -32,7 +32,7 @@ Running `/wf` without arguments shows a list of every loaded workflow and its st
 │   └── ship.ts
 └── runs/                     # Audited JSONL run state (<run-id>.jsonl)
 
-~/.config/workflow/
+~/.myflow/config/workflow/
 ├── config.ts                 # User-level config
 └── packs/                    # User-level packs
 ```
@@ -49,8 +49,8 @@ The loader merges workflows from five layers. Each later layer overrides earlier
 
 ```
 built-in (registered by sibling packages like @myflow/pi)
-  ← user packs        (~/.config/workflow/packs/*.ts, alpha-sorted)
-  ← user config       (~/.config/workflow/config.ts)
+  ← user packs        (~/.myflow/config/workflow/packs/*.ts, alpha-sorted)
+  ← user config       (~/.myflow/config/workflow/config.ts)
   ← project packs     (<cwd>/.myflow/workflows/packs/*.ts, alpha-sorted)
   ← project config    (<cwd>/.myflow/workflows/config.ts)
 ```
