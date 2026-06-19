@@ -190,7 +190,8 @@ Always verify:
 Recommended workflow:
 1. `/skill:implement` - Execute the implementation
 2. `/skill:validate` - Verify implementation correctness
-3. `/skill:commit` - Create atomic commits for the validated changes
+3. `/skill:manual-verification` — If the feature touches external services or human-interactive surfaces, exercise them against live dependencies before proceeding
+4. `/skill:commit` - Create atomic commits for the validated changes
 
 Validate runs against the working tree (staged or committed), so running it before commit avoids amend churn when fixing a `verdict: fail`.
 

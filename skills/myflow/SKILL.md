@@ -132,6 +132,7 @@ Verify the work. Gate the commit.
 
 **Skills:**
 - `validate` — re-check each phase against its success criteria
+- `manual-verification` — exercise external services and human-interactive surfaces before land (skip for pure internal refactors)
 - `code-review` — structured audit across quality, security, and dependencies. Emits `blockers_count`.
 - `receiving-code-review` — process review findings with technical rigor
 - `revise` — surgically update the plan from review feedback
@@ -146,6 +147,7 @@ Verify the work. Gate the commit.
 | I want to... | Invoke |
 |---|---|
 | Verify implementation | `/skill:validate <plan>` |
+| Verify external deps manually | `manual-verification` |
 | Review changes | `/skill:code-review [scope]` |
 | Process review feedback | `receiving-code-review` |
 | Update plan from review | `/skill:revise <plan-path>` |
@@ -227,7 +229,7 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 | 1. Discover & Align | `discover`, `brainstorming`, `explore` | FRD or Solutions |
 | 2. Research & Design | `research`, `design`/`blueprint`, `plan` | Plan (`.myflow/artifacts/plans/`) |
 | 3. Implement | `implement` + TDD, subagents | Working tree changes |
-| 4. Validate & Review | `validate`, `code-review`, `revise` | Validation + Review |
+| 4. Validate & Review | `validate`, `manual-verification`, `code-review`, `revise` | Validation + Manual Verification + Review |
 | 5. Land & Learn | `land` (→ commit, as-built, retro...) | Configured repo docs + personal repo retros/memory |
 
 | I want to... | Invoke |
@@ -244,6 +246,7 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 | Execute with subagents | `subagent-driven-development` |
 | Run TDD | `test-driven-development` |
 | Verify implementation | `/skill:validate <plan>` |
+| Verify external deps manually | `manual-verification` |
 | Review changes | `/skill:code-review [scope]` |
 | Process review feedback | `receiving-code-review` |
 | Update plan from review | `/skill:revise <plan-path>` |
@@ -261,5 +264,6 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 - `epiphany-tabling` — scope control
 - `capturing-learnings` — promotion rule and end-of-artifact checkpoints
 - `verification-before-completion` — evidence-first discipline
+- `manual-verification` — live-dependency and human-surface verification before land
 - `docs/runbooks/monitor-upstream-evolution.md` — upstream tracking
 - Pipeline visual: `docs/myflow-v3-pipeline.html`
