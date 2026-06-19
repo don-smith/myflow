@@ -1,5 +1,7 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { createMockCtx, createMockPi } from "@myflow/test-utils";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./advisor-ui.js", () => ({
@@ -20,8 +22,17 @@ import {
 	setDisabledForModels,
 } from "./advisor/index.js";
 import { showAdvisorPicker, showEffortPicker } from "./advisor-ui.js";
+const CONFIG_DIR = join(process.env.HOME!, ".myflow", "config", "advisor");
+const CONFIG_PATH = join(CONFIG_DIR, "advisor.json");
 
-const modelA = { provider: "anthropic", id: "opus", name: "Opus" } as unknown as Model<Api>;
+// Reset module-level advisor state before each test. The test/setup.ts
+// beforeEach also tries this via dynamic import, but under vitest the
+// dynamic import may resolve to a different module instance.
+beforeEach(() => {
+	setAdvisorModel(undefined);
+	setAdvisorEffort(undefined);
+	setDisabledForModels([]);
+});
 const modelR = {
 	provider: "anthropic",
 	id: "opus-thinking",
@@ -157,15 +168,24 @@ describe("/advisor — reasoning model", () => {
 });
 
 describe("/advisor — save failure (persist-first ordering, review I2)", () => {
+	// Helper: replace the real config file with a directory to force EISDIR.
+	// Save/restore the original content so the user's config survives.
+	async function forceEisdirOnConfig() {
+		const { readFileSync } = await import("node:fs");
+		let saved: string | undefined;
+		try {
+			saved = readFileSync(CONFIG_PATH, "utf-8");
+		} catch {}
+		rmSync(CONFIG_PATH, { force: true });
+		mkdirSync(CONFIG_DIR, { recursive: true });
+		mkdirSync(CONFIG_PATH, { recursive: true });
+		return saved;
+	}
+
 	it("disable path: error notify; in-memory model + active tools unchanged", async () => {
 		if (process.platform === "win32") return;
 		const { mkdirSync, rmSync } = await import("node:fs");
-		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
-		mkdirSync(dirname(configPath), { recursive: true });
-		// Force EISDIR on writeFileSync — same trick the web-tools save-failure
-		// test uses. Drives saveAdvisorConfig → false through the real disk path.
-		mkdirSync(configPath, { recursive: true });
+		const saved = await forceEisdirOnConfig();
 		try {
 			vi.mocked(showAdvisorPicker).mockResolvedValueOnce("__no_advisor__");
 			const { pi, captured } = register();
@@ -185,17 +205,13 @@ describe("/advisor — save failure (persist-first ordering, review I2)", () => 
 			expect(getAdvisorModel()).toBe(modelA);
 			expect(pi.setActiveTools).not.toHaveBeenCalled();
 		} finally {
-			rmSync(configPath, { recursive: true, force: true });
+			rmSync(CONFIG_PATH, { recursive: true, force: true });
 		}
 	});
 
 	it("enable path: error notify; in-memory model + active tools unchanged", async () => {
 		if (process.platform === "win32") return;
-		const { mkdirSync, rmSync } = await import("node:fs");
-		const { dirname, join } = await import("node:path");
-		const configPath = join(process.env.HOME!, ".myflow", "config", "advisor", "advisor.json");
-		mkdirSync(dirname(configPath), { recursive: true });
-		mkdirSync(configPath, { recursive: true });
+		const saved = await forceEisdirOnConfig();
 		try {
 			vi.mocked(showAdvisorPicker).mockResolvedValueOnce("anthropic/opus");
 			const { pi, captured } = register();
@@ -212,7 +228,7 @@ describe("/advisor — save failure (persist-first ordering, review I2)", () => 
 			expect(getAdvisorModel()).toBeUndefined();
 			expect(pi.setActiveTools).not.toHaveBeenCalledWith(expect.arrayContaining([ADVISOR_TOOL_NAME]));
 		} finally {
-			rmSync(configPath, { recursive: true, force: true });
+			rmSync(CONFIG_PATH, { recursive: true, force: true });
 		}
 	});
 });
