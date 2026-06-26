@@ -1,6 +1,6 @@
 ---
 name: discover
-description: Interview the developer one question at a time to extract feature intent and requirements, then synthesize into a Feature Requirements Document at .myflow/artifacts/discover/. The first question is intent-only and runs before any codebase probe; subsequent questions ground in evidence the probe surfaces. Use as the canonical entry point of the pipeline before research, or to stress-test a feature idea before codebase discovery. The FRD's Decisions block is consumed by `research` and propagates through Developer Context into `design`.
+description: Interview the developer one question at a time to extract feature intent and requirements, then synthesize into a Feature Requirements Document at .myflow/artifacts/discover/. In MyFlow Stage 1, prefer `start` as the canonical entry point; use `discover` explicitly when deeper requirements extraction is warranted. The FRD's Decisions block is consumed by `research` and propagates through Developer Context into `design`.
 argument-hint: "[free-text feature description | existing artifact path]"
 shell-timeout: 10
 contract:
@@ -16,6 +16,10 @@ contract:
 ---
 
 # Discover
+
+<MyFlow-Note>
+For MyFlow Stage 1, `/skill:start` is the canonical entry point and writes an Adaptive Alignment Artifact. Use `discover` explicitly when that alignment reveals ambiguous intent or when the developer wants a deeper FRD-style requirements pass.
+</MyFlow-Note>
 
 You are tasked with extracting feature intent and requirements through a one-question-at-a-time interview, then writing a Feature Requirements Document (FRD) that downstream skills consume. Two principles shape the flow: (1) **intent before agents** — the foundational intent question runs before any probe, so stated intent shapes the probe scope; (2) **lazy + confirm** — build the decision tree one layer at a time, and surface evidence-based pre-resolutions for confirmation rather than silently recording them.
 

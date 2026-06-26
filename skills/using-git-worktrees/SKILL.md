@@ -242,6 +242,7 @@ Ready to implement auth feature
 ## Integration
 
 **Called by:**
+- **start** — may offer worktree setup at the end of Stage 1 after the topic, branch name, and alignment artifact are clear
 - **myflow** — recommended before `/skill:implement` when working on a feature branch
 - **any skill needing an isolated workspace**
 

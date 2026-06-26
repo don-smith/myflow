@@ -1,6 +1,6 @@
 ---
 name: explore
-description: Analyze solution options for a feature or change, comparing approaches with pros, cons, trade-offs, and a recommended path. Use when the user is weighing approaches, asks "what are the options" or "how should we approach X", wants approaches compared, says "explore solutions", or faces a decision with multiple valid implementations. Produces solutions documents in .myflow/artifacts/solutions/, which can feed the design skill.
+description: Analyze solution options for a feature or change, comparing approaches with pros, cons, trade-offs, and a recommended path. In MyFlow Stage 1, prefer `start` as the canonical entry point; use `explore` explicitly when multiple viable solution paths need comparison. Produces solutions documents in .myflow/artifacts/solutions/, which can feed the design skill.
 argument-hint: "[feature/change description]"
 shell-timeout: 10
 contract:
@@ -25,6 +25,10 @@ contract:
 ---
 
 # Explore
+
+<MyFlow-Note>
+For MyFlow Stage 1, `/skill:start` is the canonical entry point and may identify whether option analysis is needed. Use `explore` explicitly when the developer wants solution candidates compared or when alignment surfaces multiple viable paths.
+</MyFlow-Note>
 
 You are tasked with analyzing solution options for new features or changes by invoking parallel skills and synthesizing their findings into actionable recommendations optimized for design consumption.
 

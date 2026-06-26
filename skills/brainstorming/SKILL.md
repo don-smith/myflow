@@ -1,11 +1,15 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+description: "Use explicitly for deep free-form ideation when the concept is fuzzy. In MyFlow Stage 1, prefer the `start` skill as the canonical entry point; `brainstorming` is supporting source material when heavier ideation is warranted."
 ---
 
 # Brainstorming Ideas Into Designs
 
 Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
+
+<MyFlow-Note>
+For MyFlow Stage 1, `/skill:start` is the canonical entry point. Use this skill explicitly when the developer wants deeper open-ended ideation than the Adaptive Alignment flow provides.
+</MyFlow-Note>
 
 Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.
 
