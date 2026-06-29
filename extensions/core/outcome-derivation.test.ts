@@ -178,33 +178,33 @@ describe("deriveOutcomes", () => {
 	it("uses stage name as skill name when stage.skill is not set", () => {
 		const w = defineWorkflow({
 			name: "test",
-			start: "blueprint",
-			stages: { blueprint: produces() },
-			edges: { blueprint: "stop" },
+			start: "plan",
+			stages: { plan: produces() },
+			edges: { plan: "stop" },
 		});
-		const contracts = contractsFromKinds([["blueprint", "plan"]]);
+		const contracts = contractsFromKinds([["plan", "plan"]]);
 
 		deriveOutcomes([w], contracts, () => {});
 
-		expect(w.stages.blueprint.outcome!.name).toBe("plans");
+		expect(w.stages.plan.outcome!.name).toBe("plans");
 	});
 
 	it("uses stage.skill when set (alias support)", () => {
 		const w = defineWorkflow({
 			name: "test",
 			start: "s1",
-			stages: { s1: produces({ skill: "blueprint" }) },
+			stages: { s1: produces({ skill: "plan" }) },
 			edges: { s1: "stop" },
 		});
-		const contracts = contractsFromKinds([["blueprint", "plan"]]);
+		const contracts = contractsFromKinds([["plan", "plan"]]);
 
 		deriveOutcomes([w], contracts, () => {});
 
 		expect(w.stages.s1.outcome!.name).toBe("plans");
 	});
 
-	it("preserves convergence: 4 skills sharing plan → all get plans", () => {
-		const skills = ["blueprint", "plan", "revise", "create-handoff"];
+	it("preserves convergence: 3 skills sharing plan → all get plans", () => {
+		const skills = ["plan", "revise", "create-handoff"];
 		const w = defineWorkflow({
 			name: "test",
 			start: skills[0],
@@ -237,7 +237,6 @@ describe("equivalence — built-in workflows", () => {
 	 */
 	const BUILTIN_CONTRACTS: Array<[string, string]> = [
 		["research", "research"],
-		["blueprint", "plan"],
 		["design", "design"],
 		["plan", "plan"],
 		["validate", "validation"],
@@ -252,11 +251,13 @@ describe("equivalence — built-in workflows", () => {
 	 */
 	const EXPECTED: Record<string, string> = {
 		// ship
-		"ship::blueprint": "plans",
+		"ship::design": "designs",
+		"ship::plan": "plans",
 		"ship::validate": "validation",
 		// build
 		"build::research": "research",
-		"build::blueprint": "plans",
+		"build::design": "designs",
+		"build::plan": "plans",
 		"build::validate": "validation",
 		"build::code-review": "reviews",
 		"build::revise": "plans",
@@ -268,11 +269,13 @@ describe("equivalence — built-in workflows", () => {
 		"arch::code-review": "reviews",
 		// vet
 		"vet::code-review": "reviews",
-		"vet::blueprint": "plans",
+		"vet::design": "designs",
+		"vet::plan": "plans",
 		"vet::validate": "validation",
 		// polish
 		"polish::architecture-review": "architecture-reviews",
-		"polish::blueprint": "plans",
+		"polish::design": "designs",
+		"polish::plan": "plans",
 		"polish::validate": "validation",
 		"polish::code-review": "reviews",
 		// pr-triage
@@ -347,14 +350,14 @@ describe("equivalence — built-in workflows", () => {
 		});
 	}
 
-	it("total produces stages across all workflows = 20", () => {
+	it("total produces stages across all workflows = 24", () => {
 		let count = 0;
 		for (const w of builtInWorkflows) {
 			for (const stage of Object.values(w.stages)) {
 				if (stage.kind === "produces") count++;
 			}
 		}
-		expect(count).toBe(20);
+		expect(count).toBe(24);
 	});
 });
 

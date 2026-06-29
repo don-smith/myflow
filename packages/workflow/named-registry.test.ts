@@ -84,11 +84,11 @@ describe("state.named — publish key resolution + accumulation", () => {
 
 		const workflow = defineWorkflow({
 			name: "wf",
-			start: "blueprint",
+			start: "planner",
 			stages: {
-				blueprint: produces({ outcome: makeOutcome("plans") }),
+				planner: produces({ outcome: makeOutcome("plans") }),
 			},
-			edges: { blueprint: "stop" },
+			edges: { planner: "stop" },
 		});
 
 		const chain = createMockSessionChain({
@@ -222,13 +222,13 @@ describe("reads: prompt format", () => {
 
 		const workflow = defineWorkflow({
 			name: "wf",
-			start: "blueprint",
+			start: "planner",
 			stages: {
-				blueprint: produces({ outcome: makeOutcome("plans") }),
+				planner: produces({ outcome: makeOutcome("plans") }),
 				review: produces({ outcome: makeOutcome("reviews") }),
 				revise: acts({ reads: ["plans", "reviews"] }),
 			},
-			edges: { blueprint: "review", review: "revise", revise: "stop" },
+			edges: { planner: "review", review: "revise", revise: "stop" },
 		});
 
 		const chain = createMockSessionChain({
@@ -243,7 +243,7 @@ describe("reads: prompt format", () => {
 		const result = await runWorkflow(chain.ctx, { workflow, input: "x" });
 		expect(result.success).toBe(true);
 		expect(chain.sentMessages).toEqual([
-			"/skill:blueprint x",
+			"/skill:planner x",
 			"/skill:review .myflow/artifacts/plans/p.md",
 			"/skill:revise --plans .myflow/artifacts/plans/p.md --reviews .myflow/artifacts/reviews/r.md",
 		]);

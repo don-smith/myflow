@@ -399,7 +399,7 @@ describe("skill-contracts", () => {
 			return !want || !got || want === got ? { ok: true } : { ok: false, reason: "artifactKind mismatch" };
 		};
 		const contracts: SkillContractMap = new Map([
-			["blueprint", { source: "declared", produces: { kind: "produces", meta: { artifactKind: "plan" } } }],
+			["plan", { source: "declared", produces: { kind: "produces", meta: { artifactKind: "plan" } } }],
 			["revise", { source: "declared", produces: { kind: "produces", meta: { artifactKind: "plan" } } }],
 			["design", { source: "declared", produces: { kind: "produces", meta: { artifactKind: "design" } } }],
 			["implement", { source: "declared", consumes: { reads: { plans: { meta: { artifactKind: "plan" } } } } }],
@@ -407,7 +407,7 @@ describe("skill-contracts", () => {
 
 		it("positively adjudicates a matching reads edge via the registered comparator", () => {
 			registerCompositionComparator("plans", kindComparator);
-			expect(canCompose("blueprint", "implement", contracts).ok).toBe(true);
+			expect(canCompose("plan", "implement", contracts).ok).toBe(true);
 		});
 		it('multi-publisher: revise also composes into implement (both publish plan to "plans")', () => {
 			registerCompositionComparator("plans", kindComparator);

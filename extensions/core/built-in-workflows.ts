@@ -45,7 +45,7 @@ import { StagePreflightError } from "@myflow/workflow/runner";
 
 /**
  * A plan's structured `phases:` frontmatter array — the machine-readable phase
- * enumeration a plan-producing skill (`blueprint`, `plan`) derives from its
+ * enumeration the `plan` skill derives from its
  * `## Phase N:` body headings — is what drives `implement` fanout. The
  * convention lives here; workflow knows nothing about phases.
  *
@@ -179,22 +179,24 @@ const FRONTMATTER_PHASE_FANOUT = fanoutOver({
 });
 
 // ===========================================================================
-// ship — blueprint → implement → validate → commit
+// ship — design → plan → implement → validate → commit
 // ===========================================================================
 
 const shipWorkflow = defineWorkflow({
 	name: "ship",
 	description:
-		"Fast path with no research or review. Best when the change is small and the approach is obvious. Chain: blueprint → implement → validate → commit.",
-	start: "blueprint",
+		"Fast path with no research or review. Best when the change is small and the approach is obvious. Chain: design → plan → implement → validate → commit.",
+	start: "design",
 	stages: {
-		blueprint: produces(),
+		design: produces(),
+		plan: produces(),
 		implement: acts({ fanout: FRONTMATTER_PHASE_FANOUT, reads: ["plans"] }),
 		validate: produces(),
 		commit: acts({ outcome: gitCommitOutcome }),
 	},
 	edges: {
-		blueprint: "implement",
+		design: "plan",
+		plan: "implement",
 		implement: "validate",
 		validate: "commit",
 		commit: "stop",
@@ -202,7 +204,7 @@ const shipWorkflow = defineWorkflow({
 });
 
 // ===========================================================================
-// build — research → blueprint → implement → validate → code-review →
+// build — research → design → plan → implement → validate → code-review →
 //         (revise → implement → loop) | commit
 //         Loops until code-review reports zero blockers, bounded by the
 //         runner's maxBackwardJumps (default 2 → up to 3 review iterations).
@@ -211,11 +213,12 @@ const shipWorkflow = defineWorkflow({
 const buildWorkflow = defineWorkflow({
 	name: "build",
 	description:
-		"Research-backed feature work with a review loop. Best for medium changes where you want a second pass before committing. Chain: research → blueprint → implement → validate → code-review → (revise loop) → commit.",
+		"Research-backed feature work with a review loop. Best for medium changes where you want a second pass before committing. Chain: research → design → plan → implement → validate → code-review → (revise loop) → commit.",
 	start: "research",
 	stages: {
 		research: produces(),
-		blueprint: produces(),
+		design: produces(),
+		plan: produces(),
 		implement: acts({ fanout: FRONTMATTER_PHASE_FANOUT, reads: ["plans"] }),
 		validate: produces(),
 		"code-review": produces(),
@@ -223,8 +226,9 @@ const buildWorkflow = defineWorkflow({
 		commit: acts({ outcome: gitCommitOutcome }),
 	},
 	edges: {
-		research: "blueprint",
-		blueprint: "implement",
+		research: "design",
+		design: "plan",
+		plan: "implement",
 		implement: "validate",
 		validate: "code-review",
 		"code-review": gate("blockers_count", { revise: gt(0), commit: eq(0) }),
@@ -274,31 +278,33 @@ const archWorkflow = defineWorkflow({
 });
 
 // ===========================================================================
-// vet — code-review → (blueprint → implement → validate → loop) | commit
-//       Examine existing changes; if not approved, blueprint a fix plan,
+// vet — code-review → (design → plan → implement → validate → loop) | commit
+//       Examine existing changes; if not approved, design a fix plan,
 //       implement it, validate, and re-review. Loops until approved.
 // ===========================================================================
 
 const vetWorkflow = defineWorkflow({
 	name: "vet",
 	description:
-		"Examine existing changes for approval; loop a fix cycle if not approved. Best when a diff already exists (yours or a teammate's) and you want a structured review with optional repair. Chain: code-review → (blueprint → implement → validate → loop) → commit.",
+		"Examine existing changes for approval; loop a fix cycle if not approved. Best when a diff already exists (yours or a teammate's) and you want a structured review with optional repair. Chain: code-review → (design → plan → implement → validate → loop) → commit.",
 	start: "code-review",
 	stages: {
 		"code-review": produces(),
-		blueprint: produces(),
+		design: produces(),
+		plan: produces(),
 		implement: acts({ fanout: FRONTMATTER_PHASE_FANOUT, reads: ["plans"] }),
 		validate: produces(),
 		commit: acts({ outcome: gitCommitOutcome }),
 	},
 	edges: {
 		// Same numeric gate as build/arch/polish: zero remaining blockers →
-		// commit; any blockers → loop a fix pass through blueprint. The
+		// commit; any blockers → loop a fix pass through design then plan. The
 		// `blockers_count` field is sourced + validated from the code-review
 		// contract (`produces.data`, required), so a missing field fails
 		// output validation rather than silently routing.
-		"code-review": gate("blockers_count", { blueprint: gt(0), commit: eq(0) }),
-		blueprint: "implement",
+		"code-review": gate("blockers_count", { design: gt(0), commit: eq(0) }),
+		design: "plan",
+		plan: "implement",
 		implement: "validate",
 		// Backward edge: validate → code-review creates the review-fix loop.
 		// Bounded by the runner's default maxBackwardJumps (2), permitting at
@@ -309,11 +315,12 @@ const vetWorkflow = defineWorkflow({
 });
 
 // ===========================================================================
-// polish — architecture-review → blueprint (iterate, per review phase) →
-//          implement → validate → code-review → (blueprint loop) | commit
-//          For a large architecture review that can't be planned in one pass:
-//          plan each review phase sequentially, each plan building on the
-//          ones before it, then implement/validate/review the lot.
+// polish — architecture-review → design (iterate, per review phase) → plan
+//          (iterate over designs) → implement → validate → code-review →
+//          (design loop) | commit
+//          For a large architecture review that can't be designed/planned in
+//          one pass: design each review phase sequentially, plan each generated
+//          design, then implement/validate/review the lot.
 // ===========================================================================
 
 /**
@@ -333,17 +340,22 @@ const reviewPhaseCount = (state: Readonly<RunState>, cwd: string): number => {
 };
 
 /**
- * The plans from the most recent blueprint pass. blueprint's iterate stage
- * pushes one `Output` per review phase into `state.named["plans"]`; on a
- * corrective loop it re-plans every phase, so keep only the last `phaseCount`
- * (the review's phase count) and drop the stale generation. Shared by the
- * implement fanout and the validate prompt so both see the same plan set.
+ * The outputs from the most recent per-review-phase pass. On a corrective loop,
+ * keep only the last `phaseCount` outputs (the review's phase count) and drop
+ * stale generations. Shared by the design→plan bridge, implement fanout, and
+ * validate prompt so all stages see the same generated artifact set.
  */
-const latestPlans = (state: Readonly<RunState>, cwd: string): readonly Output[] => {
-	const plans = state.named.plans ?? [];
+const latestPhaseOutputs = (state: Readonly<RunState>, cwd: string, name: "designs" | "plans"): readonly Output[] => {
+	const outputs = state.named[name] ?? [];
 	const phaseCount = reviewPhaseCount(state, cwd);
-	return phaseCount > 0 && plans.length > phaseCount ? plans.slice(-phaseCount) : plans;
+	return phaseCount > 0 && outputs.length > phaseCount ? outputs.slice(-phaseCount) : outputs;
 };
+
+const latestDesigns = (state: Readonly<RunState>, cwd: string): readonly Output[] =>
+	latestPhaseOutputs(state, cwd, "designs");
+
+const latestPlans = (state: Readonly<RunState>, cwd: string): readonly Output[] =>
+	latestPhaseOutputs(state, cwd, "plans");
 
 /** Phase number for a `phases:` entry, falling back to its 1-based position. */
 const phaseNum = (entry: unknown, index: number): number => {
@@ -358,14 +370,14 @@ const phaseDeps = (entry: unknown): number[] => {
 };
 
 /**
- * Per-review-phase blueprint generator (the `iterate` dual of
- * FRONTMATTER_PHASE_FANOUT). One blueprint pass per review phase, enumerating the
- * review's structured `phases:` array (derived by architecture-review from its
- * `### Phase N — name` headings). blueprint writes its own natural plan file; the
- * `plans` collector captures whatever path it announces.
+ * Per-review-phase design generator. One design pass per review phase,
+ * enumerating the review's structured `phases:` array (derived by
+ * architecture-review from its `### Phase N — name` headings). The downstream
+ * plan stage turns each generated design artifact into an implementable plan.
  *
- * Each phase reads only the plans of the phases it `depends_on` (vs. every prior
- * plan) — accurate context, and the seam a future scheduler could parallelize on.
+ * Each phase reads only the designs of the phases it `depends_on` (vs. every
+ * prior design) — accurate context, and the seam a future scheduler could
+ * parallelize on.
  * `blast_radius`/`effort` tag the label. Absent `depends_on` falls back to all
  * prior plans.
  *
@@ -421,7 +433,7 @@ const REVIEW_PHASE_ITERATE = iterateOver({
 		const n = phaseNum(entry, i);
 		const title = typeof entry.title === "string" ? entry.title : "";
 
-		// accumulated[j] is phase j's output — map each prior phase number to its plans.
+		// accumulated[j] is phase j's output — map each prior phase number to its designs.
 		const priorByN = new Map<number, string[]>();
 		accumulated.forEach((o, j) => {
 			const paths = o.artifacts.filter((a) => a.handle.kind === "fs").map((a) => handleToString(a.handle));
@@ -434,7 +446,7 @@ const REVIEW_PHASE_ITERATE = iterateOver({
 
 		let prompt = `${handleToString(review.handle)} Implement Phase ${n}: ${title}`;
 		if (prior.length)
-			prompt += `\nPrior phase plans (read first; build on them, don't duplicate): ${prior.join(", ")}`;
+			prompt += `\nPrior phase designs (read first; build on them, don't duplicate): ${prior.join(", ")}`;
 		if (feedback?.handle.kind === "fs")
 			prompt += `\nAddress the blockers in the latest code review: ${handleToString(feedback.handle)}`;
 		const tags = [entry.effort, entry.blast_radius].filter((t): t is string => typeof t === "string");
@@ -444,13 +456,33 @@ const REVIEW_PHASE_ITERATE = iterateOver({
 	},
 });
 
+/** Turn each design generated by the latest per-review-phase design pass into a plan. */
+const DESIGN_PLAN_ITERATE = iterateOver({
+	source: "designs",
+	unit: { by: "named-artifacts", pattern: "latest-designs" },
+	max: MAX_PHASES,
+	run: ({ state, accumulated, cwd }) => {
+		const designs = latestDesigns(state, cwd);
+		const i = accumulated.length;
+		if (i >= designs.length) return null;
+		const design = designs[i]?.artifacts.find((a) => a.handle.kind === "fs");
+		if (design?.handle.kind !== "fs") {
+			throw haltPreflight(
+				"DESIGN_PLAN_ITERATE",
+				"DESIGN_PLAN_ITERATE: design artifact missing",
+				`DESIGN_PLAN_ITERATE: generated design output ${i + 1}/${designs.length} has no fs artifact`,
+			);
+		}
+		return { prompt: handleToString(design.handle), label: `design ${i + 1}/${designs.length}`, id: `design-${i + 1}` };
+	},
+});
+
 /**
  * Fan implement out over the `phases:` array of EVERY plan in the latest
- * blueprint pass (see `latestPlans` for the corrective-loop dedup), so blueprint
- * keeps its natural timestamped filenames. The single-plan
- * `FRONTMATTER_PHASE_FANOUT` is the same over one inherited plan; both share
- * `planPhaseRecords`. MAX_PHASES is enforced on the aggregate unit count, since
- * polish fans one implement pass over the whole plan set.
+ * per-review-phase plan pass (see `latestPlans` for corrective-loop dedup).
+ * The single-plan `FRONTMATTER_PHASE_FANOUT` is the same over one inherited
+ * plan; both share `planPhaseRecords`. MAX_PHASES is enforced on the aggregate
+ * unit count, since polish fans one implement pass over the whole plan set.
  */
 const PLANS_PHASE_FANOUT = fanoutOver({
 	source: "plans",
@@ -484,8 +516,8 @@ const PLANS_PHASE_FANOUT = fanoutOver({
 });
 
 /**
- * Hand the single validate session EVERY plan from the latest blueprint pass
- * (`latestPlans`). The runner's default rolling-primary — and a plain
+ * Hand the single validate session EVERY plan from the latest per-review-phase
+ * plan pass (`latestPlans`). The runner's default rolling-primary — and a plain
  * `reads: ["plans"]`, which only reads `.at(-1)` — would point validate at the
  * LAST plan alone, leaving earlier phases unvalidated. A `prompt` stage owns
  * its whole message, so the `/skill:validate` prefix is explicit.
@@ -501,25 +533,28 @@ const VALIDATE_PLANS_PROMPT: PromptFn = ({ state, cwd }) => {
 const polishWorkflow = defineWorkflow({
 	name: "polish",
 	description:
-		"Architecture-review-driven polish: review → per-phase blueprint (sequential, accumulating) → implement → validate → code-review → commit. Best when a large architecture review can't be planned in one pass and each phase's plan must build on the ones before it.",
+		"Architecture-review-driven polish: review → per-phase design (sequential, accumulating) → plan → implement → validate → code-review → commit. Best when a large architecture review can't be designed and planned in one pass and each phase's design must build on the ones before it.",
 	start: "architecture-review",
 	stages: {
 		"architecture-review": produces(),
-		blueprint: produces({ iterate: REVIEW_PHASE_ITERATE }),
+		design: produces({ iterate: REVIEW_PHASE_ITERATE }),
+		plan: produces({ iterate: DESIGN_PLAN_ITERATE }),
 		implement: acts({ fanout: PLANS_PHASE_FANOUT, reads: ["plans"] }),
 		validate: produces({ prompt: VALIDATE_PLANS_PROMPT }),
 		"code-review": produces(),
 		commit: acts({ outcome: gitCommitOutcome }),
 	},
 	edges: {
-		"architecture-review": "blueprint",
-		blueprint: "implement",
+		"architecture-review": "design",
+		design: "plan",
+		plan: "implement",
 		implement: "validate",
 		validate: "code-review",
-		// Backward edge: code-review → blueprint re-plans (implement needs a plan).
-		// The iterate stage re-runs over every review phase; bounded by the
-		// runner's default maxBackwardJumps (2 → up to 3 review iterations).
-		"code-review": gate("blockers_count", { blueprint: gt(0), commit: eq(0) }),
+		// Backward edge: code-review → design reworks the phase designs, then
+		// plan regenerates implementable plans. The iterate stage re-runs over
+		// every review phase; bounded by the runner's default maxBackwardJumps
+		// (2 → up to 3 review iterations).
+		"code-review": gate("blockers_count", { design: gt(0), commit: eq(0) }),
 		commit: "stop",
 	},
 });

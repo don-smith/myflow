@@ -75,10 +75,10 @@ describe("applyCompletedStage", () => {
 		const art = fakeArtifact("plans/p1.md");
 		const output = fakeOutput([art]);
 
-		applyCompletedStage(state, def, "blueprint", output);
+		applyCompletedStage(state, def, "planner", output);
 
 		expect(state.primaryArtifact).toBe(art);
-		expect(state.named.blueprint).toEqual([output]);
+		expect(state.named.planner).toEqual([output]);
 	});
 
 	it("produces stage with empty artifacts: primary unchanged, named still appends the Output", () => {
@@ -89,12 +89,12 @@ describe("applyCompletedStage", () => {
 		const def = producesDef();
 		const output = fakeOutput([]); // no artifacts
 
-		applyCompletedStage(state, def, "blueprint", output);
+		applyCompletedStage(state, def, "planner", output);
 
 		// Primary stays as-is — no artifact[0] to advance to
 		expect(state.primaryArtifact).toBe(existing);
 		// Named still records the Output
-		expect(state.named.blueprint).toEqual([output]);
+		expect(state.named.planner).toEqual([output]);
 	});
 
 	it("produces stage uses outcome.name as named key when set", () => {
@@ -103,12 +103,12 @@ describe("applyCompletedStage", () => {
 		const art = fakeArtifact("plans/p1.md");
 		const output = fakeOutput([art]);
 
-		applyCompletedStage(state, def, "blueprint", output);
+		applyCompletedStage(state, def, "planner", output);
 
 		expect(state.primaryArtifact).toBe(art);
-		// Key is "plans" (outcome.name), not "blueprint" (stage record key)
+		// Key is "plans" (outcome.name), not "planner" (stage record key)
 		expect(state.named.plans).toEqual([output]);
-		expect(state.named.blueprint).toBeUndefined();
+		expect(state.named.planner).toBeUndefined();
 	});
 
 	it("side-effect stage (acts): primary and named left untouched", () => {
@@ -152,8 +152,8 @@ describe("applyCompletedStage", () => {
 		const art2 = fakeArtifact("plans/p2.md");
 		const output2 = fakeOutput([art2]);
 
-		applyCompletedStage(state, def, "blueprint", output1);
-		applyCompletedStage(state, def, "blueprint", output2);
+		applyCompletedStage(state, def, "planner", output1);
+		applyCompletedStage(state, def, "planner", output2);
 
 		// Primary tracks the latest (second call)
 		expect(state.primaryArtifact).toBe(art2);
@@ -170,7 +170,7 @@ describe("applyCompletedStage", () => {
 		const art = fakeArtifact("plans/p1.md");
 		const output = fakeOutput([art]);
 
-		applyCompletedStage(state, def, "blueprint", output);
+		applyCompletedStage(state, def, "planner", output);
 
 		// output and stagesCompleted are NOT changed by the reducer
 		expect(state.output).not.toBe(output);
@@ -217,17 +217,17 @@ describe("SchemaTimeoutError", () => {
 describe("resolveSkill", () => {
 	it("returns stage name when def has no skill", () => {
 		const def = { kind: "produces", sessionPolicy: "fresh" } as StageDef;
-		expect(resolveSkill(def, "blueprint")).toBe("blueprint");
+		expect(resolveSkill(def, "planner")).toBe("planner");
 	});
 
 	it("returns skill when def has explicit skill", () => {
 		const def = { kind: "produces", sessionPolicy: "fresh", skill: "custom-skill" } as StageDef;
-		expect(resolveSkill(def, "blueprint")).toBe("custom-skill");
+		expect(resolveSkill(def, "planner")).toBe("custom-skill");
 	});
 
 	it("returns skill even when it equals the stage name", () => {
-		const def = { kind: "side-effect", sessionPolicy: "fresh", skill: "blueprint" } as StageDef;
-		expect(resolveSkill(def, "blueprint")).toBe("blueprint");
+		const def = { kind: "side-effect", sessionPolicy: "fresh", skill: "planner" } as StageDef;
+		expect(resolveSkill(def, "planner")).toBe("planner");
 	});
 });
 

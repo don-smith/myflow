@@ -16,7 +16,7 @@ contract:
         risk_level:
           enum: [low, medium, high]
         suggested_next_step:
-          enum: [continue_to_research, continue_to_blueprint, continue_to_design, implement_directly, stop]
+          enum: [continue_to_research, continue_to_design, implement_directly, stop]
 ---
 
 # Start
@@ -193,7 +193,6 @@ Set `Suggested Next Step` based on risk and readiness:
 | Value | Use when |
 |---|---|
 | `continue_to_research` | Codebase reality must be understood before design. |
-| `continue_to_blueprint` | Work is small/medium and ready for fused design + plan. |
 | `continue_to_design` | Work is complex enough to need separate design before planning. |
 | `implement_directly` | Very small, low-risk work has enough acceptance criteria and does not need Stage 2. |
 | `stop` | The user only wanted alignment or the work is not ready. |
@@ -288,5 +287,5 @@ Optional sections may be added when risk requires them.
 
 - To deepen alignment, re-run `/skill:start <alignment-artifact-path>` and update the same artifact.
 - To research, run `/skill:research <alignment-artifact-path>`.
-- To create a fused design/plan, run `/skill:blueprint <alignment-artifact-path>`.
+- To create a design, run `/skill:design <alignment-artifact-path>`.
 - To design separately, run `/skill:design <alignment-artifact-path>`.

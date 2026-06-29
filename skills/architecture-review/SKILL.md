@@ -1,6 +1,6 @@
 ---
 name: architecture-review
-description: Conduct a top-down, layer-by-layer architecture review of a software module by reading every file in scope, running a uniform 10-dimension checklist per layer, and triaging each candidate finding through a structured developer checkpoint. Produces a phased polish plan in .myflow/artifacts/architecture-reviews/ that blueprint can consume per phase. Language-agnostic — works on TypeScript, Java, .NET, Rust, Python, Go, or any other typed module. Use before a 1.0 release, after a major refactor, or when a module has grown enough to warrant a structural audit.
+description: Conduct a top-down, layer-by-layer architecture review of a software module by reading every file in scope, running a uniform 10-dimension checklist per layer, and triaging each candidate finding through a structured developer checkpoint. Produces a phased polish plan in .myflow/artifacts/architecture-reviews/ that design/plan can consume per phase. Language-agnostic — works on TypeScript, Java, .NET, Rust, Python, Go, or any other typed module. Use before a 1.0 release, after a major refactor, or when a module has grown enough to warrant a structural audit.
 argument-hint: "[target path: file, directory, or module]"
 shell-timeout: 10
 contract:
@@ -61,7 +61,7 @@ Copy values verbatim — do not reformat the timezone offset.
 
 1. Identify target → 2. Plan layer structure → 3. Layer-split checkpoint → 4. Skeleton artifact → 5. Per-layer review (loop) → 6. Capture emergent principles → 7. Synthesize cross-cutting themes → 8. Phased polish plan → 9. Present and chain → 10. Follow-ups
 
-The final artifact is blueprint-consumable per phase.
+The final artifact is design/plan-consumable per phase.
 
 ## Steps
 
@@ -238,7 +238,7 @@ Layers mirror dependency direction. Higher layers consume lower-layer vocabulary
 
 ### Step 8: Consolidated Polish Plan
 
-Phases are agent-driven: each one will be handed to `blueprint` → `implement`. Size by signals blueprint can act on (file count, finding count, blast-radius mix, coordination need) — not by human-day estimates.
+Phases are agent-driven: each one will be handed to `design` → `plan` → `implement`. Size by signals design/plan can act on (file count, finding count, blast-radius mix, coordination need) — not by human-day estimates.
 
 1. **Topo-sort findings** by `Depends on` edges. Dependency-free findings land in early phases.
 
@@ -287,13 +287,13 @@ Phases are agent-driven: each one will be handed to `blueprint` → `implement`.
    {F} findings reviewed: {A} accepted, {R} rejected, {D} deferred, {W} withdrawn.
    {P} methodology principles captured, {T} cross-cutting themes, {N} phases across {Files} files.
 
-   The artifact is blueprint-consumable per phase:
+   The artifact is design/plan-consumable per phase:
 
    **Next step (per-phase landing):**
-   - `/skill:blueprint .myflow/artifacts/architecture-reviews/{filename}.md` followed by free-text "Implement Phase 1: {phase name}" — blueprint treats the named phase as the feature scope.
+   - `/skill:design .myflow/artifacts/architecture-reviews/{filename}.md` followed by free-text "Implement Phase 1: {phase name}" — design treats the named phase as the feature scope.
    - Repeat for each phase.
 
-   > 🆕 Tip: start a fresh session with `/new` before each blueprint invocation — chained skills work best with a clean context window.
+   > 🆕 Tip: start a fresh session with `/new` before each design invocation — chained skills work best with a clean context window.
    ```
 
 ### Step 10: Handle Follow-ups
@@ -341,8 +341,8 @@ Spawn multiple agents in parallel when they're searching for different things. E
   - ALWAYS Edit the artifact immediately after each triage outcome (Step 5.4) — never queue accepted findings for a batch write at the end of the layer.
   - ALWAYS run Step 6 methodology capture BEFORE Step 7 cross-cut synthesis — a principle named at Step 6 informs theme labeling.
   - NEVER skip the per-layer tally at Step 5.5 — it's the visible progress marker.
-  - NEVER edit source files during the review — the artifact is the product; implementation is blueprint's job (Step 9 hands off).
+  - NEVER edit source files during the review — the artifact is the product; implementation flows through design/plan (Step 9 hands off).
 - **Methodology emerges from triage**, never from a pre-baked list. Step 6 is the dedicated capture point; principles named earlier (e.g., during Step 5 when the developer reverses a finding) are recorded inline at the time and reformatted into Methodology Principles at Step 6.
-- **The artifact is blueprint-consumable per phase** — per-phase blueprint invocations are the supported chaining pattern, not whole-artifact blueprint invocations.
+- **The artifact is design/plan-consumable per phase** — per-phase design invocations followed by plan are the supported chaining pattern, not whole-artifact planning shortcuts.
 - **Frontmatter consistency**: Always include frontmatter; use snake_case for multi-word fields; keep tags relevant.
 - **Status invariants**: `in-progress` during Steps 1–7; flips to `ready` at Step 8 confirmation.

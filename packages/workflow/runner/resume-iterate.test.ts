@@ -80,17 +80,17 @@ const reviewPhaseIterate: IterateFn = ({ artifact, index, cwd }) => {
 	return { prompt: `plan phase ${num}`, label: `phase ${index + 1}/${phases.length}`, id: `phase-${num}` };
 };
 
-// review (produces "reviews") -> blueprint (iterate, produces "plans") -> consume.
+// review (produces "reviews") -> planner (iterate, produces "plans") -> consume.
 const polishWf = (iterate: IterateFn = reviewPhaseIterate): Workflow =>
 	({
 		name: "polish",
 		start: "review",
 		stages: {
 			review: produces({ outcome: makeOutcome("reviews") }),
-			blueprint: produces({ outcome: makeOutcome("plans"), iterate }),
+			planner: produces({ outcome: makeOutcome("plans"), iterate }),
 			consume: acts(),
 		},
-		edges: { review: "blueprint", blueprint: "consume", consume: "stop" },
+		edges: { review: "planner", planner: "consume", consume: "stop" },
 	}) as Workflow;
 
 const artifactOutput = (stage: string, num: number, rel: string): WorkflowStage["output"] => ({
@@ -100,15 +100,15 @@ const artifactOutput = (stage: string, num: number, rel: string): WorkflowStage[
 	meta: { stage, stageNumber: num, ts: "", runId: "" },
 });
 
-/** A recorded blueprint iterate-unit row. `phase` is the unit's phase number (== its `id`). */
+/** A recorded planner iterate-unit row. `phase` is the unit's phase number (== its `id`). */
 const planRow = (phase: number, num: number, status: "completed" | "failed"): WorkflowStage => ({
 	stageNumber: num,
-	stage: `blueprint (phase-${phase})`,
-	skill: "blueprint",
+	stage: `planner (phase-${phase})`,
+	skill: "planner",
 	status,
 	ts: `t${num}`,
 	...(status === "completed"
-		? { output: artifactOutput("blueprint", num, `.myflow/artifacts/plans/p${phase}.md`) }
+		? { output: artifactOutput("planner", num, `.myflow/artifacts/plans/p${phase}.md`) }
 		: { errMsg: "boom" }),
 });
 
@@ -142,8 +142,8 @@ describe("iterate-resume", () => {
 		expect(result.success).toBe(true);
 		// phase-2 (re-run), phase-3, consume — phase-1 NOT re-run.
 		expect(chain.sentMessages).toEqual([
-			"/skill:blueprint plan phase 2",
-			"/skill:blueprint plan phase 3",
+			"/skill:planner plan phase 2",
+			"/skill:planner plan phase 3",
 			expect.stringContaining("consume"),
 		]);
 		const rows = readAllStages(tmpDir, header.runId);
@@ -163,12 +163,12 @@ describe("iterate-resume", () => {
 		const result = await resumeWorkflow(chain.ctx, { workflow: polishWf(), header, ref: "@x" });
 		expect(result.success).toBe(true);
 		expect(chain.sentMessages.slice(0, 2)).toEqual([
-			"/skill:blueprint plan phase 2",
-			"/skill:blueprint plan phase 3",
+			"/skill:planner plan phase 2",
+			"/skill:planner plan phase 3",
 		]);
 	});
 
-	it("fully-completed iterate trailer: no-op, routes onward, no new blueprint sessions", async () => {
+	it("fully-completed iterate trailer: no-op, routes onward, no new planner sessions", async () => {
 		// All 3 phases done; trailer is the last completed unit (process died before advanceChain).
 		writeRun([reviewRow, planRow(1, 2, "completed"), planRow(2, 3, "completed"), planRow(3, 4, "completed")]);
 		const chain = createMockSessionChain({
@@ -177,7 +177,7 @@ describe("iterate-resume", () => {
 		});
 		const result = await resumeWorkflow(chain.ctx, { workflow: polishWf(), header, ref: "@x" });
 		expect(result.success).toBe(true);
-		// Only `consume` ran; no blueprint re-pull dispatched.
+		// Only `consume` ran; no planner re-pull dispatched.
 		expect(chain.sentMessages).toEqual([expect.stringContaining("consume")]);
 	});
 
@@ -192,38 +192,38 @@ describe("iterate-resume", () => {
 		expect(result.error).toMatch(/deterministic/);
 		expect(result.runId).toBe(header.runId); // in-run failure → row written
 		const rows = readAllStages(tmpDir, header.runId);
-		expect(rows[rows.length - 1]).toMatchObject({ stage: "blueprint", status: "failed" });
+		expect(rows[rows.length - 1]).toMatchObject({ stage: "planner", status: "failed" });
 		expect(chain.sentMessages).toEqual([]); // no unit dispatched
 	});
 
 	it("paren-tolerant boundary guard: a unit label with parens resumes (full-string decoration compare)", async () => {
-		// Units carry parens in their label, so the decorated row key is `blueprint (phase (N))`.
+		// Units carry parens in their label, so the decorated row key is `planner (phase (N))`.
 		// The boundary guard compares full decorated strings, so the inner parens don't false-mismatch.
 		const parenIterate: IterateFn = ({ index }) =>
 			index >= 2 ? null : { prompt: `do ${index}`, label: `phase (${index})` };
 		const wf: Workflow = {
 			name: "paren",
-			start: "blueprint",
+			start: "planner",
 			stages: {
-				blueprint: produces({ outcome: makeOutcome("plans"), iterate: parenIterate }),
+				planner: produces({ outcome: makeOutcome("plans"), iterate: parenIterate }),
 				consume: acts(),
 			},
-			edges: { blueprint: "consume", consume: "stop" },
+			edges: { planner: "consume", consume: "stop" },
 		} as Workflow;
 		// Recorded: unit 0 completed, unit 1 (the boundary) failed.
 		writeHeader(tmpDir, header);
 		appendStage(tmpDir, header.runId, {
 			stageNumber: 1,
-			stage: "blueprint (phase (0))",
-			skill: "blueprint",
+			stage: "planner (phase (0))",
+			skill: "planner",
 			status: "completed",
 			ts: "t1",
-			output: artifactOutput("blueprint", 1, ".myflow/artifacts/plans/p0.md"),
+			output: artifactOutput("planner", 1, ".myflow/artifacts/plans/p0.md"),
 		});
 		appendStage(tmpDir, header.runId, {
 			stageNumber: 2,
-			stage: "blueprint (phase (1))",
-			skill: "blueprint",
+			stage: "planner (phase (1))",
+			skill: "planner",
 			status: "failed",
 			ts: "t2",
 			errMsg: "boom",
@@ -237,12 +237,12 @@ describe("iterate-resume", () => {
 		});
 		const result = await resumeWorkflow(chain.ctx, { workflow: wf, header, ref: "@x" });
 		expect(result.success).toBe(true); // no false mismatch despite the inner parens
-		expect(chain.sentMessages).toEqual(["/skill:blueprint do 1", expect.stringContaining("consume")]);
+		expect(chain.sentMessages).toEqual(["/skill:planner do 1", expect.stringContaining("consume")]);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// Corrective back-edge resume — a gated loop (code-review → blueprint) ran a
+// Corrective back-edge resume — a gated loop (code-review → planner) ran a
 // SECOND iterate generation that died mid-way. Resume must continue only the
 // trailing generation while `state.named.plans` carries BOTH generations.
 // ---------------------------------------------------------------------------
@@ -353,19 +353,19 @@ describe("iterate-resume — corrective back-edge", () => {
 			},
 			{
 				stageNumber: 2,
-				stage: "blueprint (phase-1)",
-				skill: "blueprint",
+				stage: "planner (phase-1)",
+				skill: "planner",
 				status: "completed",
 				ts: "t2",
-				output: loopOutput("blueprint", 2, ".myflow/artifacts/plans/g1p1.md"),
+				output: loopOutput("planner", 2, ".myflow/artifacts/plans/g1p1.md"),
 			},
 			{
 				stageNumber: 3,
-				stage: "blueprint (phase-2)",
-				skill: "blueprint",
+				stage: "planner (phase-2)",
+				skill: "planner",
 				status: "completed",
 				ts: "t3",
-				output: loopOutput("blueprint", 3, ".myflow/artifacts/plans/g1p2.md"),
+				output: loopOutput("planner", 3, ".myflow/artifacts/plans/g1p2.md"),
 			},
 			{
 				stageNumber: 4,
@@ -377,16 +377,16 @@ describe("iterate-resume — corrective back-edge", () => {
 			},
 			{
 				stageNumber: 5,
-				stage: "blueprint (phase-1)",
-				skill: "blueprint",
+				stage: "planner (phase-1)",
+				skill: "planner",
 				status: "completed",
 				ts: "t5",
-				output: loopOutput("blueprint", 5, ".myflow/artifacts/plans/g2p1.md"),
+				output: loopOutput("planner", 5, ".myflow/artifacts/plans/g2p1.md"),
 			},
 			{
 				stageNumber: 6,
-				stage: "blueprint (phase-2)",
-				skill: "blueprint",
+				stage: "planner (phase-2)",
+				skill: "planner",
 				status: "failed",
 				ts: "t6",
 				errMsg: "boom",
@@ -412,7 +412,7 @@ describe("iterate-resume — corrective back-edge", () => {
 			start: "review",
 			stages: {
 				review: produces({ outcome: transcriptOutcome("architecture_reviews") }),
-				blueprint: produces({ outcome: transcriptOutcome("plans"), iterate: reviewFromState }),
+				planner: produces({ outcome: transcriptOutcome("plans"), iterate: reviewFromState }),
 				"code-review": produces({
 					outcome: blockersOutcome("reviews"),
 					outputSchema: typeboxSchema(Type.Object({ blockers_count: Type.Number() })),
@@ -420,9 +420,9 @@ describe("iterate-resume — corrective back-edge", () => {
 				consume: acts({ fanout: plansFanout }),
 			},
 			edges: {
-				review: "blueprint",
-				blueprint: "code-review",
-				"code-review": gate("blockers_count", { blueprint: gt(0), consume: eq(0) }),
+				review: "planner",
+				planner: "code-review",
+				"code-review": gate("blockers_count", { planner: gt(0), consume: eq(0) }),
 				consume: "stop",
 			},
 		} as Workflow;
@@ -431,8 +431,8 @@ describe("iterate-resume — corrective back-edge", () => {
 
 		expect(result.success).toBe(true);
 		// Only the trailing generation's remaining unit (phase-2) re-ran — phase-1 of gen 2 did NOT.
-		const blueprintMsgs = chain.sentMessages.filter((m) => m.startsWith("/skill:blueprint"));
-		expect(blueprintMsgs).toEqual(["/skill:blueprint .myflow/artifacts/architecture_reviews/rev.md Phase 2"]);
+		const plannerMsgs = chain.sentMessages.filter((m) => m.startsWith("/skill:planner"));
+		expect(plannerMsgs).toEqual(["/skill:planner .myflow/artifacts/architecture_reviews/rev.md Phase 2"]);
 		// The consume fanout saw ALL FOUR plans — state.named["plans"] carried both generations.
 		expect(chain.sentMessages.slice(-4)).toEqual([
 			"/skill:consume .myflow/artifacts/plans/g1p1.md",

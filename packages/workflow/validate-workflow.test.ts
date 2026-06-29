@@ -443,16 +443,16 @@ describe("validateWorkflow — reads-channel (meta) compatibility", () => {
 
 	const wf: Workflow = {
 		name: "reads-compat",
-		start: "blueprint",
+		start: "plan",
 		stages: {
-			blueprint: produces({ outcome: { collector: noopCollector, name: "plans" } }),
+			plan: produces({ outcome: { collector: noopCollector, name: "plans" } }),
 			implement: acts({ reads: ["plans"] }),
 		},
-		edges: { blueprint: "implement", implement: "stop" },
+		edges: { plan: "implement", implement: "stop" },
 	};
 	const contractsWith = (producerKind: string, consumerKind: string): SkillContractMap =>
 		new Map([
-			["blueprint", { source: "declared", produces: { kind: "produces", meta: { artifactKind: producerKind } } }],
+			["plan", { source: "declared", produces: { kind: "produces", meta: { artifactKind: producerKind } } }],
 			[
 				"implement",
 				{ source: "declared", consumes: { reads: { plans: { meta: { artifactKind: consumerKind } } } } },
@@ -466,7 +466,7 @@ describe("validateWorkflow — reads-channel (meta) compatibility", () => {
 			issues.some(
 				(i) =>
 					i.severity === "error" &&
-					/reads channel "plans" but publisher "blueprint" is incompatible/.test(i.message),
+					/reads channel "plans" but publisher "plan" is incompatible/.test(i.message),
 			),
 		).toBe(true);
 	});
@@ -484,7 +484,7 @@ describe("validateWorkflow — reads-channel (meta) compatibility", () => {
 
 	it("degrades (no error) when the publisher is unsigned", () => {
 		registerCompositionComparator("plans", kindComparator);
-		// consumer signed + requires plan; producer (blueprint) absent from registry → degrade
+		// consumer signed + requires plan; producer (plan) absent from registry → degrade
 		const issues = validateWorkflow(wf, {
 			skillContracts: new Map([
 				["implement", { source: "declared", consumes: { reads: { plans: { meta: { artifactKind: "plan" } } } } }],
@@ -495,19 +495,19 @@ describe("validateWorkflow — reads-channel (meta) compatibility", () => {
 
 	it("errors on a NON-ADJACENT publisher the edge-local walk would miss (all-publishers)", () => {
 		registerCompositionComparator("plans", kindComparator);
-		// blueprint (adjacent, compatible) AND revise (loop-back, disjoint) both publish "plans".
+		// plan (adjacent, compatible) AND revise (loop-back, disjoint) both publish "plans".
 		const loopback: Workflow = {
 			name: "loopback",
-			start: "blueprint",
+			start: "plan",
 			stages: {
-				blueprint: produces({ outcome: { collector: noopCollector, name: "plans" } }),
+				plan: produces({ outcome: { collector: noopCollector, name: "plans" } }),
 				implement: acts({ reads: ["plans"] }),
 				revise: produces({ outcome: { collector: noopCollector, name: "plans" } }),
 			},
-			edges: { blueprint: "implement", implement: "revise", revise: "implement" },
+			edges: { plan: "implement", implement: "revise", revise: "implement" },
 		};
 		const contracts: SkillContractMap = new Map([
-			["blueprint", { source: "declared", produces: { kind: "produces", meta: { artifactKind: "plan" } } }],
+			["plan", { source: "declared", produces: { kind: "produces", meta: { artifactKind: "plan" } } }],
 			["revise", { source: "declared", produces: { kind: "produces", meta: { artifactKind: "design" } } }],
 			["implement", { source: "declared", consumes: { reads: { plans: { meta: { artifactKind: "plan" } } } } }],
 		]);

@@ -1,7 +1,7 @@
 ---
 name: design
-description: Design complex features by decomposing them into vertical slices, generating code slice-by-slice with per-slice verifier dispatch and post-finalization independent code review, and producing a design artifact (architecture decisions, slice breakdown, file map) in .myflow/artifacts/designs/. The design feeds the plan or blueprint skill. Use for complex multi-component features touching 6+ files across multiple layers, when the user wants a feature designed before implementation. Requires a research artifact or a solutions artifact (from explore). Prefer design over plan or blueprint when the focus is architecture and decomposition rather than phased execution steps.
-argument-hint: "[research artifact path]"
+description: Design complex features by decomposing them into vertical slices, generating code slice-by-slice with per-slice verifier dispatch, and producing a design artifact (architecture decisions, slice breakdown, file map) in .myflow/artifacts/designs/. The design feeds the plan skill, which sequences it into implementation phases and runs the post-finalization reviewer pair. Accepts a research artifact, solutions artifact, architecture-review artifact, code-review artifact, or free-text feature description (standalone mode for small tasks). Use for complex multi-component features touching 6+ files across multiple layers, when the user wants a feature designed before implementation. Requires an upstream artifact or a free-text feature description for standalone mode.
+argument-hint: "[research artifact path | solutions artifact path | architecture-review artifact path | review artifact path | free-text feature description]"
 shell-timeout: 10
 contract:
   produces:
@@ -20,16 +20,18 @@ contract:
         status:
           const: ready
     meta:
-      artifactKind: [research, solutions]
+      artifactKind: [research, solutions, review, architecture-review]
 ---
 
 # Design
 
-You are tasked with designing how code will be shaped for a feature or change. This iterative variant decomposes features into vertical slices and generates code slice-by-slice with developer micro-checkpoints between slices. The design artifact feeds directly into plan, which sequences it into phases.
+You are tasked with designing how code will be shaped for a feature or change. This iterative variant decomposes features into vertical slices and generates code slice-by-slice with developer micro-checkpoints between slices. The design artifact feeds directly into plan, which sequences it into phases and runs the post-finalization reviewer pair.
+
+Supports standalone mode: free-text feature descriptions for small tasks (no upstream artifact required).
 
 ## Input
 
-`$ARGUMENTS` — path to a research artifact (`.myflow/artifacts/research/*.md`) or a solutions artifact (`.myflow/artifacts/solutions/*.md`).
+`$ARGUMENTS` — path to a research artifact (`.myflow/artifacts/research/*.md`), a solutions artifact (`.myflow/artifacts/solutions/*.md`), an architecture-review artifact (`.myflow/artifacts/architecture-reviews/*.md`), a code-review artifact (`.myflow/artifacts/reviews/*.md`), or a free-text feature description (standalone mode for small tasks).
 
 ## Metadata
 
@@ -60,19 +62,23 @@ The final artifact is plan-compatible: `## Slices` boundaries become phase bound
 
 When this command is invoked:
 
-1. **Read research artifact**:
+1. **Read upstream artifact**:
 
-   **Research artifact provided** (argument contains a path to a `.md` file in `.myflow/artifacts/`):
-   - Read the research artifact FULLY using the Read tool WITHOUT limit/offset
-   - Extract: Summary, Code References, Integration Points, Architecture Insights, Precedents & Lessons, Developer Context, Open Questions
-   - **Read the key source files from Code References** into the main context — especially hooks, shared utilities, and integration points the design will depend on. Read them FULLY. This ensures you have complete understanding before proceeding.
+   **Upstream artifact provided** (argument contains a path to a `.md` file in `.myflow/artifacts/`):
+   - Read the upstream artifact FULLY using the Read tool WITHOUT limit/offset
+   - For research/solutions artifacts, extract: Summary, Code References, Integration Points, Architecture Insights, Precedents & Lessons, Developer Context, Open Questions
+   - For code-review artifacts, extract blockers/concerns, Developer Context, touched files, and recommendations to convert into a corrective design
+   - For architecture-review artifacts, extract phases, findings, layer context, dependencies, and Success Criteria to convert into a design that can feed plan
+   - **Read the key source files from Code References / findings / affected paths** into the main context — especially hooks, shared utilities, and integration points the design will depend on. Read them FULLY. This ensures you have complete understanding before proceeding.
    - These become starting context — no need to re-discover what exists
-   - Research Developer Context Q/As = inherited decisions (record in Decisions, never re-ask); Open Questions = starting ambiguity queue, filtered by dimension in Step 3
+   - Upstream Developer Context Q/As = inherited decisions (record in Decisions, never re-ask); Open Questions = starting ambiguity queue, filtered by dimension in Step 3
 
    **No arguments provided**, branch on the `recent research:` and `recent solutions:` listings in the Metadata block:
-   - **Both empty** — no upstream artifacts available; tell the user and suggest running `/skill:research` (or `/skill:explore` for option comparison) first.
+   - **Both empty** — no upstream artifacts available; ask the user for a free-text feature description and proceed in standalone mode (no artifact read; Step 2 fills the integration and precedent slots via agent dispatch).
    - **Exactly one entry total** — confirm with `ask_user_question`: "Design from this artifact?" with options "Design from `[<source>] <filename>` (Recommended)" and "Pick a different path".
    - **Two or more entries total** — present up to 4 most-recent across both listings as `ask_user_question` options, each prefixed `[research]` or `[solutions]` to flag source class.
+
+   **Anything else** (plain free-text feature description, unrecognized `.md` path, ticket link) — treat the input as the topic for Step 2; skip the upstream artifact read.
 
 2. **Read any additional files mentioned** — tickets, related designs, existing implementations. Read them FULLY before proceeding.
 
@@ -86,6 +92,8 @@ This is NOT a discovery sweep. Focus on DEPTH (how things work, what patterns to
    - Use **codebase-analyzer** to understand HOW integration points work in detail
    - Use **integration-scanner** to map the wiring surface — inbound refs, outbound deps, config/DI/event registration
    - Use **precedent-locator** to find similar past changes in git history — what commits introduced comparable features, what broke, and what lessons apply to this design. Only when `commit` is available (not `no-commit`); otherwise skip and note "git history unavailable" in Verification Notes.
+
+   **Standalone mode** (free-text input, no research artifact): dispatch all four agents — no `## Integration Points` or `## Precedents & Lessons` sections to reference. The agents fill those slots.
 
    **Novel work** (new libraries, first-time patterns, no existing codebase precedent):
    - Add **web-search-researcher** for external documentation, API references, and community patterns
@@ -433,7 +441,7 @@ Spawn multiple agents in parallel when they're searching for different things. E
 
 ## Important Notes
 
-- **Always chained**: This skill requires a research artifact produced by the research skill. There is no standalone design mode.
+- **Always chained or standalone**: This skill accepts a research artifact, a solutions artifact, an architecture-review artifact, a code-review artifact, or a free-text feature description for standalone mode. Standalone mode skips the artifact read; Step 2 dispatches all agents to fill the integration and precedent slots.
 - **File reading**: Always read research artifacts and referenced files FULLY (no limit/offset) before spawning agents
 - **Critical ordering**: Follow the numbered steps exactly
   - ALWAYS read input files first (Step 1) before spawning agents (Step 2)

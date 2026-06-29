@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Convert a design artifact into a phased implementation plan with parallelized atomic phases and explicit success criteria, written to .myflow/artifacts/plans/. Use after the design skill when the user wants a design turned into an actionable, phase-by-phase plan to hand to the implement skill. Prefer plan when a straightforward phased breakdown is sufficient, and prefer blueprint when iterative vertical-slice micro-checkpoints between phases are needed.
+description: Inherit phase boundaries 1:1 from a design artifact's Slices section, run post-finalization artifact-code-reviewer + artifact-coverage-reviewer in parallel, and produce a reviewed, implement-ready plan artifact in .myflow/artifacts/plans/. Use after the design skill to sequence a design into implementation phases and run the independent reviewer pair. Prefer plan for the review quality gate; design owns architectural decomposition and slice generation.
 argument-hint: "[design artifact path]"
 shell-timeout: 10
 contract:
@@ -40,7 +40,7 @@ contract:
 
 # Plan
 
-You are tasked with creating phased implementation plans from design artifacts. The design artifact contains all architectural decisions, full implementation code, and ordering constraints. Your job is to decompose that design into parallelized atomic phases with success criteria that implement can execute.
+You are tasked with sequencing a design artifact into a phased, reviewed implementation plan. The design artifact contains all architectural decisions, full implementation code, and per-slice Success Criteria. Your job is to inherit phase boundaries 1:1 from the design's `## Slices` section, produce the plan artifact, and run the independent post-finalization reviewer pair (artifact-code-reviewer + artifact-coverage-reviewer) against the complete artifact.
 
 ## Input
 
@@ -111,7 +111,7 @@ Total: {N} files across {M} phases. Success Criteria pass through from design's 
 Proceeding to write the plan artifact.
 ```
 
-No developer question — boundary changes are out of scope for plan. If the developer wants different boundaries, they revisit `/skill:design` and re-decompose. (This guarantees blueprint-equivalent slice-verified atomicity throughout.)
+No developer question — boundary changes are out of scope for plan. If the developer wants different boundaries, they revisit `/skill:design` and re-decompose. (Slice-verified atomicity is guaranteed by the design's slice-verifier at Step 6.2.)
 
 ### Step 3: Write Plan
 
@@ -229,7 +229,7 @@ last_updated_by: {`author:` from Metadata block}
 
 ### Step 4: Independent Plan Review
 
-After Step 3 finalizes the artifact, dispatch two independent review subagents in parallel — one to walk every Phase code fence, one to walk every verification intent — both against the live codebase at HEAD. This is the single post-finalization quality gate for the entire `design → plan` pipeline: code review was deliberately deferred from design to here, where code + Success Criteria + phasing are all visible in one artifact for joint review (blueprint-equivalent topology).
+After Step 3 finalizes the artifact, dispatch two independent review subagents in parallel — one to walk every Phase code fence, one to walk every verification intent — both against the live codebase at HEAD. This is the single post-finalization quality gate for the entire `design → plan` pipeline: code review was deliberately deferred from design to here, where code + Success Criteria + phasing are all visible in one artifact for joint review.
 
 #### 4.0. Flip status to in-review
 
@@ -310,13 +310,13 @@ The 8-column header is retained when only one source returns; only rows from the
    Plan-reviewer findings: {B} blockers, {C} concerns, {S} suggestions
 
    Triage each row before the freeform review below:
-   - applied — change made; I'll Edit per the recommendation target (Phase code fence for code findings, `### Success Criteria:` block for coverage findings) and fill the row's resolution as `applied: {one-line summary}`
+   - applied — change made; I'll Edit per the recommendation target when it is a plan-transcription issue (Phase code fence for code findings, or copied Success Criteria only when plan failed to copy the design verbatim) and fill the row's resolution as `applied: {one-line summary}`
    - deferred — noted but not fixing now; resolution cites why (e.g., "out of scope for this plan", "follow-up commit")
    - dismissed — not a real issue; resolution explains why the reviewer was wrong (e.g., "X is intentional because Y")
    ```
 
    Use `ask_user_question` with options "applied / deferred / dismissed":
-   - **applied**: Edit per the recommendation target — if the recommendation names a `## Phase N` code fence, Edit that fence; if it names a `### Success Criteria:` bullet, Edit that block; if it names both, Edit both. Routing follows the recommendation text, not the `source` column. Fill `resolution`.
+   - **applied**: Edit per the recommendation target only when the defect is in plan transcription — if the recommendation names a `## Phase N` code fence, Edit that fence; if it names a copied `### Success Criteria:` bullet that differs from design, restore the design text. If the finding requires new criteria or changed phase boundaries, route it back to `/skill:design` instead of patching plan-local content. Fill `resolution`.
    - **deferred** / **dismissed**: fill `resolution` with the reason.
 
    **Code finding caveat**: when a code finding's root cause is in the design's Architecture (not just plan transcription), the patch belongs upstream. Either (a) Edit the design artifact and re-run `/skill:plan`, or (b) apply the fix to the plan's Phase code fence and annotate the resolution with `applied (plan-local; design follow-up: <design path>)`. Option (a) is cleaner; option (b) is acceptable for tactical fixes.
@@ -324,7 +324,7 @@ The 8-column header is retained when only one source returns; only rows from the
    **Order and batching**: blockers sequentially (resolution may invalidate later rows). Concerns and suggestions: batch up to 4 independent rows per `ask_user_question` call. Independent = different files / different intents AND neither recommendation references the other's location; otherwise sequential.
 
 2. **Rebuild `phases:` then flip status to ready**: once every row has a `resolution` (or the table is empty per Step 4's no-findings / failure-fallback path):
-   - **Rebuild the `phases:` frontmatter array (and `phase_count`) from the `## Phase N:` headings** — one `{ n, title }` entry per section, in body order. The implement fanout derive-checks length against the headings, so a triage-applied split/merge that left the array stale fails fast.
+   - **Rebuild the `phases:` frontmatter array (and `phase_count`) from the `## Phase N:` headings** — one `{ n, title }` entry per section, in body order. This is a consistency check after transcription edits; phase boundaries must still match the design's `## Slices` 1:1.
    - Edit frontmatter `status: in-review` → `status: ready`. Artifact is now implement-ready.
 
 3. **Present the plan location** (after triage is complete):
@@ -337,7 +337,7 @@ The 8-column header is retained when only one source returns; only rows from the
    Please review:
    - Are the phases properly scoped for worktree execution?
    - Are the success criteria specific enough?
-   - Any phase that should be split or merged?
+   - Any phase boundary concern that should be sent back to `/skill:design`?
 
    ---
 
@@ -352,7 +352,7 @@ The 8-column header is retained when only one source returns; only rows from the
 
 - **Edit in-place.** Use the Edit tool to update the plan artifact directly. Phase numbering stays stable when possible — renumber only when a phase is split or merged.
 - **Bump frontmatter.** Update `last_updated` + `last_updated_by`; set `last_updated_note: "<one-line summary>"`.
-- **Phase-level moves.** Split large phases, merge small phases, adjust success criteria, reorder phases — all in-place. Continue refining until the developer is satisfied. On any boundary change (split/merge/reorder), **rebuild `phases:` and `phase_count` from the `## Phase N:` headings** — the implement fanout throws on a stale array.
+- **Boundary changes route upstream.** Do not split, merge, or reorder phases in plan; phase boundaries come from design's `## Slices` 1:1. If boundaries or Success Criteria need substantive changes, update the design artifact and re-run `/skill:plan`. Plan-local edits are limited to transcription fixes and review-table resolutions.
 - **When to re-invoke instead.** For surgical edits driven by review findings, prefer `/skill:revise <plan-path>`. Re-run `/skill:plan` only when the underlying design changed materially. The previous block's `Next step:` stays valid for the existing plan.
 
 ## Guidelines
@@ -362,7 +362,7 @@ The 8-column header is retained when only one source returns; only rows from the
    - Success Criteria are also fixed — pass them through verbatim from design's `## Slices`; do not re-author, re-derive, or "improve" them. Slice-verifier already validated them against the slice's code at design 6.2
    - Phase boundaries are fixed — inherit 1:1 from design's `## Slices`; do not recompose
    - If something in the design seems wrong, flag it to the developer; do not silently patch in plan
-   - The design is the source of truth for what to build
+   - The design is the source of truth for what to build. The design skill handles all architectural decomposition; plan owns sequencing and review.
 
 2. **Pass-Through, Not Author**:
    - Plan transforms a design artifact into phased shape; it does not invent content
@@ -435,7 +435,8 @@ Both reviewers dispatch in parallel against the final artifact (code + Success C
 - Always read the design artifact FULLY before inheriting phase boundaries
 - The plan template must be compatible with implement — preserve the phase/success criteria structure
 - If the design artifact has unresolved questions OR is missing its `## Slices` section, STOP — send the developer back to design
-- **Slice ≡ phase, 1:1**: NEVER recompose slice boundaries into different phase boundaries; NEVER reauthor Success Criteria (they pass through from design's `## Slices`); slice-verifier in design Step 6.2 already guaranteed per-slice atomicity and criteria/code alignment, and recomposing here would discard that guarantee
+- **Slice ≡ phase, 1:1**: NEVER recompose slice boundaries into different phase boundaries; NEVER reauthor Success Criteria (they pass through from design's `## Slices`); the design's slice-verifier already guaranteed per-slice atomicity and criteria/code alignment, and recomposing here would discard that guarantee
+- Plan is the single post-finalization quality gate for the `design → plan` pipeline: code + Success Criteria + phasing are all visible in one artifact for joint review by artifact-code-reviewer + artifact-coverage-reviewer
 - ALWAYS dispatch artifact-code-reviewer AND artifact-coverage-reviewer in parallel at Step 4 after Step 3 finalize, BEFORE the developer review at Step 5
 - NEVER auto-apply a Step 4 reviewer finding; triage is the developer's call at Step 5
 - ALWAYS hold `status: in-review` from Step 4.0 through Step 5; flip to `ready` only after every row has a `resolution` (or the table is empty)

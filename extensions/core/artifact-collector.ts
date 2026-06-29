@@ -18,10 +18,9 @@
  * primary fs artifact into `Record<string, unknown>` — what
  * `outputSchema` validates against for typed downstream narrowing.
  *
- * Pre-bundled outcome: `rpivArtifactMdOutcome` =
- * `{ collector: rpivArtifactCollector, parser: frontmatterParser }` —
- * the default @myflow/pi's built-in workflows wire into every
- * `produces()` stage.
+ * Pre-bundled outcomes: `rpivArtifactMdOutcome` remains available for
+ * bucket-agnostic tests and custom workflows; built-in workflows usually derive
+ * bucket-narrowed `rpivBucketOutcome(bucket)` instances from skill contracts.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -41,7 +40,7 @@ import {
 // Collectors — text-scan over assistant transcript
 // ---------------------------------------------------------------------------
 
-const RPIV_ARTIFACT_PATTERN = /\.rpiv\/artifacts\/[\w.-]+\/[\w.-]+\.md/g;
+const RPIV_ARTIFACT_PATTERN = /\.myflow\/artifacts\/[\w.-]+\/[\w.-]+\.md/g;
 
 /** Bucket-agnostic — accepts any `.myflow/artifacts/<bucket>/...md`. */
 export const rpivArtifactCollector: ArtifactCollector = transcriptPathCollector({ pattern: RPIV_ARTIFACT_PATTERN });

@@ -164,7 +164,7 @@ Cross-cut threads surfaced during layer-by-layer review. Each thread ties multip
 
 ## Consolidated polish plan
 
-{N} phases, ordered top-to-bottom. Each phase is blueprint-consumable; sizing is by agent-relevant signals (file count, finding count, blast-radius mix, coordination need) — never human-days.
+{N} phases, ordered top-to-bottom. Each phase is design/plan-consumable; sizing is by agent-relevant signals (file count, finding count, blast-radius mix, coordination need) — never human-days.
 
 ### Phase 1 — {phase name}
 

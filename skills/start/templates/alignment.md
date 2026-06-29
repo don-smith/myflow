@@ -7,7 +7,7 @@ repository: {repository}
 topic: "{topic}"
 status: ready
 risk_level: low | medium | high
-suggested_next_step: continue_to_research | continue_to_blueprint | continue_to_design | implement_directly | stop
+suggested_next_step: continue_to_research | continue_to_design | implement_directly | stop
 tags: [alignment, stage-1]
 last_updated: {iso_timestamp}
 last_updated_by: {author}
@@ -56,7 +56,7 @@ low | medium | high
 
 ## Suggested Next Step
 
-continue_to_research | continue_to_blueprint | continue_to_design | implement_directly | stop
+continue_to_research | continue_to_design | implement_directly | stop
 
 Rationale: {why this is the right next step}
 

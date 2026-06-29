@@ -40,7 +40,7 @@ Copy values verbatim — do not reformat the timezone offset.
 
 1. Input → 2. Dispatch agents → 3. Synthesize & checkpoint → 4. Write doc → 5. Present & chain → 6. Follow-ups
 
-The final artifact feeds design or blueprint.
+The final artifact feeds design.
 
 ## Steps
 
@@ -327,7 +327,6 @@ Please review and let me know if you have follow-up questions.
 
 **Next step (choose one):**
 - `/skill:design .myflow/artifacts/research/{filename}.md` — iterative design with vertical-slice decomposition (produces design artifact for plan)
-- `/skill:blueprint .myflow/artifacts/research/{filename}.md` — lightweight fast path for smaller tasks; combined design + phased plan in one pass (produces implement-ready plan directly)
 
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 ```

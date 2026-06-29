@@ -7,7 +7,7 @@ description: Use when starting or navigating a major piece of work — applies t
 
 A single 5-stage pipeline for AI-assisted software development — from discovery through landing. Each stage produces a clear state artifact, so you always know what's next.
 
-Each stage produces an artifact consumed by the next. Each stage has a clear set of skills. There are no modes to choose from — the pipeline adapts to work size via `blueprint` (small) or `design` → `plan` (complex).
+Each stage produces an artifact consumed by the next. Each stage has a clear set of skills. There are no modes to choose from — the pipeline adapts to work size through `design` inputs, then `plan` sequences the approved design.
 
 ## Announce at start
 
@@ -81,12 +81,9 @@ Ground intent in codebase reality. Design the solution. Stress-test the architec
 - `research` — codebase analysis, produces Research doc
 - `design` — decompose into vertical slices, produces Design doc
 - `architecture-review` — stress-test the design against existing architecture (moved from Land)
-- `blueprint` — fused design+plan in one pass (fast path for smaller work)
-- `plan` — turn design into phased implementation steps (complex path)
+- `plan` — turn design into phased implementation steps and run the review quality gate
 
-**Two paths:**
-- **Complex:** `design` → `architecture-review` → `plan` (for large or cross-cutting work)
-- **Fast:** `blueprint` (single pass → implement-ready plan)
+**Path:** `research` → `design` → `plan` (with `architecture-review` feeding design when a structural audit is needed).
 
 **Artifact:** `.myflow/artifacts/plans/` — canonical format. `implement` consumes this.
 
@@ -98,8 +95,7 @@ Ground intent in codebase reality. Design the solution. Stress-test the architec
 | I want to... | Invoke |
 |---|---|
 | Analyze the codebase | `/skill:research <artifact-or-topic>` |
-| Design + plan separately | `/skill:design <research>` → `/skill:plan <design>` |
-| Design + plan together (fast) | `/skill:blueprint <research>` |
+| Design then plan | `/skill:design <research>` → `/skill:plan <design>` |
 | Stress-test architecture | `/skill:architecture-review` |
 
 ### Stage 3 — Implement
@@ -247,8 +243,8 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 
 - **Skipping `land`.** Stage 4 is not the finish line. Close the cycle.
 - **Carrying tabled items across cycles.** Resolve every entry during Land step 8.
-- **Editing source files during stages 1-2.** Discover, research, design, and blueprint produce artifacts; `implement` (stage 3) edits code.
-- **Recomposing slice boundaries.** `design`/`blueprint` owns decomposition; `plan` inherits slices 1:1.
+- **Editing source files during stages 1-2.** Discover, research, design and plan produce artifacts; `implement` (stage 3) edits code.
+- **Recomposing slice boundaries.** `design` owns decomposition; `plan` inherits slices 1:1.
 - **Letting verification become a rubber stamp.** Evidence first, claims second.
 - **Treating observability as optional memory.** Stage checkpoints must record replay/telemetry fields when available.
 - **Holding review findings for Land.** Code review happens in stage 4. Land is for closeout, not re-review.
@@ -258,7 +254,7 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 | Stage | Primary Skill(s) | Artifact Produced |
 |---|---|---|
 | 1. Discover & Align | `start` | Alignment (`.myflow/artifacts/alignment/`) |
-| 2. Research & Design | `research`, `design`/`blueprint`, `plan` | Plan (`.myflow/artifacts/plans/`) |
+| 2. Research & Design | `research`, `design`, `plan` | Plan (`.myflow/artifacts/plans/`) |
 | 3. Implement | `implement` + TDD, subagents | Working tree changes |
 | 4. Validate & Review | `validate`, `manual-verification`, `code-review`, `revise` | Validation + Manual Verification + Review |
 | 5. Land & Learn | `land` (→ commit, as-built, retro...) | Configured repo docs + personal repo retros/memory |
@@ -272,8 +268,7 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 | Deepen requirements explicitly | `/skill:discover "..."` |
 | Understand the codebase | `/skill:research <artifact-or-topic>` |
 | Compare options explicitly | `/skill:explore "..."` |
-| Design + plan separately | `/skill:design <research>` → `/skill:plan <design>` |
-| Design + plan together | `/skill:blueprint <research>` |
+| Design then plan | `/skill:design <research>` → `/skill:plan <design>` |
 | Execute the plan | `/skill:implement <plan> [Phase N]` |
 | Execute with subagents | `subagent-driven-development` |
 | Run TDD | `test-driven-development` |

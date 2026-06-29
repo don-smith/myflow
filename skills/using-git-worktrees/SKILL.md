@@ -248,7 +248,7 @@ Ready to implement auth feature
 
 **Also pairs with:**
 - `/skill:implement` — use a worktree for long-running or multi-phase implementation
-- `/skill:blueprint` or `/skill:plan` — set up the worktree after the plan is ready
+- `/skill:design` or `/skill:plan` — set up the worktree after the plan is ready
 
 **Pairs with:**
 - **finishing-a-development-branch** - REQUIRED for cleanup after work complete

@@ -21,7 +21,7 @@ Onboard a repo to myflow. This skill creates or loads the developer's personal p
 
 Cloning myflow and running `pi install ./myflow` brings everything with it:
 
-- **Pipeline skills** — discover, research, blueprint, implement, validate, code-review, and more.
+- **Pipeline skills** — discover, research, design, implement, validate, code-review, and more.
 - **Execution skills** — brainstorming, TDD, subagent-driven development, parallel dispatch.
 - **Closeout skills** — landing, documentation, retros, learning capture.
 - **Repo-store resolver** — `skills/_shared/repo-store.mjs`, which maps logical artifact roles to repo-specific paths.

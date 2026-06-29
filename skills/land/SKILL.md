@@ -119,7 +119,7 @@ If on **`main`**, stage all close-out changes in appropriately grouped commits a
 Land is stage 5 of the 5-stage myflow pipeline:
 
 1. **Discover & Align** — shape the work (`brainstorming`, `discover`, `explore`)
-2. **Research & Design** — decide the approach (`research`, `design`, `architecture-review`, `blueprint`/`plan`)
+2. **Research & Design** — decide the approach (`research`, `design`, `architecture-review`, `plan`)
 3. **Implement** — build it (`implement` + TDD, subagents, `verification-before-completion`)
 4. **Validate & Review** — verify it (`validate`, `code-review`, `receiving-code-review`, `revise`)
 5. **Land & Learn** — close it (this skill)

@@ -201,20 +201,19 @@ describe("normalizeContract produces.data keyword guard", () => {
 });
 
 describe("bundled skill contracts", () => {
-	// The 12 pipeline skills carry a contract: block. This is the count the /wf
+	// The pipeline + orthogonal skills carry a contract: block. This is the count the /wf
 	// banner reports as "N declared" — a drift guard if a block is added,
 	// dropped, or fails to parse (a malformed block is silently skipped).
 	const declared = new Map(buildSkillContractsFromFrontmatter(BUNDLED_SKILLS_DIR));
 
-	it("declares a contract for the 20 pipeline + orthogonal skills", () => {
-		expect(declared.size).toBe(20);
+	it("declares a contract for the 21 pipeline + orthogonal skills", () => {
+		expect(declared.size).toBe(21);
 		for (const name of [
 			"discover",
 			"research",
 			"explore",
 			"design",
 			"plan",
-			"blueprint",
 			"architecture-review",
 			"code-review",
 			"validate",
@@ -227,15 +226,17 @@ describe("bundled skill contracts", () => {
 			"create-handoff",
 			"resume-handoff",
 			"frontend-design",
+			"manual-verification",
 			"migrate-to-guidance",
 			"pr-triage",
+			"start",
 		]) {
 			expect(declared.has(name)).toBe(true);
 		}
 	});
 
-	it("blueprint declares phases as a required produces.data field (derived from the body headings)", () => {
-		const data = declared.get("blueprint")?.produces?.data as
+	it("plan declares phases as a required produces.data field", () => {
+		const data = declared.get("plan")?.produces?.data as
 			| { required?: string[]; properties?: { phases?: unknown } }
 			| undefined;
 		expect(data?.required).toContain("phases");
@@ -252,7 +253,7 @@ describe("bundled skill contracts", () => {
 
 	it("documents the declared-but-not-harvested orthogonal set", () => {
 		// These skills declare a contract but don't appear in any built-in workflow.
-		// The orthogonal set: 7 new + discover + explore + commit = 10 skills.
+		// The orthogonal set includes utility/onboarding skills plus discover/explore/commit.
 		// (pr-triage IS harvested — it's dispatched by the pr-triage workflow.)
 		const harvested = harvestStageContracts(builtInWorkflows);
 		const notHarvested: string[] = [];
@@ -269,8 +270,10 @@ describe("bundled skill contracts", () => {
 				"discover",
 				"explore",
 				"frontend-design",
+				"manual-verification",
 				"migrate-to-guidance",
 				"resume-handoff",
+				"start",
 			].sort(),
 		);
 	});
@@ -302,8 +305,8 @@ describe("bundled skill contracts", () => {
 		expect(reads?.plans?.meta?.artifactKind).toBe("plan");
 	});
 
-	it("design, plan, and blueprint require a status:ready upstream via consumes.data", () => {
-		for (const skill of ["design", "plan", "blueprint"]) {
+	it("design and plan require a status:ready upstream via consumes.data", () => {
+		for (const skill of ["design", "plan"]) {
 			const data = declared.get(skill)?.consumes?.data as
 				| { properties?: { status?: { const?: string } } }
 				| undefined;

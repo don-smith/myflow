@@ -59,7 +59,7 @@ const makeOutcome = (name: string): OutputSpec<unknown, "artifact-md", Record<st
 });
 
 /**
- * Per-phase blueprint generator. Reads the FROZEN review artifact for its phase
+ * Per-phase planner generator. Reads the FROZEN review artifact for its phase
  * list, terminates once every phase is planned, and threads prior plan paths +
  * its observed index/accumulation into the prompt so tests can assert on them.
  */
@@ -110,16 +110,16 @@ describe("iterate executor", () => {
 		return lines.slice(1).map((l) => JSON.parse(l));
 	};
 
-	/** review (produces "reviews") → blueprint (iterate, produces "plans") → consume. */
+	/** review (produces "reviews") → planner (iterate, produces "plans") → consume. */
 	const wf = (consume = acts()) => ({
 		name: "polish",
 		start: "review",
 		stages: {
 			review: produces({ outcome: makeOutcome("reviews") }),
-			blueprint: produces({ outcome: makeOutcome("plans"), iterate: reviewPhaseIterate }),
+			planner: produces({ outcome: makeOutcome("plans"), iterate: reviewPhaseIterate }),
 			consume,
 		},
-		edges: { review: "blueprint", blueprint: "consume", consume: "stop" } as Record<string, string>,
+		edges: { review: "planner", planner: "consume", consume: "stop" } as Record<string, string>,
 	});
 
 	it("pulls units until null; runs one session per unit in order; threads accumulated + index + frozen artifact", async () => {
@@ -138,16 +138,16 @@ describe("iterate executor", () => {
 		const result = await runWorkflow(chain.ctx, { workflow: wf(), input: "x" });
 
 		expect(result.success).toBe(true);
-		// 1 review + 3 blueprint units + 1 consume
+		// 1 review + 3 planner units + 1 consume
 		expect(result.stagesCompleted).toBe(5);
 		expect(chain.remaining()).toBe(0);
-		// Each blueprint unit sees: the FROZEN review path (never rolls to plan-N),
+		// Each planner unit sees: the FROZEN review path (never rolls to plan-N),
 		// a monotonic index, accumulated growing by one, and prior plan paths.
 		expect(chain.sentMessages).toEqual([
 			"/skill:review x",
-			"/skill:blueprint .myflow/artifacts/reviews/rev.md Phase 1 idx=0 acc=0 prior=[]",
-			"/skill:blueprint .myflow/artifacts/reviews/rev.md Phase 2 idx=1 acc=1 prior=[.myflow/artifacts/plans/plan-1.md]",
-			"/skill:blueprint .myflow/artifacts/reviews/rev.md Phase 3 idx=2 acc=2 prior=[.myflow/artifacts/plans/plan-1.md,.myflow/artifacts/plans/plan-2.md]",
+			"/skill:planner .myflow/artifacts/reviews/rev.md Phase 1 idx=0 acc=0 prior=[]",
+			"/skill:planner .myflow/artifacts/reviews/rev.md Phase 2 idx=1 acc=1 prior=[.myflow/artifacts/plans/plan-1.md]",
+			"/skill:planner .myflow/artifacts/reviews/rev.md Phase 3 idx=2 acc=2 prior=[.myflow/artifacts/plans/plan-1.md,.myflow/artifacts/plans/plan-2.md]",
 			// consume is a side-effect stage inheriting the rolling primary — the LAST unit's plan.
 			"/skill:consume .myflow/artifacts/plans/plan-3.md",
 		]);
@@ -173,10 +173,10 @@ describe("iterate executor", () => {
 		const stages = readState();
 		expect(stages[0]).toMatchObject({ stage: "review", skill: "review" });
 		// Decorated row identity on `.stage`; raw skill body on `.skill`.
-		expect(stages[1]?.stage).toBe("blueprint (phase-1)");
-		expect(stages[2]?.stage).toBe("blueprint (phase-2)");
-		expect(stages[3]?.stage).toBe("blueprint (phase-3)");
-		expect(stages.slice(1, 4).every((s) => s.skill === "blueprint")).toBe(true);
+		expect(stages[1]?.stage).toBe("planner (phase-1)");
+		expect(stages[2]?.stage).toBe("planner (phase-2)");
+		expect(stages[3]?.stage).toBe("planner (phase-3)");
+		expect(stages.slice(1, 4).every((s) => s.skill === "planner")).toBe(true);
 		expect(stages.slice(1, 4).every((s) => s.status === "completed")).toBe(true);
 	});
 
@@ -199,7 +199,7 @@ describe("iterate executor", () => {
 		const result = await runWorkflow(chain.ctx, { workflow: wf(acts({ fanout: plansFanout })), input: "x" });
 
 		expect(result.success).toBe(true);
-		// 1 review + 3 blueprint units + 3 consume fanout units
+		// 1 review + 3 planner units + 3 consume fanout units
 		expect(result.stagesCompleted).toBe(7);
 		// The fanout read state.named["plans"] and saw ALL three accumulated plans,
 		// proving the decorated rows did not split the named slot.
@@ -223,7 +223,7 @@ describe("iterate executor", () => {
 		const result = await runWorkflow(chain.ctx, { workflow: wf(), input: "x" });
 
 		expect(result.success).toBe(true);
-		// review + consume only — blueprint ran zero sessions.
+		// review + consume only — planner ran zero sessions.
 		expect(result.stagesCompleted).toBe(2);
 		expect(chain.remaining()).toBe(0);
 		// consume inherited the UNCHANGED primary (the review artifact), proving
@@ -251,9 +251,9 @@ describe("iterate executor", () => {
 				start: "review",
 				stages: {
 					review: produces({ outcome: makeOutcome("reviews") }),
-					blueprint: produces({ outcome: makeOutcome("plans"), iterate: runaway }),
+					planner: produces({ outcome: makeOutcome("plans"), iterate: runaway }),
 				},
-				edges: { review: "blueprint", blueprint: "stop" },
+				edges: { review: "planner", planner: "stop" },
 			},
 			input: "x",
 			maxIterations: 2,
@@ -281,25 +281,25 @@ describe("iterate executor", () => {
 				start: "review",
 				stages: {
 					review: produces({ outcome: makeOutcome("reviews") }),
-					blueprint: produces({ outcome: makeOutcome("plans"), iterate: boom }),
+					planner: produces({ outcome: makeOutcome("plans"), iterate: boom }),
 				},
-				edges: { review: "blueprint", blueprint: "stop" },
+				edges: { review: "planner", planner: "stop" },
 			},
 			input: "x",
 		});
 
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/generator exploded/);
-		// review completed; blueprint recorded a failure row attributed to itself.
+		// review completed; planner recorded a failure row attributed to itself.
 		const stages = readState();
 		const failed = stages.find((s) => s.status === "failed");
-		expect(failed?.stage).toBe("blueprint");
+		expect(failed?.stage).toBe("planner");
 		expect(existsSync(join(tmpDir, ".myflow", "artifacts", "plans"))).toBe(false);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// Corrective back-edge re-entry (§10.1): a gate loops code-review → blueprint.
+// Corrective back-edge re-entry (§10.1): a gate loops code-review → planner.
 // state.named["plans"] is append-only across the loop; the generator sources
 // its review from state.named (NOT the rolling primary, which is the
 // code-review doc on re-entry).
@@ -415,7 +415,7 @@ describe("iterate executor — corrective back-edge", () => {
 				start: "review",
 				stages: {
 					review: produces({ outcome: transcriptOutcome("architecture_reviews") }),
-					blueprint: produces({ outcome: transcriptOutcome("plans"), iterate: reviewFromState }),
+					planner: produces({ outcome: transcriptOutcome("plans"), iterate: reviewFromState }),
 					"code-review": produces({
 						outcome: blockersOutcome("reviews"),
 						outputSchema: typeboxSchema(Type.Object({ blockers_count: Type.Number() })),
@@ -423,9 +423,9 @@ describe("iterate executor — corrective back-edge", () => {
 					consume: acts({ fanout: plansFanout }),
 				},
 				edges: {
-					review: "blueprint",
-					blueprint: "code-review",
-					"code-review": gate("blockers_count", { blueprint: gt(0), consume: eq(0) }),
+					review: "planner",
+					planner: "code-review",
+					"code-review": gate("blockers_count", { planner: gt(0), consume: eq(0) }),
 					consume: "stop",
 				},
 			},

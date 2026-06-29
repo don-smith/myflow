@@ -213,7 +213,7 @@ describe("truncated reply (stopReason=length) must not record as completed", () 
 		});
 
 	const readStages = (cwd: string): Array<Record<string, unknown>> => {
-		const dir = join(cwd, ".rpiv", "workflows", "runs");
+		const dir = join(cwd, ".myflow", "workflows", "runs");
 		const files = readdirSync(dir);
 		expect(files).toHaveLength(1);
 		const lines = readFileSync(join(dir, files[0]!), "utf-8").trim().split("\n");
@@ -380,7 +380,7 @@ describe("phase fanout rows preserve both stage name (record key) and skill body
 	});
 
 	const readRows = (cwd: string): Array<Record<string, unknown>> => {
-		const dir = join(cwd, ".rpiv", "workflows", "runs");
+		const dir = join(cwd, ".myflow", "workflows", "runs");
 		const files = readdirSync(dir);
 		expect(files).toHaveLength(1);
 		const lines = readFileSync(join(dir, files[0]!), "utf-8").trim().split("\n");
@@ -389,7 +389,7 @@ describe("phase fanout rows preserve both stage name (record key) and skill body
 
 	it("phase rows for an aliased implement stage carry skill=implement AND stage='implement-after-revise (phase N/M)'", async () => {
 		const planRelPath = ".myflow/artifacts/plans/p.md";
-		mkdirSync(join(tmpDir, ".rpiv", "artifacts", "plans"), { recursive: true });
+		mkdirSync(join(tmpDir, ".myflow", "artifacts", "plans"), { recursive: true });
 		writeFileSync(join(tmpDir, planRelPath), "# Plan\n\n## Phase 1: a\nbody\n## Phase 2: b\nbody\n");
 
 		// Local `## Phase N:` fanout — inlined (not imported) so the test exercises
@@ -476,7 +476,7 @@ describe("vet workflow", () => {
 	describe("routing predicate", () => {
 		it("declares targets matching both possible return values", () => {
 			const edge = findEdge();
-			expect(edge.targets).toEqual(["blueprint", "commit"]);
+			expect(edge.targets).toEqual(["design", "commit"]);
 		});
 
 		it("routes blockers_count: 0 to commit (same numeric gate as build/arch/polish)", () => {
@@ -484,10 +484,10 @@ describe("vet workflow", () => {
 			expect(edge(ctxWithBlockers(0))).toBe("commit");
 		});
 
-		it("routes blockers_count > 0 to blueprint (fix loop)", () => {
+		it("routes blockers_count > 0 to design (fix loop)", () => {
 			const edge = findEdge();
-			expect(edge(ctxWithBlockers(3))).toBe("blueprint");
-			expect(edge(ctxWithBlockers(1))).toBe("blueprint");
+			expect(edge(ctxWithBlockers(3))).toBe("design");
+			expect(edge(ctxWithBlockers(1))).toBe("design");
 		});
 
 		it("a missing blockers_count falls to the gate's commit fallback — guarded upstream by output validation", () => {
@@ -507,7 +507,7 @@ describe("vet workflow", () => {
 			expect(wf.stages["code-review"]?.outputSchema).toBeUndefined();
 			const edge = wf.edges["code-review"];
 			if (typeof edge !== "function") throw new Error("code-review edge is not an EdgeFn");
-			expect([...(edge.targets ?? [])].sort()).toEqual(["blueprint", "commit"]);
+			expect([...(edge.targets ?? [])].sort()).toEqual(["commit", "design"]);
 		});
 
 		it("validate routes back to code-review (backward-jump cycle)", () => {
@@ -549,18 +549,21 @@ describe("vet workflow", () => {
 			// Pre-write artifacts for each stage pass. With default
 			// maxBackwardJumps=2, the guard halts after the 4th code-review's
 			// decision-edge increments backwardJumps to 3 (>2). The cycle:
-			//   cr1→bp1→impl1→v1 → cr2→bp2→impl2→v2 → cr3→bp3→impl3→v3 → cr4(HALT)
-			// Stages completed: 13 (cr×4 + bp×3 + impl×3 + validate×3).
+			//   cr1→d1→p1→impl1→v1 → cr2→d2→p2→impl2→v2 → cr3→d3→p3→impl3→v3 → cr4(HALT)
+			// Stages completed: 16 (cr×4 + design×3 + plan×3 + impl×3 + validate×3).
 			writeArtifact(".myflow/artifacts/code-review/cr1.md");
-			writeArtifact(".myflow/artifacts/blueprint/bp1.md");
+			writeArtifact(".myflow/artifacts/designs/d1.md");
+			writeArtifact(".myflow/artifacts/plans/p1.md");
 			writeArtifact(".myflow/artifacts/implement/impl1.md");
 			writeArtifact(".myflow/artifacts/validate/v1.md");
 			writeArtifact(".myflow/artifacts/code-review/cr2.md");
-			writeArtifact(".myflow/artifacts/blueprint/bp2.md");
+			writeArtifact(".myflow/artifacts/designs/d2.md");
+			writeArtifact(".myflow/artifacts/plans/p2.md");
 			writeArtifact(".myflow/artifacts/implement/impl2.md");
 			writeArtifact(".myflow/artifacts/validate/v2.md");
 			writeArtifact(".myflow/artifacts/code-review/cr3.md");
-			writeArtifact(".myflow/artifacts/blueprint/bp3.md");
+			writeArtifact(".myflow/artifacts/designs/d3.md");
+			writeArtifact(".myflow/artifacts/plans/p3.md");
 			writeArtifact(".myflow/artifacts/implement/impl3.md");
 			writeArtifact(".myflow/artifacts/validate/v3.md");
 			writeArtifact(".myflow/artifacts/code-review/cr4.md");
@@ -569,15 +572,18 @@ describe("vet workflow", () => {
 				cwd: tmpDir,
 				steps: [
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/code-review/cr1.md")] },
-					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/blueprint/bp1.md")] },
+					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/designs/d1.md")] },
+					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/plans/p1.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/implement/impl1.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/validate/v1.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/code-review/cr2.md")] },
-					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/blueprint/bp2.md")] },
+					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/designs/d2.md")] },
+					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/plans/p2.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/implement/impl2.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/validate/v2.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/code-review/cr3.md")] },
-					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/blueprint/bp3.md")] },
+					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/designs/d3.md")] },
+					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/plans/p3.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/implement/impl3.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/validate/v3.md")] },
 					{ branch: [mockAssistantMessage("Wrote .myflow/artifacts/code-review/cr4.md")] },
@@ -585,21 +591,23 @@ describe("vet workflow", () => {
 			});
 
 			// Build a workflow matching vet's graph shape, but the
-			// code-review predicate always routes to "blueprint" (never approves),
+			// code-review predicate always routes to "design" (never approves),
 			// so the loop runs until maxBackwardJumps exhausts.
 			const workflow = defineWorkflow({
 				name: "vet-test",
 				start: "code-review",
 				stages: {
 					"code-review": produces({ outcome: rpivArtifactMdOutcome }),
-					blueprint: produces({ outcome: rpivArtifactMdOutcome }),
+					design: produces({ outcome: rpivArtifactMdOutcome }),
+					plan: produces({ outcome: rpivArtifactMdOutcome }),
 					implement: acts(),
 					validate: produces({ outcome: rpivArtifactMdOutcome }),
 					commit: acts(),
 				},
 				edges: {
-					"code-review": defineRoute(["blueprint", "commit"], () => "blueprint", { readsData: false }),
-					blueprint: "implement",
+					"code-review": defineRoute(["design", "commit"], () => "design", { readsData: false }),
+					design: "plan",
+					plan: "implement",
 					implement: "validate",
 					validate: "code-review",
 					commit: "stop",
@@ -610,15 +618,15 @@ describe("vet workflow", () => {
 
 			expect(result.success).toBe(false);
 			expect(result.error).toMatch(/backward-jump limit exceeded/i);
-			// 13 stages: cr×4 + bp×3 + impl×3 + validate×3. The 4th code-review's
+			// 16 stages: cr×4 + design×3 + plan×3 + impl×3 + validate×3. The 4th code-review's
 			// decision increments backwardJumps to 3 (> maxBackwardJumps=2).
-			expect(result.stagesCompleted).toBe(13);
+			expect(result.stagesCompleted).toBe(16);
 		});
 	});
 });
 
 // ---------------------------------------------------------------------------
-// polish — iterate-driven per-review-phase blueprint + latest-pass implement.
+// polish — iterate-driven per-review-phase design/plan + latest-pass implement.
 // ---------------------------------------------------------------------------
 
 describe("polish workflow", () => {
@@ -635,19 +643,21 @@ describe("polish workflow", () => {
 			).toEqual([]);
 		});
 
-		it("blueprint is an iterate stage and implement is a fanout stage (the two co-exist)", () => {
+		it("design and plan are iterate stages and implement is a fanout stage", () => {
 			const wf = findWorkflow("polish");
-			expect(typeof wf.stages.blueprint?.iterate).toBe("function");
-			expect(wf.stages.blueprint?.kind).toBe("produces");
+			expect(typeof wf.stages.design?.iterate).toBe("function");
+			expect(wf.stages.design?.kind).toBe("produces");
+			expect(typeof wf.stages.plan?.iterate).toBe("function");
+			expect(wf.stages.plan?.kind).toBe("produces");
 			expect(typeof wf.stages.implement?.fanout).toBe("function");
 		});
 
-		it("code-review sources its schema from the contract (no inline outputSchema) and gates to commit | blueprint", () => {
+		it("code-review sources its schema from the contract (no inline outputSchema) and gates to commit | design", () => {
 			const wf = findWorkflow("polish");
 			expect(wf.stages["code-review"]?.outputSchema).toBeUndefined();
 			const edge = wf.edges["code-review"];
 			if (typeof edge !== "function") throw new Error("code-review edge is not an EdgeFn");
-			expect([...(edge.targets ?? [])].sort()).toEqual(["blueprint", "commit"]);
+			expect([...(edge.targets ?? [])].sort()).toEqual(["commit", "design"]);
 		});
 	});
 
@@ -676,8 +686,10 @@ describe("polish workflow", () => {
 		const cr = (blockers: number) => `---\nblockers_count: ${blockers}\n---\n`;
 		const impl = (m: string) => ({ branch: [mockAssistantMessage(m)] });
 
-		it("happy path: one blueprint pass per review phase, each fed the prior plans; implement fans out the plans", async () => {
+		it("happy path: one design pass and one plan pass per review phase; implement fans out the plans", async () => {
 			write(".myflow/artifacts/architecture-reviews/rev.md", review2);
+			write(".myflow/artifacts/designs/design-1.md", "");
+			write(".myflow/artifacts/designs/design-2.md", "");
 			write(".myflow/artifacts/plans/plan-1.md", plan());
 			write(".myflow/artifacts/plans/plan-2.md", plan());
 			write(".myflow/artifacts/validation/val.md", "");
@@ -687,6 +699,8 @@ describe("polish workflow", () => {
 				cwd: tmpDir,
 				steps: [
 					impl("wrote .myflow/artifacts/architecture-reviews/rev.md"),
+					impl("wrote .myflow/artifacts/designs/design-1.md"),
+					impl("wrote .myflow/artifacts/designs/design-2.md"),
 					impl("wrote .myflow/artifacts/plans/plan-1.md"),
 					impl("wrote .myflow/artifacts/plans/plan-2.md"),
 					impl("phase done"),
@@ -703,16 +717,18 @@ describe("polish workflow", () => {
 			});
 
 			expect(result.success).toBe(true);
-			// arch-review + blueprint×2 + implement×2 + validate + code-review + commit
-			expect(result.stagesCompleted).toBe(8);
-			// blueprint pulled one unit per review phase; phase 2 saw phase 1's plan.
+			// arch-review + design×2 + plan×2 + implement×2 + validate + code-review + commit
+			expect(result.stagesCompleted).toBe(10);
+			// design pulled one unit per review phase; phase 2 saw phase 1's design.
 			expect(chain.sentMessages[1]).toBe(
-				"/skill:blueprint .myflow/artifacts/architecture-reviews/rev.md Implement Phase 1: Alpha",
+				"/skill:design .myflow/artifacts/architecture-reviews/rev.md Implement Phase 1: Alpha",
 			);
 			expect(chain.sentMessages[2]).toBe(
-				"/skill:blueprint .myflow/artifacts/architecture-reviews/rev.md Implement Phase 2: Beta\n" +
-					"Prior phase plans (read first; build on them, don't duplicate): .myflow/artifacts/plans/plan-1.md",
+				"/skill:design .myflow/artifacts/architecture-reviews/rev.md Implement Phase 2: Beta\n" +
+					"Prior phase designs (read first; build on them, don't duplicate): .myflow/artifacts/designs/design-1.md",
 			);
+			expect(chain.sentMessages[3]).toBe("/skill:plan .myflow/artifacts/designs/design-1.md");
+			expect(chain.sentMessages[4]).toBe("/skill:plan .myflow/artifacts/designs/design-2.md");
 			// implement fanned out each accumulated plan's `phases:` array, title-enriched.
 			expect(chain.sentMessages.filter((m) => m.startsWith("/skill:implement"))).toEqual([
 				"/skill:implement .myflow/artifacts/plans/plan-1.md Phase 1: do the thing",
@@ -720,8 +736,10 @@ describe("polish workflow", () => {
 			]);
 		});
 
-		it("validate receives EVERY plan from the latest blueprint pass in one /skill:validate call", async () => {
+		it("validate receives EVERY plan from the latest design/plan pass in one /skill:validate call", async () => {
 			write(".myflow/artifacts/architecture-reviews/rev.md", review2);
+			write(".myflow/artifacts/designs/design-1.md", "");
+			write(".myflow/artifacts/designs/design-2.md", "");
 			write(".myflow/artifacts/plans/plan-1.md", plan());
 			write(".myflow/artifacts/plans/plan-2.md", plan());
 			write(".myflow/artifacts/validation/val.md", "");
@@ -731,6 +749,8 @@ describe("polish workflow", () => {
 				cwd: tmpDir,
 				steps: [
 					impl("wrote .myflow/artifacts/architecture-reviews/rev.md"),
+					impl("wrote .myflow/artifacts/designs/design-1.md"),
+					impl("wrote .myflow/artifacts/designs/design-2.md"),
 					impl("wrote .myflow/artifacts/plans/plan-1.md"),
 					impl("wrote .myflow/artifacts/plans/plan-2.md"),
 					impl("phase done"),
@@ -754,8 +774,9 @@ describe("polish workflow", () => {
 			]);
 		});
 
-		it("corrective loop: implement consumes only the LATEST blueprint pass, never re-implementing a stale plan", async () => {
+		it("corrective loop: implement consumes only the LATEST design/plan pass, never re-implementing a stale plan", async () => {
 			write(".myflow/artifacts/architecture-reviews/rev.md", review1);
+			for (const n of [1, 2, 3]) write(`.myflow/artifacts/designs/design-${n}.md`, "");
 			for (const n of [1, 2, 3]) write(`.myflow/artifacts/plans/plan-${n}.md`, plan());
 			for (const n of [1, 2, 3]) write(`.myflow/artifacts/validation/val-${n}.md`, "");
 			for (const n of [1, 2, 3]) write(`.myflow/artifacts/reviews/cr-${n}.md`, cr(1)); // always blockers → loop
@@ -765,21 +786,24 @@ describe("polish workflow", () => {
 				steps: [
 					impl("wrote .myflow/artifacts/architecture-reviews/rev.md"),
 					// pass 0
+					impl("wrote .myflow/artifacts/designs/design-1.md"),
 					impl("wrote .myflow/artifacts/plans/plan-1.md"),
 					impl("phase done"),
 					impl("wrote .myflow/artifacts/validation/val-1.md"),
 					impl("wrote .myflow/artifacts/reviews/cr-1.md"),
 					// pass 1 (backward jump 1)
+					impl("wrote .myflow/artifacts/designs/design-2.md"),
 					impl("wrote .myflow/artifacts/plans/plan-2.md"),
 					impl("phase done"),
 					impl("wrote .myflow/artifacts/validation/val-2.md"),
 					impl("wrote .myflow/artifacts/reviews/cr-2.md"),
 					// pass 2 (backward jump 2)
+					impl("wrote .myflow/artifacts/designs/design-3.md"),
 					impl("wrote .myflow/artifacts/plans/plan-3.md"),
 					impl("phase done"),
 					impl("wrote .myflow/artifacts/validation/val-3.md"),
 					impl("wrote .myflow/artifacts/reviews/cr-3.md"),
-					// 3rd code-review's gate → blueprint = backward jump 3 > 2 → halt
+					// 3rd code-review's gate → design = backward jump 3 > 2 → halt
 				],
 			});
 
@@ -856,7 +880,7 @@ describe("design-to-code example (prompt dispatch)", () => {
 		const tmpDir = mkdtempSync(join(tmpdir(), "myflow-d2c-"));
 		try {
 			// discover's spec must exist on disk (rpivArtifactMdOutcome reads frontmatter).
-			mkdirSync(join(tmpDir, ".rpiv", "artifacts", "research"), { recursive: true });
+			mkdirSync(join(tmpDir, ".myflow", "artifacts", "research"), { recursive: true });
 			writeFileSync(join(tmpDir, ".myflow/artifacts/research/spec.md"), "");
 
 			// Shared mutable branch: discover reads it; each continue send grows it.
@@ -896,24 +920,25 @@ describe("design-to-code example (prompt dispatch)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ship — fast path: blueprint → implement → validate → commit. implement fans
-// out over the plan's structured `phases:` array (derived by blueprint from its
+// ship — fast path: design → plan → implement → validate → commit. implement fans
+// out over the plan's structured `phases:` array (derived by plan from its
 // `## Phase N:` headings, title-enriched and verified against those headings).
 // ---------------------------------------------------------------------------
 
 describe("ship workflow", () => {
-	it("chains blueprint → implement → validate → commit", () => {
+	it("chains design → plan → implement → validate → commit", () => {
 		const wf = findWorkflow("ship");
-		expect(wf.start).toBe("blueprint");
-		expect(Object.keys(wf.stages)).toEqual(["blueprint", "implement", "validate", "commit"]);
-		expect(wf.edges.blueprint).toBe("implement");
+		expect(wf.start).toBe("design");
+		expect(Object.keys(wf.stages)).toEqual(["design", "plan", "implement", "validate", "commit"]);
+		expect(wf.edges.design).toBe("plan");
+		expect(wf.edges.plan).toBe("implement");
 		expect(wf.edges.implement).toBe("validate");
 		expect(wf.edges.validate).toBe("commit");
 		expect(wf.edges.commit).toBe("stop");
 	});
 
-	it("blueprint stage carries no inline outputSchema (phases sourced from the skill contract)", () => {
-		expect(findWorkflow("ship").stages.blueprint?.outputSchema).toBeUndefined();
+	it("plan stage carries no inline outputSchema (phases sourced from the skill contract)", () => {
+		expect(findWorkflow("ship").stages.plan?.outputSchema).toBeUndefined();
 	});
 
 	it("validates without errors or warnings (contracts threaded in)", () => {
@@ -1016,7 +1041,8 @@ describe("ship workflow", () => {
 		};
 		const step = (m: string) => ({ branch: [mockAssistantMessage(m)] });
 
-		it("drives blueprint → implement (fanned from the derived phases) → validate → commit", async () => {
+		it("drives design → plan → implement (fanned from the derived phases) → validate → commit", async () => {
+			write(".myflow/artifacts/designs/design.md", `---\nstatus: ready\n---\n# Design\n`);
 			write(
 				".myflow/artifacts/plans/plan.md",
 				`---\nstatus: ready\nphase_count: 2\nphases:\n  - { n: 1, title: Schema layer }\n  - { n: 2, title: Runtime wiring }\n---\n# Plan\n## Phase 1: Schema layer\n## Phase 2: Runtime wiring\n`,
@@ -1026,7 +1052,8 @@ describe("ship workflow", () => {
 			const chain = createMockSessionChain({
 				cwd: tmpDir,
 				steps: [
-					step("wrote .myflow/artifacts/plans/plan.md"), // blueprint
+					step("wrote .myflow/artifacts/designs/design.md"), // design
+					step("wrote .myflow/artifacts/plans/plan.md"), // plan
 					step("phase done"), // implement — phase 1 unit
 					step("phase done"), // implement — phase 2 unit
 					step("wrote .myflow/artifacts/validation/val.md"), // validate
@@ -1040,8 +1067,8 @@ describe("ship workflow", () => {
 			});
 
 			expect(result.success).toBe(true);
-			// blueprint + implement×2 (one per derived phase) + validate + commit
-			expect(result.stagesCompleted).toBe(5);
+			// design + plan + implement×2 (one per derived phase) + validate + commit
+			expect(result.stagesCompleted).toBe(6);
 			expect(chain.sentMessages.filter((m) => m.startsWith("/skill:implement"))).toEqual([
 				"/skill:implement .myflow/artifacts/plans/plan.md Phase 1: Schema layer",
 				"/skill:implement .myflow/artifacts/plans/plan.md Phase 2: Runtime wiring",
@@ -1136,8 +1163,8 @@ describe("polish — REVIEW_PHASE_ITERATE (frontmatter-driven)", () => {
 	});
 
 	const iterate = () => {
-		const iter = findWorkflow("polish").stages.blueprint?.iterate;
-		if (!iter) throw new Error("polish blueprint stage has no iterate");
+		const iter = findWorkflow("polish").stages.design?.iterate;
+		if (!iter) throw new Error("polish design stage has no iterate");
 		return iter;
 	};
 	const write = (rel: string, body: string) => {
@@ -1172,7 +1199,7 @@ describe("polish — REVIEW_PHASE_ITERATE (frontmatter-driven)", () => {
 		expect(unit3).toBeNull(); // every phase planned → terminate
 	});
 
-	it("reads only the depended-on prior plans; blast_radius/effort tag the label", async () => {
+	it("reads only the depended-on prior designs; blast_radius/effort tag the label", async () => {
 		const rel = ".myflow/artifacts/architecture-reviews/rev.md";
 		write(
 			rel,
@@ -1183,9 +1210,9 @@ describe("polish — REVIEW_PHASE_ITERATE (frontmatter-driven)", () => {
 				`---\n# Arch Review\n\n### Phase 1 — Foundation\nbody\n### Phase 2 — Vocabulary\nbody\n### Phase 3 — Behavioural\nbody\n`,
 		);
 		const { artifact, state } = stateFor(rel);
-		const planOut = (n: number) =>
+		const designOut = (n: number) =>
 			({
-				artifacts: [{ handle: fsHandle(`.myflow/artifacts/plans/plan-${n}.md`) }],
+				artifacts: [{ handle: fsHandle(`.myflow/artifacts/designs/design-${n}.md`) }],
 				data: undefined,
 				kind: "",
 				meta: {},
@@ -1194,11 +1221,11 @@ describe("polish — REVIEW_PHASE_ITERATE (frontmatter-driven)", () => {
 		const u1 = await iterate()({ cwd: tmpDir, artifact, state, accumulated: [], index: 0 });
 		expect(u1?.label).toBe("phase 1/3 — Foundation [S, internal]");
 
-		// Phase 3 depends_on [1] only → reads plan-1, not the accumulated plan-2.
-		const u3 = await iterate()({ cwd: tmpDir, artifact, state, accumulated: [planOut(1), planOut(2)], index: 2 });
+		// Phase 3 depends_on [1] only → reads design-1, not the accumulated design-2.
+		const u3 = await iterate()({ cwd: tmpDir, artifact, state, accumulated: [designOut(1), designOut(2)], index: 2 });
 		expect(u3?.prompt).toBe(
 			`${rel} Implement Phase 3: Behavioural\n` +
-				`Prior phase plans (read first; build on them, don't duplicate): .myflow/artifacts/plans/plan-1.md`,
+				`Prior phase designs (read first; build on them, don't duplicate): .myflow/artifacts/designs/design-1.md`,
 		);
 		expect(u3?.label).toBe("phase 3/3 — Behavioural [L, public-API]");
 	});
@@ -1282,8 +1309,8 @@ describe("control-flow specs are introspectable (presets self-describe)", () => 
 		});
 	});
 
-	it("polish/blueprint reports an iterate spec sourcing architecture-reviews", () => {
-		const bp = shapeOf("polish", "blueprint");
+	it("polish/design reports an iterate spec sourcing architecture-reviews", () => {
+		const bp = shapeOf("polish", "design");
 		expect(bp?.control.mode).toBe("iterate");
 		expect(bp?.control.spec).toMatchObject({
 			kind: "iterate",

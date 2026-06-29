@@ -23,7 +23,7 @@ import { isModuleNotFound } from "./utils.js";
  * `resolveOutcome` once explicit calls are deleted.
  *
  * Convergence invariant: same artifactKind → same bucket. Four skills share
- * `"plans"` (blueprint, plan, revise, create-handoff).
+ * `"plans"` (plan, revise, create-handoff).
  */
 export const BUCKET_BY_KIND: Readonly<Record<string, string>> = {
 	plan: "plans",

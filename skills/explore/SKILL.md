@@ -362,7 +362,7 @@ Solutions document written to:
 
 💬 Follow-up: describe the change in chat to append a timestamped Follow-up section to this artifact. Re-run `/skill:explore` for a fresh artifact.
 
-**Next step:** `/skill:design .myflow/artifacts/solutions/{filename}.md` — turn the chosen option into a design artifact (or `/skill:blueprint .myflow/artifacts/solutions/{filename}.md` for the fast path on smaller tasks).
+**Next step:** `/skill:design .myflow/artifacts/solutions/{filename}.md` — turn the chosen option into a design artifact.
 
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 ```

@@ -71,15 +71,15 @@ describe("describeFlow", () => {
 		stages: {
 			research: produces(),
 			implement: acts({ fanout: fanoutStub, reads: ["plans"] }),
-			blueprint: produces({ iterate: iterateStub }),
+			planner: produces({ iterate: iterateStub }),
 			"code-review": produces(),
 			commit: acts(),
 		},
 		edges: {
 			research: "implement",
-			implement: "blueprint",
-			blueprint: "code-review",
-			"code-review": gate("blockers_count", { blueprint: gt(0), commit: eq(0) }),
+			implement: "planner",
+			planner: "code-review",
+			"code-review": gate("blockers_count", { planner: gt(0), commit: eq(0) }),
 			commit: "stop",
 		},
 	});
@@ -90,13 +90,13 @@ describe("describeFlow", () => {
 	it("reports control-flow mode per stage from attached specs", () => {
 		expect(byStage.research?.control.mode).toBe("single");
 		expect(byStage.implement?.control).toEqual({ mode: "fanout", spec: fanoutStub.spec });
-		expect(byStage.blueprint?.control).toEqual({ mode: "iterate", spec: iterateStub.spec });
+		expect(byStage.planner?.control).toEqual({ mode: "iterate", spec: iterateStub.spec });
 	});
 
 	it("reports edge shape: linear, route (via .targets), terminal", () => {
 		expect(byStage.research?.edge).toEqual({ mode: "linear", targets: ["implement"] });
 		expect(byStage["code-review"]?.edge.mode).toBe("route");
-		expect(byStage["code-review"]?.edge.targets).toEqual(["blueprint", "commit"]);
+		expect(byStage["code-review"]?.edge.targets).toEqual(["planner", "commit"]);
 		expect(byStage.commit?.edge).toEqual({ mode: "terminal" });
 	});
 });

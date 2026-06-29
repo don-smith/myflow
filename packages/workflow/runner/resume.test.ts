@@ -432,15 +432,15 @@ describe("reconstructState", () => {
 		const reviewArt = fakeArtifact("reviews/r1.md");
 		const plan1 = fakeArtifact("plans/p1.md");
 		const plan2 = fakeArtifact("plans/p2.md");
-		// review (produces) -> blueprint (iterate, produces "plans"). Units are decorated rows.
+		// review (produces) -> planner (iterate, produces "plans"). Units are decorated rows.
 		const wf: Workflow = {
 			name: "test-wf",
 			start: "review",
 			stages: {
 				review: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("reviews") },
-				blueprint: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("plans"), iterate: () => null },
+				planner: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("plans"), iterate: () => null },
 			},
-			edges: { review: "blueprint", blueprint: "stop" },
+			edges: { review: "planner", planner: "stop" },
 		} as Workflow;
 
 		writeRunStages([
@@ -454,16 +454,16 @@ describe("reconstructState", () => {
 			},
 			{
 				stageNumber: 2,
-				stage: "blueprint (phase-1)",
-				skill: "blueprint",
+				stage: "planner (phase-1)",
+				skill: "planner",
 				status: "completed",
 				ts: "t2",
 				output: fakeOutput([plan1]),
 			},
 			{
 				stageNumber: 3,
-				stage: "blueprint (phase-2)",
-				skill: "blueprint",
+				stage: "planner (phase-2)",
+				skill: "planner",
 				status: "completed",
 				ts: "t3",
 				output: fakeOutput([plan2]),
@@ -481,9 +481,9 @@ describe("reconstructState", () => {
 		// state.named accumulated both plans under the outcome name.
 		expect(result.state.named.plans?.map((o) => o.artifacts[0])).toEqual([plan1, plan2]);
 		// Parent is visited; decorated keys are not.
-		expect(result.visited).toEqual(new Set(["review", "blueprint"]));
+		expect(result.visited).toEqual(new Set(["review", "planner"]));
 		// iterateProgress: trailing generation's accumulated (both units) + FROZEN entry artifact (the review).
-		const point = result.iterateProgress.get("blueprint")!;
+		const point = result.iterateProgress.get("planner")!;
 		expect(point.entryArtifact).toStrictEqual(reviewArt);
 		expect(point.accumulated.map((o) => o.artifacts[0])).toEqual([plan1, plan2]);
 	});
@@ -491,25 +491,25 @@ describe("reconstructState", () => {
 	it("failed iterate unit is excluded from accumulated (the re-pull point)", () => {
 		const wf: Workflow = {
 			name: "test-wf",
-			start: "blueprint",
+			start: "planner",
 			stages: {
-				blueprint: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("plans"), iterate: () => null },
+				planner: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("plans"), iterate: () => null },
 			},
-			edges: { blueprint: "stop" },
+			edges: { planner: "stop" },
 		} as Workflow;
 		writeRunStages([
 			{
 				stageNumber: 1,
-				stage: "blueprint (phase-1)",
-				skill: "blueprint",
+				stage: "planner (phase-1)",
+				skill: "planner",
 				status: "completed",
 				ts: "t1",
 				output: fakeOutput([fakeArtifact("plans/p1.md")]),
 			},
 			{
 				stageNumber: 2,
-				stage: "blueprint (phase-2)",
-				skill: "blueprint",
+				stage: "planner (phase-2)",
+				skill: "planner",
 				status: "failed",
 				ts: "t2",
 				errMsg: "boom",
@@ -519,22 +519,22 @@ describe("reconstructState", () => {
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.state.stagesCompleted).toBe(1);
-		expect(result.iterateProgress.get("blueprint")!.accumulated).toHaveLength(1);
-		expect(result.visited).toEqual(new Set(["blueprint"]));
+		expect(result.iterateProgress.get("planner")!.accumulated).toHaveLength(1);
+		expect(result.visited).toEqual(new Set(["planner"]));
 	});
 
 	it("corrective loop: a second iterate generation resets accumulated + entry artifact, named keeps both", () => {
 		const reviewArt = fakeArtifact("reviews/r1.md");
-		const codeReviewArt = fakeArtifact("reviews/cr1.md"); // the loop-back artifact that re-enters blueprint
+		const codeReviewArt = fakeArtifact("reviews/cr1.md"); // the loop-back artifact that re-enters planner
 		const wf: Workflow = {
 			name: "test-wf",
 			start: "review",
 			stages: {
 				review: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("reviews") },
-				blueprint: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("plans"), iterate: () => null },
+				planner: { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("plans"), iterate: () => null },
 				"code-review": { kind: "produces", sessionPolicy: "fresh", outcome: makeOutcome("reviews") },
 			},
-			edges: { review: "blueprint", blueprint: "code-review", "code-review": "blueprint" },
+			edges: { review: "planner", planner: "code-review", "code-review": "planner" },
 		} as Workflow;
 		writeRunStages([
 			{
@@ -547,8 +547,8 @@ describe("reconstructState", () => {
 			},
 			{
 				stageNumber: 2,
-				stage: "blueprint (phase-1)",
-				skill: "blueprint",
+				stage: "planner (phase-1)",
+				skill: "planner",
 				status: "completed",
 				ts: "t2",
 				output: fakeOutput([fakeArtifact("plans/g1p1.md")]),
@@ -564,8 +564,8 @@ describe("reconstructState", () => {
 			// gen 2 starts here — non-contiguous with gen 1.
 			{
 				stageNumber: 4,
-				stage: "blueprint (phase-1)",
-				skill: "blueprint",
+				stage: "planner (phase-1)",
+				skill: "planner",
 				status: "completed",
 				ts: "t4",
 				output: fakeOutput([fakeArtifact("plans/g2p1.md")]),
@@ -574,7 +574,7 @@ describe("reconstructState", () => {
 		const result = reconstructState(tmpDir, wf, baseHeader);
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		const point = result.iterateProgress.get("blueprint")!;
+		const point = result.iterateProgress.get("planner")!;
 		// Trailing generation: only gen-2's single unit, entry artifact = the code-review (loop-back primary).
 		expect(point.accumulated).toHaveLength(1);
 		expect(point.entryArtifact).toStrictEqual(codeReviewArt);

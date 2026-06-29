@@ -269,7 +269,7 @@ Done!
 
 **Required workflow skills:**
 - **using-git-worktrees** - Ensures isolated workspace (creates one or verifies existing)
-- **blueprint** - Creates the plan this skill executes
+- **plan** - Creates the plan this skill executes
 - **code-review** - Structured code review that gates the commit
 - **finishing-a-development-branch** - Complete development after all tasks
 

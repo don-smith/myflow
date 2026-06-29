@@ -1,12 +1,12 @@
 // slice-overlap.mjs — deterministic, language-agnostic cross-slice overlap partition
 // for the slice-verifier agent.
 //
-// LLM-invoked at blueprint 6.2 / design per-slice verify, BEFORE dispatching the
+// LLM-invoked at design per-slice verify, BEFORE dispatching the
 // slice-verifier agent:
 //
 //   node "${SKILL_DIR}/../_shared/slice-overlap.mjs" "<artifact_path>" "<slice_id>"
 //
-// where <slice_id> is the orchestrator's vocabulary: "Phase N" (blueprint), "Slice N"
+// where <slice_id> is the orchestrator's vocabulary: "Phase N" (plan), "Slice N"
 // (design), or any "<Keyword> <N>" — the keyword is read from slice_id at runtime, not
 // hardcoded. It partitions the LOCKED PRIOR units (same-keyword numbered headings
 // preceding the current one) into those that OVERLAP the current unit and those that
@@ -83,7 +83,7 @@ function fencesOf(body) {
 	return out;
 }
 
-// Target files of a unit, across artifact conventions: `**File**:` (blueprint, single),
+// Target files of a unit, across artifact conventions: `**File**:` (plan, single),
 // `**Files**:` (design, backticked comma-list), and `#### N. path` change headings.
 function filesOf(body) {
 	const files = new Set();
