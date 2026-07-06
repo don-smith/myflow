@@ -270,7 +270,7 @@ describe("/myflow-models — override checkmarks", () => {
 	it("floats scopes that hold overrides to the top, keeping reset-all last", async () => {
 		rmSync(CONFIG_PATH, { force: true });
 		mkdirSync(dirname(CONFIG_PATH), { recursive: true });
-		writeFileSync(CONFIG_PATH, JSON.stringify({ stages: { plan: "zai/glm-4-7" } }), "utf-8");
+		writeFileSync(CONFIG_PATH, JSON.stringify({ skills: { commit: "zai/glm-4-7" } }), "utf-8");
 
 		vi.mocked(showFilterablePicker).mockResolvedValueOnce(null); // cancel at scope
 		const { pi, handler } = makePi();
@@ -278,7 +278,7 @@ describe("/myflow-models — override checkmarks", () => {
 		await handler()("", makeCtx());
 
 		const scopeListItems = (vi.mocked(showFilterablePicker).mock.calls[0][1] as { items: SelectItem[] }).items;
-		expect(scopeListItems[0].value).toBe("stages"); // overridden scope floated up
+		expect(scopeListItems[0].value).toBe("skills"); // overridden scope floated up
 		expect(scopeListItems[scopeListItems.length - 1].value).toBe("__reset_all__"); // reset stays last
 	});
 
@@ -385,34 +385,6 @@ describe("removeOverride (cascade cleanup)", () => {
 		expect(next.agents).toBeUndefined();
 	});
 
-	it("collapses the whole presets tree when the last stage is removed", () => {
-		const { next, removed } = removeOverride(
-			{ presets: { ship: { stages: { research: "zai/glm-4-7" } } } },
-			"presets",
-			["ship", "research"],
-		);
-		expect(removed).toBe(true);
-		expect(next.presets).toBeUndefined();
-	});
-
-	it("keeps sibling stages/workflows when removing one preset stage", () => {
-		const { next, removed } = removeOverride(
-			{
-				presets: {
-					ship: { stages: { research: "zai/glm-4-7", plan: "anthropic/opus" } },
-					polish: { stages: { review: "zai/glm-4-7" } },
-				},
-			},
-			"presets",
-			["ship", "research"],
-		);
-		expect(removed).toBe(true);
-		expect(next.presets).toEqual({
-			ship: { stages: { plan: "anthropic/opus" } },
-			polish: { stages: { review: "zai/glm-4-7" } },
-		});
-	});
-
 	it("removes a defaults override", () => {
 		const { next, removed } = removeOverride({ defaults: "zai/glm-4-7" }, "defaults", []);
 		expect(removed).toBe(true);
@@ -426,14 +398,7 @@ describe("removeOverride (cascade cleanup)", () => {
 		expect(next).toEqual(config);
 	});
 
-	it("reports removed=false for an absent preset stage", () => {
-		const config = { presets: { ship: { stages: { research: "zai/glm-4-7" } } } };
-		expect(removeOverride(config, "presets", ["ship", "plan"]).removed).toBe(false);
-		expect(removeOverride(config, "presets", ["polish", "review"]).removed).toBe(false);
-	});
-});
-
-describe("/myflow-models — global reset", () => {
+	describe("/myflow-models — global reset", () => {
 	it("clears entire config when reset-all scope is chosen and confirmed", async () => {
 		rmSync(CONFIG_PATH, { force: true });
 		mkdirSync(dirname(CONFIG_PATH), { recursive: true });
@@ -531,28 +496,6 @@ describe("applyOverride", () => {
 		expect(result.agents).toEqual({ existing: "openai/gpt-5.5", commit: "zai/glm-4-7" });
 	});
 
-	it("adds a stage entry with thinking as an object", () => {
-		const result = applyOverride({}, "stages", ["plan"], { model: "openai/gpt-5.5", thinking: "off" });
-		expect(result.stages).toEqual({ plan: { model: "openai/gpt-5.5", thinking: "off" } });
-	});
-
-	it("adds a preset stage to a new workflow", () => {
-		const result = applyOverride({}, "presets", ["ship", "research"], { model: "zai/glm-4-7" });
-		expect(result.presets).toEqual({ ship: { stages: { research: "zai/glm-4-7" } } });
-	});
-
-	it("adds a preset stage to an existing workflow", () => {
-		const result = applyOverride(
-			{ presets: { ship: { stages: { research: "zai/glm-4-7" } } } },
-			"presets",
-			["ship", "plan"],
-			{ model: "openai/gpt-5.5", thinking: "medium" },
-		);
-		expect(result.presets).toEqual({
-			ship: { stages: { research: "zai/glm-4-7", plan: { model: "openai/gpt-5.5", thinking: "medium" } } },
-		});
-	});
-
 	it("returns config unchanged for an unknown scope", () => {
 		const config = { defaults: "zai/glm-4-7" };
 		const result = applyOverride(config, "unknown", ["key"], { model: "openai/gpt-5.5" });
@@ -560,47 +503,6 @@ describe("applyOverride", () => {
 	});
 });
 
-describe("/myflow-models — loadWorkflowMap error handling", () => {
-	it("notifies error when loadWorkflowMap throws for stages scope", async () => {
-		const sources = await import("./models-config-sources.js");
-		vi.spyOn(sources, "loadWorkflowMap").mockRejectedValueOnce(new Error("load failed"));
-		vi.mocked(showFilterablePicker).mockResolvedValueOnce("stages");
-		const { pi, handler } = makePi();
-		registerRpivModelsCommand(pi);
-		const ctx = makeCtx();
-		await handler()("", ctx);
-		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("No workflows"), "error");
-	});
-
-	it("notifies error when loadWorkflowMap throws for presets scope", async () => {
-		const sources = await import("./models-config-sources.js");
-		vi.spyOn(sources, "loadWorkflowMap").mockRejectedValueOnce(new Error("load failed"));
-		vi.mocked(showFilterablePicker).mockResolvedValueOnce("presets");
-		const { pi, handler } = makePi();
-		registerRpivModelsCommand(pi);
-		const ctx = makeCtx();
-		await handler()("", ctx);
-		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("No workflows"), "error");
-	});
-
-	it("exits cleanly when the presets STAGE step's loadWorkflowMap rejects (second call)", async () => {
-		rmSync(CONFIG_PATH, { force: true });
-		const sources = await import("./models-config-sources.js");
-		// Workflow step succeeds; the stage step's second load rejects (e.g. the
-		// workflow was deleted between picks).
-		vi.spyOn(sources, "loadWorkflowMap")
-			.mockResolvedValueOnce({ ship: ["plan", "build"] })
-			.mockRejectedValueOnce(new Error("load failed"));
-		vi.mocked(showFilterablePicker).mockResolvedValueOnce("presets").mockResolvedValueOnce("ship"); // workflow picked; stage step then aborts before its picker
-		const { pi, handler } = makePi();
-		registerRpivModelsCommand(pi);
-		const ctx = makeCtx();
-		await handler()("", ctx);
-
-		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("No workflows"), "error");
-		expect(existsSync(CONFIG_PATH)).toBe(false); // aborted before any write
-	});
-});
 
 describe("/myflow-models — ESC navigates one level up", () => {
 	it("ESC at the model picker returns to the scope picker (re-shown, preselecting the prior scope)", async () => {
@@ -646,33 +548,6 @@ describe("/myflow-models — ESC navigates one level up", () => {
 		expect(stored.defaults).toBe("zai/glm-4-7"); // the re-picked model won
 	});
 
-	it("ESC at the model picker for presets returns to the STAGE picker (one level), not the workflow", async () => {
-		rmSync(CONFIG_PATH, { force: true });
-		const sources = await import("./models-config-sources.js");
-		vi.spyOn(sources, "loadWorkflowMap").mockResolvedValue({ ship: ["plan", "build"] });
-
-		// presets → ship → plan → ESC at model (back to STAGE) → build → model → save.
-		vi.mocked(showFilterablePicker)
-			.mockResolvedValueOnce("presets")
-			.mockResolvedValueOnce("ship") // workflow
-			.mockResolvedValueOnce("plan") // stage
-			.mockResolvedValueOnce(null) // ESC at model → back to stage (NOT workflow)
-			.mockResolvedValueOnce("build") // re-pick stage
-			.mockResolvedValueOnce("zai/glm-4-7"); // model (non-reasoning) → commit
-		const { pi, handler } = makePi();
-		registerRpivModelsCommand(pi);
-		await handler()("", makeCtx());
-
-		const calls = vi.mocked(showFilterablePicker).mock.calls;
-		// calls: [0]scope [1]workflow [2]stage [3]model [4]stage-again [5]model-again.
-		const reshownStage = calls[4][1] as { title: string; preferredValue?: string };
-		expect(reshownStage.title).toContain("Stage"); // landed on the stage picker, not workflow
-		expect(reshownStage.preferredValue).toBe("plan"); // preselects the stage we backed out of
-
-		const stored = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
-		expect(stored.presets.ship.stages.build).toBe("zai/glm-4-7");
-		expect(stored.presets.ship.stages.plan).toBeUndefined(); // only one level up — workflow kept
-	});
 
 	it("ESC at the first key step returns to the scope picker, where a different scope proceeds", async () => {
 		rmSync(CONFIG_PATH, { force: true });

@@ -1,28 +1,17 @@
 /**
- * model-override — Stage-level model/effort override via workflow lifecycle.
+ * model-override — Session-start model capture and standalone skill-bracket support.
  *
- * Registers a lifecycle listener that resolves per-stage model/effort overrides
- * from models.json and applies setModel/setThinkingLevel before each stage.
- * Baseline { model, thinking } is snapshotted at onWorkflowStart and restored
- * at onWorkflowEnd. Restoring the model is MANDATORY: setModel persists to the
- * on-disk settings file (runtime-traced), so an unrestored override permanently
- * rewrites the user's global default model.
+ * Captures modelRegistry + current model at session_start for use by the
+ * skill-bracket (standalone `/skill:<name>` model override).
  *
- * Uses pi (ExtensionAPI) from closure — not WorkflowHostContext/WorkflowHost —
- * because pi persists across session replacements and is never invalidated.
- *
- * Both modelRegistry AND the current model are captured from session_start's
- * ExtensionContext (which exposes them) and stored in module scope, because
- * LifecycleContext (received by lifecycle listeners) exposes neither.
- *
- * Dynamic import of workflow with isModuleNotFound guard — graceful
- * degradation when the sibling is not installed.
+ * Workflow lifecycle model override has been removed (Stage 3 refresh).
+ * Only the session_start capture and the shared apply/restore helpers remain.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { parseModelKey } from "@myflow/config";
-import { loadModelsConfig, type ModelThinkingLevelValue, resolveStageModel } from "./models-config.js";
-import { isModuleNotFound, isStaleCtxError } from "./utils.js";
+import { type ModelThinkingLevelValue } from "./models-config.js";
+import { isStaleCtxError } from "./utils.js";
 
 /** First parameter type of pi.setModel() — avoids importing Pi's Model<Api> generic. */
 export type CapturedModel = Parameters<ExtensionAPI["setModel"]>[0];
@@ -46,7 +35,7 @@ export interface BaselineSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// Module-level state — captured from session_start, used by lifecycle listeners.
+// Module-level state — captured from session_start, used by skill bracket.
 // Reset by __resetModelOverrideState() in test/setup.ts.
 // ---------------------------------------------------------------------------
 
@@ -54,10 +43,7 @@ export interface BaselineSnapshot {
 let capturedModelRegistry: { find(provider: string, modelId: string): unknown } | undefined;
 
 /**
- * Current model captured from session_start ExtensionContext.model. Refreshed
- * only while NO workflow is active (!baselineCaptured) so a stage's own
- * newSession (which may re-fire session_start with the override model) can't
- * pollute the baseline we restore at workflow end.
+ * Current model captured from session_start ExtensionContext.model.
  */
 let capturedModel: CapturedModel | undefined;
 
@@ -74,8 +60,6 @@ let baselineCaptured = false;
 export function __resetModelOverrideState(): void {
 	capturedModelRegistry = undefined;
 	capturedModel = undefined;
-	baseline = undefined;
-	baselineCaptured = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,11 +75,7 @@ export function registerModelOverrideSessionStart(pi: ExtensionAPI): void {
 			if (ctx.modelRegistry) {
 				capturedModelRegistry = ctx.modelRegistry;
 			}
-			// ExtensionContext.model is the current model (LifecycleContext lacks it).
-			// Only capture while no workflow is active — a stage's newSession can
-			// re-fire session_start with the override model, which must NOT become
-			// the restore baseline.
-			if (!baselineCaptured && ctx.model !== undefined) {
+			if (ctx.model !== undefined) {
 				capturedModel = ctx.model;
 			}
 		},
@@ -114,10 +94,7 @@ export function resolveModel(modelStr?: string): CapturedModel | undefined {
 	return capturedModelRegistry.find(parsed.provider, parsed.modelId) as CapturedModel | undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Lifecycle registration — registers onWorkflowStart/onStageStart/onWorkflowEnd.
-// Dynamic import of workflow with isModuleNotFound guard.
-// ---------------------------------------------------------------------------
+
 
 /**
  * Run pi model/thinking mutations, swallowing ONLY the stale-ctx error pi-core
@@ -153,7 +130,7 @@ interface ApplyEffectiveModelOpts {
 	label: string;
 	/**
 	 * When true (workflow path): on override-miss, re-apply baseline model via setModel
-	 * to enforce the D7 no-bleedthrough invariant (unconfigured stages revert to baseline,
+	 * to enforce the no-bleedthrough invariant (unconfigured items revert to baseline,
 	 * not the previous stage's override). When false (bracket path): on override-miss,
 	 * skip setModel entirely (one-shot arm, nothing to undo).
 	 */
@@ -227,102 +204,7 @@ export async function restoreBaseline(pi: ExtensionAPI, base: BaselineSnapshot):
 	pi.setThinkingLevel(base.thinking);
 }
 
-/**
- * Register the stage model override lifecycle listener with workflow.
- * Call from index.ts with pi — NOT from registerBuiltInWorkflows.
- */
-export async function registerModelOverrideLifecycle(pi: ExtensionAPI): Promise<void> {
-	try {
-		// Thin `/startup` entry (~8ms) — keeps the loader/DSL/runner off startup.
-		const { registerLifecycle } = await import("@myflow/workflow/startup");
-
-		registerLifecycle({
-			onWorkflowStart: async () => {
-				// Snapshot baseline thinking + model. LifecycleContext lacks
-				// ctx.model, so model comes from capturedModel (set by the
-				// session_start handler while no workflow was active).
-				// getThinkingLevel reads the captured pi, which can be stale if the
-				// session was already replaced — bail quietly if so, leaving
-				// baselineCaptured false so later stages early-return.
-				await applyOrSkipIfStale(() => {
-					baseline = {
-						thinking: pi.getThinkingLevel() as ModelThinkingLevelValue,
-						model: capturedModel,
-						hasModelChange: false,
-					};
-					baselineCaptured = true; // freezes capturedModel until onWorkflowEnd
-				});
-			},
-
-			onStageStart: async (stage: { name: string; skill?: string }, ctx: { workflow: string }) => {
-				// Parameter shape mirrors workflow's lifecycle:
-				//   - StageRef ("skill"|"script" arm) carries `name` (workflow graph key)
-				//     and (on the "skill" arm) `skill` (post-alias target, see
-				//     `load/alias.ts:44-46`).
-				//   - LifecycleContext carries `workflow` (the active workflow's name,
-				//     fed in by `defineWorkflow({ name })` or built-in registration).
-				// `stage.skill` is `undefined` for script stages — `resolveStageModel`
-				// handles that by skipping the skills cascade rung.
-				if (!baselineCaptured || !baseline) return;
-
-				const config = loadModelsConfig();
-				const override = resolveStageModel(config, {
-					workflow: ctx.workflow,
-					stage: stage.name,
-					skill: stage.skill,
-				});
-
-				// Apply effective model + thinking via the shared helper.
-				// setBaselineModel=true enforces the D7 no-bleedthrough invariant:
-				// unconfigured stages revert to baseline, not the previous stage's override.
-				await applyOrSkipIfStale(async () => {
-					const { hasModelChange } = await applyEffectiveModel(pi, {
-						overrideModel: override?.model,
-						baselineModel: baseline!.model,
-						overrideThinking: override?.thinking,
-						baselineThinking: baseline!.thinking,
-						label: `stage "${stage.name}"`,
-						setBaselineModel: true,
-					});
-					baseline!.hasModelChange = hasModelChange;
-				});
-			},
-
-			onWorkflowEnd: async () => {
-				if (!baselineCaptured || !baseline) return;
-				const base = baseline;
-				// Reset state BEFORE attempting restore so a GENUINE (non-stale)
-				// throw from restoreBaseline can't leave baselineCaptured=true and
-				// poison every future workflow (each onStageStart would think a
-				// workflow is active; the skill-bracket would defer forever). The
-				// stale-ctx case is swallowed by applyOrSkipIfStale either way.
-				// Mirrors skill-bracket.ts agent_end's clear-before-restore.
-				baseline = undefined;
-				baselineCaptured = false;
-
-				// Restore baseline model + thinking. restoreBaseline skips setModel
-				// when hasModelChange=false (thinking-only overrides), avoiding an
-				// unnecessary disk write. setModel persists to disk, so restoring is
-				// MANDATORY when a model change was applied. If the session was
-				// replaced mid-run pi is stale and this throws — swallow it.
-				await applyOrSkipIfStale(() => restoreBaseline(pi, base));
-			},
-		});
-	} catch (err) {
-		if (isModuleNotFound(err)) return; // sibling absent — /myflow-setup guides the user
-		throw err;
-	}
-}
-
 /** Return the captured baseline model from session_start, used by the standalone-skill bracket. */
 export function getCapturedModel(): CapturedModel | undefined {
 	return capturedModel;
-}
-
-/**
- * Return true if a workflow has armed its baseline. The skill-bracket reads
- * this to defer when the workflow path owns restore (Decision 5).
- */
-export function isWorkflowBaselineCaptured(): boolean {
-	return baselineCaptured;
 }

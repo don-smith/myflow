@@ -102,16 +102,18 @@ Ground intent in codebase reality. Design the solution. Stress-test the architec
 
 Execute the plan. Write the code.
 
-**Skills:**
-- `implement` — primary executor. Fans out plan phases, gates each on success criteria
-- `test-driven-development` — red/green TDD within each phase
-- `subagent-driven-development` — fresh subagent per phase task, two-stage review
-- `dispatching-parallel-agents` — for independent phase tasks
-- `verification-before-completion` (myflow) — no success claim without fresh evidence
+**Primary skill:**
+- `implement` — Stage 3 executor. Reads a plan artifact, implements phases, uses TDD/subagents/parallel dispatch as tactics, gates completion on success criteria, and updates automated verification checkboxes.
 
-**Inner loop:** `implement` is the primary. TDD, subagents, and parallel dispatch are strategies used _inside_ each phase — not replacements for `implement`.
+**Supporting tactics, used inside `implement`:**
+- `test-driven-development` — red/green TDD within each phase.
+- MyFlow implementation subagents — `implement` may dispatch scoped `implementation-coder` agents when isolated context helps.
+- `dispatching-parallel-agents` — independent investigations or non-overlapping tasks only; never racing edits on shared files.
+- `verification-before-completion` — no success claim without fresh evidence.
 
-**Artifact:** Working tree changes.
+**Inner loop:** `implement` owns Stage 3. Supporting tactics are implementation strategies inside a phase, not replacement entry points.
+
+**Artifact:** Working tree changes plus plan updates: checked automated verification items and per-phase `Implementation Status` notes for restartability.
 
 **Cross-cutting:** `epiphany-tabling` active. Stage artifacts carry routine state; use `create-handoff` / `resume-handoff` only for unusual mid-stage pauses.
 
@@ -120,8 +122,6 @@ Execute the plan. Write the code.
 |---|---|
 | Execute the plan | `/skill:implement <plan> [Phase N]` |
 | Run TDD discipline | `test-driven-development` |
-| Dispatch subagents | `subagent-driven-development` |
-| Parallel independent tasks | `dispatching-parallel-agents` |
 | Save mid-work state | `/skill:create-handoff` |
 | Resume saved state | `/skill:resume-handoff <handoff-path>` |
 
@@ -255,7 +255,7 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 |---|---|---|
 | 1. Discover & Align | `start` | Alignment (`.myflow/artifacts/alignment/`) |
 | 2. Research & Design | `research`, `design`, `plan` | Plan (`.myflow/artifacts/plans/`) |
-| 3. Implement | `implement` + TDD, subagents | Working tree changes |
+| 3. Implement | `implement` + TDD, implementation subagents | Working tree changes + plan verification checkboxes |
 | 4. Validate & Review | `validate`, `manual-verification`, `code-review`, `revise` | Validation + Manual Verification + Review |
 | 5. Land & Learn | `land` (→ commit, as-built, retro...) | Configured repo docs + personal repo retros/memory |
 
@@ -270,7 +270,6 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 | Compare options explicitly | `/skill:explore "..."` |
 | Design then plan | `/skill:design <research>` → `/skill:plan <design>` |
 | Execute the plan | `/skill:implement <plan> [Phase N]` |
-| Execute with subagents | `subagent-driven-development` |
 | Run TDD | `test-driven-development` |
 | Verify implementation | `/skill:validate <plan>` |
 | Verify external deps manually | `manual-verification` |

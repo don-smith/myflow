@@ -3,16 +3,6 @@ name: discover
 description: Interview the developer one question at a time to extract feature intent and requirements, then synthesize into a Feature Requirements Document at .myflow/artifacts/discover/. In MyFlow Stage 1, prefer `start` as the canonical entry point; use `discover` explicitly when deeper requirements extraction is warranted. The FRD's Decisions block is consumed by `research` and propagates through Developer Context into `design`.
 argument-hint: "[free-text feature description | existing artifact path]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: frd
-    data:
-      type: object
-      properties:
-        status:
-          enum: [in-progress, in-review, ready]
 ---
 
 # Discover

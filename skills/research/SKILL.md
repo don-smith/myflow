@@ -3,19 +3,6 @@ name: research
 description: Answer structured research questions about a codebase using targeted parallel analysis agents, then synthesize findings into a research document in .myflow/artifacts/research/. Internally dispatches the scope-tracer agent to formulate trace-quality research questions, then answers them. Use when the user wants in-depth research on a codebase area, asks to "research X", or needs answers to architecture or behavior questions before designing changes.
 argument-hint: "[free-text research prompt]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: research
-    data:
-      type: object
-      properties:
-        status:
-          enum: [in-progress, in-review, ready]
-  consumes:
-    meta:
-      artifactKind: [frd]
 ---
 
 # Research

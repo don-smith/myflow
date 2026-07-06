@@ -3,25 +3,6 @@ name: explore
 description: Analyze solution options for a feature or change, comparing approaches with pros, cons, trade-offs, and a recommended path. In MyFlow Stage 1, prefer `start` as the canonical entry point; use `explore` explicitly when multiple viable solution paths need comparison. Produces solutions documents in .myflow/artifacts/solutions/, which can feed the design skill.
 argument-hint: "[feature/change description]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: solutions
-    data:
-      type: object
-      properties:
-        verdict:
-          enum: [pass, fail, needs_input]
-        status:
-          enum: [in-progress, ready]
-        confidence:
-          enum: [high, medium, low]
-        complexity:
-          enum: [low, medium, high]
-  consumes:
-    meta:
-      artifactKind: [research]
 ---
 
 # Explore

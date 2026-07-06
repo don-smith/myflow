@@ -17,7 +17,6 @@ import {
 	removeOverride,
 	SCOPE_AGENTS,
 	SCOPE_SKILLS,
-	SCOPE_STAGES,
 	SCOPES,
 	withCheck,
 } from "./overrides.js";
@@ -60,7 +59,7 @@ describe("overrides — scope descriptors", () => {
 		expect(d.getCurrentKey({} as ModelsConfigSchema, [])).toBeUndefined();
 	});
 
-	it.each([SCOPE_AGENTS, SCOPE_STAGES, SCOPE_SKILLS])("flat-map scope %s: has/keyHas/getCurrentKey", (scope) => {
+	it.each([SCOPE_AGENTS, SCOPE_SKILLS])("flat-map scope %s: has/keyHas/getCurrentKey", (scope) => {
 		const s = SCOPES[scope];
 		const raw = { [scope]: { foo: "a/b", bar: { model: "c/d" } } } as unknown as ModelsConfigSchema;
 		expect(s.hasOverride(raw)).toBe(true);
@@ -73,18 +72,7 @@ describe("overrides — scope descriptors", () => {
 		expect(s.getCurrentKey({} as ModelsConfigSchema, ["foo"])).toBeUndefined();
 	});
 
-	it("presets: workflow-level and stage-level checks", () => {
-		const p = SCOPES.presets;
-		const raw = { presets: { ship: { stages: { plan: "a/b" } } } } as unknown as ModelsConfigSchema;
-		expect(p.hasOverride(raw)).toBe(true);
-		expect(p.hasOverride({ presets: {} } as ModelsConfigSchema)).toBe(false);
-		expect(p.keyHasOverride(raw, ["ship"])).toBe(true);
-		expect(p.keyHasOverride(raw, ["other"])).toBe(false);
-		expect(p.keyHasOverride(raw, ["ship", "plan"])).toBe(true);
-		expect(p.keyHasOverride(raw, ["ship", "build"])).toBe(false);
-		expect(p.getCurrentKey(raw, ["ship", "plan"])).toBe("a/b");
-		expect(p.getCurrentKey(raw, ["ship", "missing"])).toBeUndefined();
-	});
+
 });
 
 describe("overrides — module-level convenience guards", () => {
@@ -102,7 +90,7 @@ describe("items — builders", () => {
 		const byValue = Object.fromEntries(items.map((i) => [i.value, i.label]));
 		expect(byValue.defaults).toBe(`defaults${CHECK}`);
 		expect(byValue.agents).toBe(`agents${CHECK}`);
-		expect(byValue.stages).toBe("stages");
+
 		expect(byValue.__reset_all__).toBe("reset all overrides");
 	});
 

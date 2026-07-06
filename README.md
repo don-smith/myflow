@@ -2,7 +2,7 @@
 
 **myflow** is a single 5-stage pipeline for AI-assisted software development — from discovery through landing. Every stage produces a clear state artifact, so you always know what's next. No modes, no choices between systems, no ambiguity.
 
-myflow draws skills from **[Superpowers](https://github.com/obra/superpowers)** (brainstorming, TDD, subagents) and **[RPIV](https://www.npmjs.com/package/@juicesharp/rpiv-pi)** (discover, blueprint, implement, validate, review), plus its own closeout and cross-cutting practices. But from the developer's perspective, there is one workflow with one name.
+myflow draws selected practices from upstream projects (brainstorming, TDD, validation/review patterns) plus its own artifact-led pipeline, closeout, and cross-cutting practices. From the developer's perspective, there is one workflow with one name.
 
 ## Installation
 
@@ -36,8 +36,8 @@ myflow is a single pipeline that adapts to work size. No modes to choose from �
 | Stage | What happens | Key skills |
 |---|---|---|
 | 1. **Discover & Align** | Shape the work, classify risk, capture acceptance criteria | `start` |
-| 2. **Research & Design** | Ground in code, design the solution | `research`, `design`, `architecture-review`, `blueprint`/`plan` |
-| 3. **Implement** | Execute the plan, write the code | `implement` + TDD, subagents, `verification-before-completion` |
+| 2. **Research & Design** | Ground in code, design the solution | `research`, `design`, `architecture-review`, `plan` |
+| 3. **Implement** | Execute the plan, write the code | `implement` + TDD, implementation subagents, `verification-before-completion` |
 | 4. **Validate & Review** | Verify the work, gate the commit | `validate`, `code-review`, `receiving-code-review`, `revise` |
 | 5. **Land & Learn** | Close the cycle, document, reflect | `land` (→ commit, as-built, retro, memory reconcile) |
 

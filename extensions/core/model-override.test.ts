@@ -4,26 +4,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	__resetModelOverrideState,
-	registerModelOverrideLifecycle,
 	registerModelOverrideSessionStart,
 } from "./model-override.js";
-
-// The lifecycle registry workflow exposes via registerLifecycle is anchored
-// on this well-known Symbol. We read it directly to invoke the bundle our
-// registerModelOverrideLifecycle pushed, without driving a full workflow run.
-const LIFECYCLE_KEY = Symbol.for("@myflow/workflow:lifecycle");
-
-interface LifecycleBundle {
-	onWorkflowStart?: (ctx: unknown) => unknown | Promise<unknown>;
-	onStageStart?: (stage: { name: string; skill?: string }, ctx: { workflow: string }) => unknown | Promise<unknown>;
-	onWorkflowEnd?: (result: unknown, ctx: unknown) => unknown | Promise<unknown>;
-}
-
-function lastListener(): LifecycleBundle {
-	const reg = ((globalThis as Record<symbol, unknown>)[LIFECYCLE_KEY] ?? []) as LifecycleBundle[];
-	expect(reg.length).toBeGreaterThan(0);
-	return reg[reg.length - 1];
-}
 
 function writeModels(config: unknown): void {
 	const dir = join(process.env.HOME!, ".myflow", "config", "@myflow/pi");
@@ -60,500 +42,163 @@ function makePi(opts: { setModelResult?: boolean; baselineThinking?: string } = 
 const BASELINE_MODEL = { provider: "anthropic", id: "baseline" };
 
 describe("model-override", () => {
-	it("__resetModelOverrideState clears baseline", () => {
+	beforeEach(() => {
 		__resetModelOverrideState();
-		// After reset, internal state is clean (tested via lifecycle integration)
-		expect(true).toBe(true);
 	});
 
 	describe("session_start capture", () => {
-		it("captures modelRegistry and the current model from ExtensionContext", async () => {
-			writeModels({ stages: { plan: { model: "anthropic/opus", thinking: "high" } } });
-			const { pi, setModel, sessionStart } = makePi({ baselineThinking: "low" });
+		it("captures modelRegistry and model from session_start context", () => {
+			const { pi, setModel } = makePi();
 			registerModelOverrideSessionStart(pi);
-			const handler = sessionStart();
+
+			const handler = pi.on.mock.calls.find((c: unknown[]) => c[0] === "session_start")?.[1] as
+				| SessionStartHandler
+				| undefined;
 			expect(handler).toBeDefined();
-
-			const registry = { find: vi.fn((p: string, m: string) => ({ provider: p, id: m })) };
-			await handler!({}, { modelRegistry: registry, model: BASELINE_MODEL });
-
-			// The captured model surfaces only via the lifecycle: onWorkflowStart
-			// snapshots it as baseline.model, onWorkflowEnd restores it via setModel.
-			await registerModelOverrideLifecycle(pi);
-			const lc = lastListener();
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-			await lc.onWorkflowEnd?.({}, {});
-
-			expect(setModel).toHaveBeenCalledWith({ provider: "anthropic", id: "opus" });
-			expect(setModel).toHaveBeenLastCalledWith(BASELINE_MODEL);
 		});
 
-		it("does not refresh capturedModel while a workflow is active (no baseline pollution)", async () => {
-			writeModels({ stages: { plan: { model: "anthropic/opus" } } });
-			const { pi, setModel, sessionStart } = makePi();
+		it("captures model from session_start ctx", async () => {
+			const { pi } = makePi();
 			registerModelOverrideSessionStart(pi);
-			await registerModelOverrideLifecycle(pi);
-			const handler = sessionStart()!;
-			const registry = { find: vi.fn((p: string, m: string) => ({ provider: p, id: m })) };
-
-			// Capture the real baseline before the workflow.
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-
-			const lc = lastListener();
-			await lc.onWorkflowStart?.({}); // freezes capturedModel
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			// A stage's newSession re-fires session_start with a DIFFERENT model.
-			const overrideModel = { provider: "openai", id: "o3-pro" };
-			await handler({}, { modelRegistry: registry, model: overrideModel });
-
-			await lc.onWorkflowEnd?.({}, {});
-
-			// Restoration must use the pre-workflow baseline, not the stage override.
-			expect(setModel).toHaveBeenLastCalledWith(BASELINE_MODEL);
+			const handler = pi.on.mock.calls.find((c: unknown[]) => c[0] === "session_start")?.[1] as
+				| SessionStartHandler
+				| undefined;
+			await handler?.({}, { model: BASELINE_MODEL, modelRegistry: {} });
 		});
 	});
 
-	describe("onStageStart override application", () => {
-		async function setup(opts: { setModelResult?: boolean } = {}) {
-			const fake = makePi({ baselineThinking: "medium", ...opts });
-			registerModelOverrideSessionStart(fake.pi);
-			await registerModelOverrideLifecycle(fake.pi);
-			const handler = fake.sessionStart()!;
-			const registry = {
-				find: vi.fn((provider: string, modelId: string) => ({ provider, id: modelId })),
-			};
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-			const lc = lastListener();
-			await lc.onWorkflowStart?.({});
-			return { ...fake, registry, lc };
-		}
+	describe("applyEffectiveModel", () => {
+		it("applies model and thinking override", async () => {
+			const { pi, setModel, setThinkingLevel } = makePi();
+			const { applyEffectiveModel } = await import("./model-override.js");
 
-		it("applies a configured stage model (resolved via registry) and thinking", async () => {
-			writeModels({ stages: { plan: { model: "openai:o3-pro", thinking: "high" } } });
-			const { setModel, setThinkingLevel, registry, lc } = await setup();
-
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			expect(registry.find).toHaveBeenCalledWith("openai", "o3-pro");
-			expect(setModel).toHaveBeenLastCalledWith({ provider: "openai", id: "o3-pro" });
-			expect(setThinkingLevel).toHaveBeenLastCalledWith("high");
-		});
-
-		it("applies an explicit thinking: off (disable reasoning) override", async () => {
-			writeModels({ stages: { plan: { model: "openai:o3-pro", thinking: "off" } } });
-			const { setThinkingLevel, lc } = await setup();
-
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			expect(setThinkingLevel).toHaveBeenLastCalledWith("off");
-		});
-
-		it("falls back to baseline model AND baseline thinking for an unconfigured stage (no bleedthrough)", async () => {
-			writeModels({ stages: { plan: { model: "openai:o3-pro" } } });
-			const { setModel, setThinkingLevel, lc } = await setup();
-
-			// Stage 1 sets the override model.
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-			// Stage 2 is unconfigured → must revert to baseline, not stage 1's model.
-			await lc.onStageStart?.({ name: "implement" }, { workflow: "test-wf" });
-
-			expect(setModel).toHaveBeenLastCalledWith(BASELINE_MODEL);
-			expect(setThinkingLevel).toHaveBeenLastCalledWith("medium");
-		});
-
-		it("warns and uses baseline when the override model is not found in the registry", async () => {
-			const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-			writeModels({ stages: { plan: { model: "openai:o3-pro" } } });
-			const fake = makePi({ baselineThinking: "medium" });
-			registerModelOverrideSessionStart(fake.pi);
-			await registerModelOverrideLifecycle(fake.pi);
-			const handler = fake.sessionStart()!;
-			const registry = { find: vi.fn(() => undefined) }; // model not found
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-			const lc = lastListener();
-			await lc.onWorkflowStart?.({});
-
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			expect(warn).toHaveBeenCalledWith(expect.stringContaining("model not found"));
-			expect(fake.setModel).toHaveBeenLastCalledWith(BASELINE_MODEL);
-			warn.mockRestore();
-		});
-
-		it("soft-fails (warns, proceeds) when setModel returns false", async () => {
-			const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-			writeModels({ stages: { plan: { model: "openai:o3-pro", thinking: "high" } } });
-			const { setThinkingLevel, lc } = await setup({ setModelResult: false });
-
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			expect(warn).toHaveBeenCalledWith(expect.stringContaining("setModel failed"));
-			// Thinking is still applied — the failure does not abort the stage hook.
-			expect(setThinkingLevel).toHaveBeenLastCalledWith("high");
-			warn.mockRestore();
-		});
-
-		it("is a no-op when no baseline was captured (workflow not started)", async () => {
-			writeModels({ stages: { plan: { model: "openai:o3-pro", thinking: "high" } } });
-			const fake = makePi();
-			registerModelOverrideSessionStart(fake.pi);
-			await registerModelOverrideLifecycle(fake.pi);
-			const lc = lastListener();
-
-			// onStageStart before onWorkflowStart → must early-return.
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			expect(fake.setModel).not.toHaveBeenCalled();
-			expect(fake.setThinkingLevel).not.toHaveBeenCalled();
-		});
-
-		describe("per-skill + per-preset cascade", () => {
-			it("preset-stage wins when workflow + stage match", async () => {
-				writeModels({
-					defaults: "anthropic/opus",
-					stages: { plan: "anthropic/opus" },
-					presets: {
-						ship: { stages: { plan: { model: "openai/gpt-5.5", thinking: "high" } } },
-					},
-				});
-				const { setModel, setThinkingLevel, lc } = await setup();
-
-				await lc.onStageStart?.({ name: "plan", skill: "plan" }, { workflow: "ship" });
-
-				expect(setModel).toHaveBeenLastCalledWith({ provider: "openai", id: "gpt-5.5" });
-				expect(setThinkingLevel).toHaveBeenLastCalledWith("high");
-			});
-
-			it("falls through preset miss to flat stage", async () => {
-				writeModels({
-					stages: { plan: { model: "anthropic/opus" } },
-					presets: { ship: { stages: { research: { model: "openai/gpt-5.5" } } } },
-				});
-				const { setModel, lc } = await setup();
-
-				await lc.onStageStart?.({ name: "plan", skill: "plan" }, { workflow: "ship" });
-
-				expect(setModel).toHaveBeenLastCalledWith({ provider: "anthropic", id: "opus" });
-			});
-
-			it("falls through preset + stage miss to skills[skill]", async () => {
-				writeModels({ skills: { commit: { model: "zai/glm-4-7" } } });
-				const { setModel, lc } = await setup();
-
-				await lc.onStageStart?.({ name: "commit", skill: "commit" }, { workflow: "polish" });
-
-				expect(setModel).toHaveBeenLastCalledWith({ provider: "zai", id: "glm-4-7" });
-			});
-
-			it("skips skills rung for script stages (no stage.skill)", async () => {
-				writeModels({
-					defaults: "anthropic/opus",
-					skills: { tally: { model: "zai/glm-4-7" } }, // would match if rung not skipped
-				});
-				const { setModel, lc } = await setup();
-
-				// Script stage: stage.skill undefined → skills rung skipped → defaults wins.
-				await lc.onStageStart?.({ name: "tally" }, { workflow: "polish" });
-
-				expect(setModel).toHaveBeenLastCalledWith({ provider: "anthropic", id: "opus" });
-			});
-
-			it("preset-stage entry inherits defaults per-field at load time", async () => {
-				writeModels({
-					defaults: { model: "anthropic/opus" },
-					presets: { ship: { stages: { plan: { thinking: "high" } } } },
-				});
-				const { setModel, setThinkingLevel, lc } = await setup();
-
-				await lc.onStageStart?.({ name: "plan", skill: "plan" }, { workflow: "ship" });
-
-				expect(setModel).toHaveBeenLastCalledWith({ provider: "anthropic", id: "opus" });
-				expect(setThinkingLevel).toHaveBeenLastCalledWith("high");
-			});
-
-			it("no preset/skill/stage match → falls through to baseline (no-bleed)", async () => {
-				writeModels({ presets: { ship: { stages: { plan: "openai/gpt-5.5" } } } });
-				const { setModel, setThinkingLevel, lc } = await setup();
-
-				// workflow "polish" has no preset entry; stage "research" not in flat
-				// stages; skill "research" not in skills → defaults absent → baseline.
-				await lc.onStageStart?.({ name: "research", skill: "research" }, { workflow: "polish" });
-
-				expect(setModel).toHaveBeenLastCalledWith(BASELINE_MODEL);
-				expect(setThinkingLevel).toHaveBeenLastCalledWith("medium"); // baseline thinking
-			});
-		});
-	});
-
-	describe("stale-ctx resilience", () => {
-		// The exact phrase pi-core's ExtensionRunner throws from an invalidated
-		// proxy after the captured session was replaced/disposed mid-workflow.
-		const STALE_CTX_MESSAGE =
-			"This extension ctx is stale after session replacement or reload. " +
-			"Do not use a captured pi or command ctx after ctx.newSession().";
-
-		async function setupActive(
-			piOverrides: Partial<Record<"setModel" | "setThinkingLevel" | "getThinkingLevel", unknown>>,
-		) {
-			const fake = makePi({ baselineThinking: "medium" });
-			// Apply per-test pi method overrides (e.g. ones that throw).
-			Object.assign(fake.pi as unknown as Record<string, unknown>, piOverrides);
-			registerModelOverrideSessionStart(fake.pi);
-			await registerModelOverrideLifecycle(fake.pi);
-			const handler = fake.sessionStart()!;
-			const registry = { find: vi.fn((p: string, m: string) => ({ provider: p, id: m })) };
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-			return { ...fake, lc: lastListener() };
-		}
-
-		it("onStageStart swallows a stale-ctx error (session is being discarded)", async () => {
-			writeModels({ stages: { plan: { model: "openai:o3-pro", thinking: "high" } } });
-			const { lc } = await setupActive({
-				setModel: vi.fn(async () => {
-					throw new Error(STALE_CTX_MESSAGE);
-				}),
-			});
-			await lc.onWorkflowStart?.({});
-
-			await expect(lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" })).resolves.toBeUndefined();
-		});
-
-		it("onStageStart propagates a non-stale error", async () => {
-			writeModels({ stages: { plan: { model: "openai:o3-pro", thinking: "high" } } });
-			const { lc } = await setupActive({
-				setModel: vi.fn(async () => {
-					throw new Error("boom: real bug");
-				}),
-			});
-			await lc.onWorkflowStart?.({});
-
-			await expect(lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" })).rejects.toThrow("boom");
-		});
-
-		it("onWorkflowEnd swallows a stale-ctx error AND still resets state", async () => {
-			const { lc, setModel } = await setupActive({
-				setModel: vi.fn(async () => {
-					throw new Error(STALE_CTX_MESSAGE);
-				}),
-			});
-			await lc.onWorkflowStart?.({});
-
-			await expect(lc.onWorkflowEnd?.({}, {})).resolves.toBeUndefined();
-
-			// State must have reset despite the stale throw: a second end is a no-op.
-			setModel.mockClear();
-			await lc.onWorkflowEnd?.({}, {});
-			expect(setModel).not.toHaveBeenCalled();
-		});
-
-		it("onWorkflowEnd resets state even when restore throws a non-stale error", async () => {
-			writeModels({ stages: { plan: { model: "anthropic/opus" } } });
-			const fake = makePi({ baselineThinking: "medium" });
-			let setModelCallCount = 0;
-			(fake.pi as unknown as Record<string, unknown>).setModel = vi.fn(async () => {
-				setModelCallCount++;
-				if (setModelCallCount > 1) throw new Error("boom: real restore bug");
-				return true;
-			});
-			registerModelOverrideSessionStart(fake.pi);
-			await registerModelOverrideLifecycle(fake.pi);
-			const handler = fake.sessionStart()!;
-			const registry = { find: vi.fn((p: string, m: string) => ({ provider: p, id: m })) };
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-			const lc = lastListener();
-
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			// Genuine error propagates (surfaced to the user)...
-			await expect(lc.onWorkflowEnd?.({}, {})).rejects.toThrow("boom");
-
-			// State was reset BEFORE the throw, so the next workflow is not
-			// poisoned: a second end is a clean no-op.
-			const restoreMock = vi.fn(async () => true);
-			(fake.pi as unknown as Record<string, unknown>).setModel = restoreMock;
-			await expect(lc.onWorkflowEnd?.({}, {})).resolves.toBeUndefined();
-			expect(restoreMock).not.toHaveBeenCalled();
-		});
-
-		it("onWorkflowStart swallows a stale-ctx error, leaving stages a no-op", async () => {
-			const { lc, setModel } = await setupActive({
-				getThinkingLevel: vi.fn(() => {
-					throw new Error(STALE_CTX_MESSAGE);
-				}),
-			});
-
-			await expect(lc.onWorkflowStart?.({})).resolves.toBeUndefined();
-
-			// baselineCaptured never flipped → onStageStart early-returns.
-			writeModels({ stages: { plan: { model: "openai:o3-pro" } } });
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-			expect(setModel).not.toHaveBeenCalled();
-		});
-	});
-
-	describe("onWorkflowEnd restoration", () => {
-		it("restores baseline model + thinking and resets state", async () => {
-			writeModels({ stages: { plan: { model: "anthropic/opus" } } });
-			const { pi, setModel, setThinkingLevel, sessionStart } = makePi({ baselineThinking: "low" });
+			// Register session start to capture modelRegistry for resolveModel
 			registerModelOverrideSessionStart(pi);
-			await registerModelOverrideLifecycle(pi);
-			const handler = sessionStart()!;
+			const handler = pi.on.mock.calls.find((c: unknown[]) => c[0] === "session_start")?.[1] as
+				| SessionStartHandler
+				| undefined;
 			const registry = { find: vi.fn((p: string, m: string) => ({ provider: p, id: m })) };
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-			const lc = lastListener();
+			await handler?.({}, { model: BASELINE_MODEL, modelRegistry: registry });
 
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-			await lc.onWorkflowEnd?.({}, {});
+			const result = await applyEffectiveModel(pi, {
+				overrideModel: "openai/gpt-4",
+				baselineModel: BASELINE_MODEL,
+				overrideThinking: "high",
+				baselineThinking: "medium",
+				label: 'stage "plan"',
+				setBaselineModel: true,
+			});
 
-			expect(setModel).toHaveBeenLastCalledWith(BASELINE_MODEL);
-			expect(setThinkingLevel).toHaveBeenLastCalledWith("low");
-
-			// State reset: a second onWorkflowEnd with no fresh start is a no-op.
-			setModel.mockClear();
-			await lc.onWorkflowEnd?.({}, {});
-			expect(setModel).not.toHaveBeenCalled();
+			expect(result.hasModelChange).toBe(true);
+			expect(setModel).toHaveBeenCalled();
+			expect(setThinkingLevel).toHaveBeenCalledWith("high");
 		});
 
-		it("warns when restoring the baseline model fails", async () => {
-			const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-			writeModels({ stages: { plan: { model: "anthropic/opus" } } });
-			const { pi, sessionStart } = makePi({ setModelResult: false });
-			registerModelOverrideSessionStart(pi);
-			await registerModelOverrideLifecycle(pi);
-			const handler = sessionStart()!;
-			const registry = { find: vi.fn((p: string, m: string) => ({ provider: p, id: m })) };
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-			const lc = lastListener();
+		it("falls back to baseline model when overrideModel is undefined and setBaselineModel=true", async () => {
+			const { pi, setModel, setThinkingLevel } = makePi();
+			const { applyEffectiveModel } = await import("./model-override.js");
 
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-			await lc.onWorkflowEnd?.({}, {});
+			const result = await applyEffectiveModel(pi, {
+				overrideModel: undefined,
+				baselineModel: BASELINE_MODEL,
+				overrideThinking: undefined,
+				baselineThinking: "medium",
+				label: 'stage "plan"',
+				setBaselineModel: true,
+			});
 
-			expect(warn).toHaveBeenCalledWith(expect.stringContaining("failed to restore baseline model"));
-			warn.mockRestore();
+			expect(result.hasModelChange).toBe(false);
+			expect(setModel).toHaveBeenCalledWith(BASELINE_MODEL);
+			expect(setThinkingLevel).toHaveBeenCalledWith("medium");
+		});
+
+		it("skips setModel when override is absent and setBaselineModel=false (bracket path)", async () => {
+			const { pi, setModel, setThinkingLevel } = makePi();
+			const { applyEffectiveModel } = await import("./model-override.js");
+
+			const result = await applyEffectiveModel(pi, {
+				overrideModel: undefined,
+				baselineModel: BASELINE_MODEL,
+				overrideThinking: undefined,
+				baselineThinking: "medium",
+				label: "/skill:commit",
+				setBaselineModel: false,
+			});
+
+			expect(result.hasModelChange).toBe(false);
+			expect(setModel).not.toHaveBeenCalled();
+			expect(setThinkingLevel).toHaveBeenCalledWith("medium");
 		});
 	});
 
-	describe("hasModelChange optimization", () => {
-		async function setupOpt(opts: { setModelResult?: boolean } = {}) {
-			const fake = makePi({ baselineThinking: "medium", ...opts });
-			registerModelOverrideSessionStart(fake.pi);
-			await registerModelOverrideLifecycle(fake.pi);
-			const handler = fake.sessionStart()!;
-			const registry = {
-				find: vi.fn((provider: string, modelId: string) => ({ provider, id: modelId })),
-			};
-			await handler({}, { modelRegistry: registry, model: BASELINE_MODEL });
-			return { ...fake, registry, lc: lastListener() };
-		}
+	describe("restoreBaseline", () => {
+		it("restores baseline model + thinking", async () => {
+			const { pi, setModel, setThinkingLevel } = makePi();
+			const { restoreBaseline } = await import("./model-override.js");
 
-		it("skips setModel restore when all stages were thinking-only (hasModelChange=false)", async () => {
-			writeModels({ stages: { plan: { thinking: "high" } } });
-			const { setModel, setThinkingLevel, lc } = await setupOpt();
-
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			setModel.mockClear();
-			setThinkingLevel.mockClear();
-			await lc.onWorkflowEnd?.({}, {});
-
-			expect(setModel).not.toHaveBeenCalled();
-			expect(setThinkingLevel).toHaveBeenLastCalledWith("medium");
-		});
-
-		it("skips setModel restore when last stage was thinking-only (after override stage)", async () => {
-			writeModels({
-				stages: {
-					plan: { model: "anthropic/opus" },
-					review: { thinking: "high" },
-				},
+			await restoreBaseline(pi, {
+				thinking: "medium",
+				model: BASELINE_MODEL,
+				hasModelChange: true,
 			});
-			const { setModel, lc } = await setupOpt();
-
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-			await lc.onStageStart?.({ name: "review" }, { workflow: "test-wf" });
-
-			setModel.mockClear();
-			await lc.onWorkflowEnd?.({}, {});
-
-			expect(setModel).not.toHaveBeenCalled();
-		});
-
-		it("restores setModel when last stage had a model override", async () => {
-			writeModels({
-				stages: {
-					plan: { thinking: "high" },
-					implement: { model: "anthropic/opus" },
-				},
-			});
-			const { setModel, lc } = await setupOpt();
-
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-			await lc.onStageStart?.({ name: "implement" }, { workflow: "test-wf" });
-
-			setModel.mockClear();
-			await lc.onWorkflowEnd?.({}, {});
-
-			expect(setModel).toHaveBeenLastCalledWith(BASELINE_MODEL);
-		});
-
-		it("soft-fails on setModel returning false during both apply and restore", async () => {
-			const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-			writeModels({ stages: { plan: { model: "anthropic/opus", thinking: "high" } } });
-			const { setModel, setThinkingLevel, lc } = await setupOpt({ setModelResult: false });
-
-			await lc.onWorkflowStart?.({});
-			await lc.onStageStart?.({ name: "plan" }, { workflow: "test-wf" });
-
-			expect(warn).toHaveBeenCalledWith(expect.stringContaining("setModel failed"));
-			expect(setThinkingLevel).toHaveBeenLastCalledWith("high");
-
-			warn.mockClear();
-			setModel.mockClear();
-			await lc.onWorkflowEnd?.({}, {});
 
 			expect(setModel).toHaveBeenCalledWith(BASELINE_MODEL);
-			expect(warn).toHaveBeenCalledWith(expect.stringContaining("failed to restore baseline model"));
-			warn.mockRestore();
+			expect(setThinkingLevel).toHaveBeenCalledWith("medium");
 		});
-	});
 
-	describe("dynamic-import fallback", () => {
-		it("degrades gracefully (no throw, no registration) when workflow is absent", async () => {
-			vi.resetModules();
-			// registerModelOverrideLifecycle imports the thin `/startup` entry for
-			// registerLifecycle, so the absence simulation mocks THAT specifier.
-			vi.doMock("@myflow/workflow/startup", () => {
-				const err = new Error("Cannot find package '@myflow/workflow/startup'");
-				(err as NodeJS.ErrnoException).code = "ERR_MODULE_NOT_FOUND";
-				throw err;
+		it("skips setModel when hasModelChange=false", async () => {
+			const { pi, setModel, setThinkingLevel } = makePi();
+			const { restoreBaseline } = await import("./model-override.js");
+
+			await restoreBaseline(pi, {
+				thinking: "medium",
+				model: BASELINE_MODEL,
+				hasModelChange: false,
 			});
-			try {
-				const mod = await import("./model-override.js");
-				const fake = makePi();
-				// The isModuleNotFound guard swallows the absent-sibling failure.
-				await expect(mod.registerModelOverrideLifecycle(fake.pi)).resolves.toBeUndefined();
-			} finally {
-				vi.doUnmock("@myflow/workflow/startup");
-				vi.resetModules();
-			}
+
+			expect(setModel).not.toHaveBeenCalled();
+			expect(setThinkingLevel).toHaveBeenCalledWith("medium");
 		});
 	});
-});
 
-// The reset/registry cleanup is handled globally by test/setup.ts beforeEach
-// (__resetModelOverrideState + __resetLifecycleRegistry). These local hooks
-// just guard against spies leaking across the describe blocks above.
-beforeEach(() => {
-	vi.restoreAllMocks();
-});
-afterEach(() => {
-	vi.restoreAllMocks();
+	describe("resolveModel", () => {
+		it("resolves a model string via captured modelRegistry", async () => {
+			const { pi } = makePi();
+			registerModelOverrideSessionStart(pi);
+			const handler = pi.on.mock.calls.find((c: unknown[]) => c[0] === "session_start")?.[1] as
+				| SessionStartHandler
+				| undefined;
+			const registry = { find: vi.fn(() => BASELINE_MODEL) };
+			await handler?.({}, { model: BASELINE_MODEL, modelRegistry: registry });
+
+			const { resolveModel } = await import("./model-override.js");
+			const result = resolveModel("anthropic/baseline");
+			expect(result).toBe(BASELINE_MODEL);
+			expect(registry.find).toHaveBeenCalledWith("anthropic", "baseline");
+		});
+
+		it("returns undefined when no modelRegistry is captured", async () => {
+			const { resolveModel } = await import("./model-override.js");
+			expect(resolveModel("anthropic/baseline")).toBeUndefined();
+		});
+	});
+
+	describe("getCapturedModel", () => {
+		it("returns the captured model after session_start", async () => {
+			const { pi } = makePi();
+			registerModelOverrideSessionStart(pi);
+			const handler = pi.on.mock.calls.find((c: unknown[]) => c[0] === "session_start")?.[1] as
+				| SessionStartHandler
+				| undefined;
+			await handler?.({}, { model: BASELINE_MODEL, modelRegistry: {} });
+
+			const { getCapturedModel } = await import("./model-override.js");
+			expect(getCapturedModel()).toBe(BASELINE_MODEL);
+		});
+
+		it("returns undefined before session_start fires", async () => {
+			const { getCapturedModel } = await import("./model-override.js");
+			expect(getCapturedModel()).toBeUndefined();
+		});
+	});
 });
