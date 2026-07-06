@@ -83,6 +83,24 @@ describe("ask_user_question.execute — early returns", () => {
 });
 
 describe("ask_user_question.execute — ctx.ui.custom dispatch", () => {
+	it("leaves the Pi footer row visible below the bottom-anchored overlay", async () => {
+		const tool = register();
+		const custom = vi.fn(async () => ({ answers: [], cancelled: true })) as unknown as CustomFn;
+		const ctx = createMockCtx({ hasUI: true, ui: { custom } as never });
+
+		await tool.execute?.("tc", BASE_PARAMS as never, undefined as never, undefined as never, ctx as never);
+
+		expect(custom).toHaveBeenCalledWith(expect.any(Function), {
+			overlay: true,
+			overlayOptions: {
+				anchor: "bottom-center",
+				width: "100%",
+				maxHeight: "100%",
+				margin: { left: 0, right: 0, bottom: 1 },
+			},
+		});
+	});
+
 	it("User cancels (cancelled: true) → decline envelope", async () => {
 		const tool = register();
 		const ctx = ctxWithCustom({ answers: [], cancelled: true });

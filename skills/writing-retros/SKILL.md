@@ -1,13 +1,15 @@
 ---
 name: writing-retros
-description: Use at milestone close to produce a retrospective — four-section format (keep doing / stop or change / promote to artifact / commit to memory) with concrete, owned action items
+description: Use at milestone close to produce a MyFlow process retrospective — four-section format (keep doing / stop or change / promote to artifact / commit to memory) reflecting on how the MyFlow skills and process performed, feeding improvements back into MyFlow itself
 ---
 
 # Writing Retros
 
 ## Overview
 
-A retrospective at milestone close is the culmination of continuous reflection, not a replacement for it. Tabled entries have been processed throughout execution; end-of-artifact checkpoints have fed back into the next artifact. The retro captures what the milestone *as a whole* teaches us, and converts it into concrete, owned action items.
+A milestone retrospective is a **MyFlow process reflection** — not a reflection on the work that was done (that's the as-built). The retro asks: *did the MyFlow skills and practices work well? What should change?*
+
+This is one of two feedback loops for improving MyFlow over time (the other is the eval system, developed separately). Together they ensure the process continuously improves with each piece of work. Retros feed directly into MyFlow itself — patterns surfaced here become new skills, existing skills get refined, and practices adjust.
 
 **Announce at start:** "I'm using the writing-retros skill to produce the retro for `<milestone>`."
 
@@ -27,24 +29,14 @@ Retros are MyFlow process records, not target-repo product documentation. If a r
 
 ## The four sections
 
-Every retro has exactly these sections, in this order:
+Every retro has exactly these sections, in this order, focused on the MyFlow process:
 
-1. **Keep doing.** What worked and should continue. Name the practice, not just the outcome. ("Epiphany-tabling to the personal tabled file" is actionable; "M1 went well" is not.)
-2. **Stop or change.** What did not work and should adjust. Be specific about the pain and the proposed change.
-3. **Promote to artifact.** Patterns worth extracting into skills, runbooks, scripts, memory entries, or as-built sections. Cross-reference the **promotion rule** (see `capturing-learnings`) — each item here should have at least one prior sighting the retro can point at.
-4. **Commit to memory.** What, if anything, belongs in the personal repo memory system. Resolve it with `node "${SKILL_DIR}/../_shared/repo-store.mjs" state memory`. Often a subset of §3; sometimes its own distinct item.
+1. **Keep doing.** What MyFlow skills, practices, or patterns worked well and should continue. Name the practice, not just the outcome. ("Epiphany-tabling captured real-time observations without derailing work" is actionable; "M1 went well" is not.)
+2. **Stop or change.** What MyFlow skills, practices, or patterns did not work and should change. Be specific about the pain and the proposed change. ("The design skill emitted oversized slices that the plan skill couldn't sequence cleanly — consider capping slice size" is actionable; "design was slow" is not.)
+3. **Promote to artifact.** Patterns worth extracting into new skills, runbooks, scripts, or memory entries to improve MyFlow. Cross-reference the **promotion rule** (see `capturing-learnings`) — each item here should have at least one prior sighting the retro can point at.
+4. **Commit to memory.** What, if anything, belongs in the personal repo memory system about how MyFlow should operate in this repo. Resolve it with `node "${SKILL_DIR}/../_shared/repo-store.mjs" state memory`. Often a subset of §3; sometimes its own distinct item.
 
 Optional lightweight sections at the end (appendix-style): headline stats, acknowledgements, historical context. Keep them short.
-
-## Action items
-
-Every retro ends with **concrete, owned action items** — not essays. Each item has:
-
-- A specific outcome (a file to change, an artifact to create, a decision to make).
-- An owner (a session, a date, a person) — or an explicit "by next milestone."
-- Enough context for someone who didn't run the retro to execute the item.
-
-If the action-item list is large enough to risk the retro becoming a working document rather than an episodic record, **split the execution into a separate closeout doc** and reference it from §5. The retro stays frozen; the closeout doc is the working artifact.
 
 ## Process
 
@@ -54,21 +46,22 @@ If the action-item list is large enough to risk the retro becoming a working doc
    - Memory writes made during the milestone.
    - Any explicit "save this for retro" notes from the user during execution.
 
-2. **Draft top-to-bottom.** Short, specific bullets under each section. Avoid the urge to write prose paragraphs — retros are scannable lists.
+2. **Draft top-to-bottom.** Short, specific bullets under each section focused on the MyFlow process. Avoid the urge to write prose paragraphs — retros are scannable lists. Stay focused: this is about *how we worked*, not *what we built*.
 
-3. **Review with the user before freezing.** Retros are frozen after acceptance, so the review *must* happen first. Expect the user to expand the action-item set — that is normal; the retro is a conversation starter, not a monologue.
+3. **Review with the user before freezing.** Retros are frozen after acceptance, so the review *must* happen first. The retro is a conversation starter about process improvement, not a monologue.
 
 4. **Freeze.** One file in the personal retros directory. After this point, do **not** rewrite the retro inline; if paths or references later need updating, add a note at the top and point at the source of truth.
 
 ## Common failure modes
 
-- **Meta-theater.** Reflection that produces more reflection rather than better work. If a section has no concrete output, either it does not belong in the retro or the work to produce the output hasn't happened. Name the missing action item; don't paper over it.
-- **Silent drift.** Practices on paper diverging from practices in use. The retro only catches this if honest — don't smooth over what went wrong.
+- **Confusing retro with as-built.** The retro reflects on the MyFlow process; the as-built documents what was built. If a section drifts into describing the work rather than the process, it belongs in the as-built, not the retro.
+- **Meta-theater.** Reflection that produces more reflection rather than process improvement. If a section has no concrete insight about how to improve MyFlow, cut it or sharpen it.
+- **Silent drift.** Practices on paper diverging from practices in use. The retro only catches this if honest — don't smooth over what went wrong with the process.
 - **Stale references.** A frozen retro loses value when the paths it references move. Either update the paths before freezing, or add a dated note at the top after freeze — never rewrite inline.
-- **Undifferentiated "stop or change."** Generic complaints without a proposed change aren't retro content. If you can't name what to try differently, that's a candidate for §3 "promote to artifact" or for a deliberate drop.
+- **Undifferentiated "stop or change."** Generic complaints about the process without a proposed change aren't retro content. If you can't name what to try differently, that's a candidate for §3 "promote to artifact" or for a deliberate drop.
 
 ## Related practices
 
-- `capturing-learnings` — promotion rule; how §3 items become skills/runbooks/memory.
-- `epiphany-tabling` — the in-flight practice that feeds retro content.
-- `as-built-documentation` — the permanent record of what shipped (retros and as-builts are complementary: retros capture *how* we worked; as-builts capture *what* we built).
+- `capturing-learnings` — the promotion rule that decides whether a retro insight becomes a new skill, runbook, or memory entry feeding back into MyFlow.
+- `epiphany-tabling` — the in-flight practice that feeds retro content about what surfaced during work.
+- `as-built-documentation` — the permanent record of *what* shipped. Retros and as-builts are complementary: retros capture *how we worked* (the MyFlow process); as-builts capture *what we built* (the product). Retros feed back into MyFlow; as-builts feed into the repo's documentation.
