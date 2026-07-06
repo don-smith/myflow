@@ -3,39 +3,6 @@ name: plan
 description: Inherit phase boundaries 1:1 from a design artifact's Slices section, run post-finalization artifact-code-reviewer + artifact-coverage-reviewer in parallel, and produce a reviewed, implement-ready plan artifact in .myflow/artifacts/plans/. Use after the design skill to sequence a design into implementation phases and run the independent reviewer pair. Prefer plan for the review quality gate; design owns architectural decomposition and slice generation.
 argument-hint: "[design artifact path]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: plan
-    data:
-      type: object
-      required: [phases, phase_count]
-      properties:
-        status:
-          enum: [in-progress, in-review, ready]
-        phase_count:
-          type: integer
-          minimum: 1
-          maximum: 32
-        phases:
-          type: array
-          minItems: 1
-          maxItems: 32
-          items:
-            type: object
-            required: [n, title]
-            properties:
-              n: { type: integer, minimum: 1 }
-              title: { type: string }
-  consumes:
-    data:
-      type: object
-      properties:
-        status:
-          const: ready
-    meta:
-      artifactKind: [design]
 ---
 
 # Plan

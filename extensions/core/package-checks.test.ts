@@ -16,14 +16,14 @@ function writeSettingsTo(contents: unknown, td?: string): string {
 }
 
 describe("findMissingSiblings", () => {
-	it("returns all 8 siblings when settings.json is missing", () => {
+	it("returns all 7 siblings when settings.json is missing", () => {
 		const dir = join(tmpdir(), "pi-test", `no-settings-${Date.now()}`);
 		// dir exists but has no settings.json — readPiAgentSettings returns undefined
 		mkdirSync(dir, { recursive: true });
 		expect(findMissingSiblings(dir)).toHaveLength(SIBLINGS.length);
 	});
 
-	it("returns all 8 siblings when JSON is invalid", () => {
+	it("returns all 7 siblings when JSON is invalid", () => {
 		const dir = join(tmpdir(), "pi-test", `bad-json-${Date.now()}`);
 		const settingsPath = join(dir, "settings.json");
 		mkdirSync(dir, { recursive: true });
@@ -31,12 +31,12 @@ describe("findMissingSiblings", () => {
 		expect(findMissingSiblings(dir)).toHaveLength(SIBLINGS.length);
 	});
 
-	it("returns all 8 siblings when packages field is absent", () => {
+	it("returns all 7 siblings when packages field is absent", () => {
 		const dir = writeSettingsTo({ other: "data" });
 		expect(findMissingSiblings(dir)).toHaveLength(SIBLINGS.length);
 	});
 
-	it("returns all 8 siblings when packages is not an array", () => {
+	it("returns all 7 siblings when packages is not an array", () => {
 		const dir = writeSettingsTo({ packages: "not-array" });
 		expect(findMissingSiblings(dir)).toHaveLength(SIBLINGS.length);
 	});
@@ -59,14 +59,14 @@ describe("findMissingSiblings", () => {
 		expect(missing.find((s) => s.pkg.endsWith("/args"))).toBeDefined();
 	});
 
-	it("returns [] when all 8 siblings are installed via npm entries", () => {
+	it("returns [] when all 7 siblings are installed via npm entries", () => {
 		const dir = writeSettingsTo({
 			packages: SIBLINGS.map((s) => s.pkg.replace(/^npm:/, "")),
 		});
 		expect(findMissingSiblings(dir)).toEqual([]);
 	});
 
-	it("returns [] when a local package manifest covers all siblings", () => {
+	it("returns [] when a local package manifest covers all 7 siblings", () => {
 		// Simulate a monorepo: one local package whose pi.extensions lists all
 		// sibling packages.
 		const dir = join(tmpdir(), "pi-test", `monorepo-${Date.now()}`);
@@ -91,8 +91,7 @@ describe("findMissingSiblings", () => {
 						"./packages/i18n/index.ts",
 						"./packages/web-tools/index.ts",
 						"./packages/args/index.ts",
-						"./packages/workflow/extension.ts",
-						"./packages/ask-user-question/index.ts",
+							"./packages/ask-user-question/index.ts",
 					],
 				},
 			}),

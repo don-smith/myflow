@@ -2,10 +2,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerModelOverrideLifecycle, registerModelOverrideSessionStart } from "./model-override.js";
+import { registerModelOverrideSessionStart } from "./model-override.js";
 import { parseSkillInvocation, registerSkillBracket } from "./skill-bracket.js";
 
-const LIFECYCLE_KEY = Symbol.for("@myflow/workflow:lifecycle");
 const BASELINE_MODEL = { provider: "anthropic", id: "baseline" };
 
 interface Handlers {
@@ -36,6 +35,8 @@ function writeModels(config: unknown) {
 }
 
 async function setupBracket(opts: { setModelResult?: boolean; baselineThinking?: string } = {}) {
+	const { invalidateModelsConfigCache } = await import("./models-config.js");
+	invalidateModelsConfigCache();
 	const fake = makePi(opts);
 	registerModelOverrideSessionStart(fake.pi);
 	registerSkillBracket(fake.pi);
@@ -78,7 +79,7 @@ describe("skill-bracket — input arming", () => {
 		expect(setThinkingLevel).toHaveBeenCalledWith("minimal");
 	});
 
-	it("no-op on source=extension (workflow path)", async () => {
+	it("no-op on source=extension", async () => {
 		writeModels({ skills: { commit: { model: "zai/glm-4-7" } } });
 		const { handlers, setModel, setThinkingLevel } = await setupBracket();
 		await handlers.input!({ text: "/skill:commit", source: "extension" });
@@ -107,25 +108,7 @@ describe("skill-bracket — input arming", () => {
 		expect(setModel).not.toHaveBeenCalled();
 	});
 
-	it("no-op when workflow has armed its baseline (re-entrancy guard)", async () => {
-		writeModels({ skills: { commit: { model: "zai/glm-4-7" } } });
-		const fake = makePi();
-		registerModelOverrideSessionStart(fake.pi);
-		await registerModelOverrideLifecycle(fake.pi);
-		registerSkillBracket(fake.pi);
-		const registry = { find: vi.fn((p: string, m: string) => ({ provider: p, id: m })) };
-		await fake.handlers.session_start?.({}, { modelRegistry: registry, model: BASELINE_MODEL });
 
-		const reg = ((globalThis as Record<symbol, unknown>)[LIFECYCLE_KEY] ?? []) as Array<{
-			onWorkflowStart?: (ctx: unknown) => unknown;
-		}>;
-		expect(reg.length).toBeGreaterThan(0);
-		await reg[reg.length - 1].onWorkflowStart?.({});
-
-		fake.setModel.mockClear();
-		await fake.handlers.input!({ text: "/skill:commit", source: "interactive" });
-		expect(fake.setModel).not.toHaveBeenCalled();
-	});
 
 	it("parses wrapped <skill name=…> form when args transformed first", async () => {
 		writeModels({ skills: { research: { model: "openai/gpt-5.5" } } });
@@ -213,6 +196,8 @@ describe("skill-bracket — stale-ctx resilience", () => {
 	});
 
 	it("propagates non-stale errors", async () => {
+		const { invalidateModelsConfigCache } = await import("./models-config.js");
+		invalidateModelsConfigCache();
 		writeModels({ skills: { commit: { model: "zai/glm-4-7", thinking: "minimal" } } });
 		const fake = makePi();
 		(fake.pi as unknown as Record<string, unknown>).setModel = vi.fn(async () => {

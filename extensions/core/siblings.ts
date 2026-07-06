@@ -57,11 +57,6 @@ export const SIBLINGS: readonly SiblingPlugin[] = [
 		matches: /args(?![-\w])/i,
 		provides: "skill-argument resolver — substitutes $N/$ARGUMENTS in skill bodies",
 	},
-	{
-		pkg: "npm:@myflow/workflow",
-		matches: /workflow(?![-\w])/i,
-		provides: "/wf command + workflow runner — chain skills into typed multi-stage pipelines",
-	},
 ];
 
 /**

@@ -37,7 +37,6 @@ SUPERPOWERS_SKILLS=(
   brainstorming
   dispatching-parallel-agents
   receiving-code-review
-  subagent-driven-development
   systematic-debugging
   test-driven-development
   using-superpowers

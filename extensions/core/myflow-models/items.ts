@@ -20,10 +20,8 @@ import {
 	CHECK,
 	SCOPE_AGENTS,
 	SCOPE_DEFAULTS,
-	SCOPE_PRESETS,
 	SCOPE_RESET_ALL,
 	SCOPE_SKILLS,
-	SCOPE_STAGES,
 	SCOPES,
 	withCheck,
 } from "./overrides.js";
@@ -48,7 +46,7 @@ export const MSG_RESET_ALL = "All model overrides cleared.";
 export const MSG_RESET_ALL_TITLE = "Reset ALL model overrides?";
 export const MSG_RESET_ALL_BODY = [
 	"This clears every override in `~/.myflow/config/@myflow/pi/models.json` (defaults,",
-	"agents, stages, skills, presets). This cannot be undone.",
+	"agents, skills). This cannot be undone.",
 	"",
 	"Per-agent overrides already written into agent frontmatter revert on the",
 	"next agent sync / session start, not immediately.",
@@ -69,9 +67,7 @@ export function scopeItems(raw: ModelsConfigSchema): SelectItem[] {
 	return [
 		{ value: SCOPE_DEFAULTS, label: withCheck("defaults", SCOPES.defaults.hasOverride(raw)) },
 		{ value: SCOPE_AGENTS, label: withCheck("agents", SCOPES.agents.hasOverride(raw)) },
-		{ value: SCOPE_STAGES, label: withCheck("stages", SCOPES.stages.hasOverride(raw)) },
 		{ value: SCOPE_SKILLS, label: withCheck("skills", SCOPES.skills.hasOverride(raw)) },
-		{ value: SCOPE_PRESETS, label: withCheck("presets", SCOPES.presets.hasOverride(raw)) },
 		{ value: SCOPE_RESET_ALL, label: "reset all overrides" },
 	];
 }

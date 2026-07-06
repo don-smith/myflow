@@ -2,22 +2,12 @@
 name: implement
 description: Execute an approved implementation plan from .myflow/artifacts/plans/ phase by phase, applying changes and verifying each phase against its success criteria before moving on. Use when the user invokes /implement, asks to "implement this plan", or wants an existing phased plan executed. Pair with revise to update plans mid-flight and validate to confirm completion.
 argument-hint: "[plan-path] [Phase N]"
-allowed-tools: Read, Edit, Write, Bash(*), Glob, Grep
-contract:
-  produces:
-    kind: side-effect
-    meta:
-      effect: code-mutation
-  consumes:
-    reads:
-      plans:
-        meta:
-          artifactKind: plan
+allowed-tools: Read, Edit, Write, Bash(*), Glob, Grep, Agent, TodoWrite, ask_user_question
 ---
 
 # Implement
 
-You are tasked with implementing an approved technical plan from `.myflow/artifacts/plans/`. These plans contain phases with specific changes and success criteria.
+You are the Stage 3 executor in MyFlow. You implement an approved technical plan from `.myflow/artifacts/plans/`, mutate the working tree, verify each in-scope phase against its success criteria, and hand the completed implementation to Stage 4 validation/review.
 
 ## Input
 
@@ -25,80 +15,104 @@ $ARGUMENTS
 
 The input above is `<plan-path> [phase]`:
 - First token is the plan path under `.myflow/artifacts/plans/`.
-- Anything after it (e.g. "Phase 2") names a single phase to scope to.
+- Anything after it (for example `Phase 2` or `Phase 2: Runtime wiring`) names a single phase to scope to.
 
 Rules:
-- If a phase is named, implement ONLY that phase. Stop and print the closing block as soon as its success criteria pass. Do not read, edit, or check off other phases' sections.
+- If a phase is named, implement ONLY that phase. You may read the whole plan for context, but do not edit or check off other phases.
 - If no phase is named, implement every phase in the plan sequentially.
 - If the input is empty or the plan path is missing/literal, ask the user for the plan path before proceeding.
+- If the input uses an obsolete workflow flag form such as `--plans <path>`, treat it as a direct plan path only when unambiguous; otherwise ask for the plan path.
+
+## Stage 3 ownership
+
+`implement` is the only Stage 3 execution owner. Supporting techniques are used inside this skill, not instead of it:
+
+- **TDD** — use `test-driven-development` discipline for new features, bug fixes, refactors, and behavior changes.
+- **Subagents** — dispatch `implementation-coder` agents for scoped tasks when isolated context helps.
+- **Parallel dispatch** — only for truly independent investigations or non-overlapping implementation tasks; never let agents race on the same files.
+- **Verification before completion** — no phase-complete or tests-pass claim without fresh command evidence.
 
 ## Getting Started
 
 With a plan path in hand:
-- Read the plan completely and check for any existing checkmarks (- [x])
-- Read the original ticket and all files mentioned in the plan
-- **Read files fully** - never use limit/offset parameters, you need complete context
-- Think deeply about how the pieces fit together
-- Create a todo list to track your progress
-- Start implementing if you understand what needs to be done
+- Read the plan completely and check for any existing checkmarks (`- [x]`).
+- Identify the in-scope phase(s), success criteria, and files mentioned.
+- Read the original ticket/research/design references and all files mentioned by the in-scope phase.
+- Read files fully — never use limit/offset parameters for implementation context.
+- Create a todo list for the in-scope phase work.
+- Start implementing once the phase, dependencies, and verification are clear.
 
-## Implementation Philosophy
+## Implementation Loop
 
-Plans are carefully designed, but reality can be messy. Your job is to:
-- Follow the plan's intent while adapting to what you find
-- Implement each in-scope phase fully before starting the next
-- Verify your work makes sense in the broader codebase context
-- Update checkboxes in the plan as you complete sections
+For each in-scope phase:
 
-When things don't match the plan exactly, think about why and communicate clearly. The plan is your guide, but your judgment matters too.
+1. Re-state the phase objective and success criteria.
+2. For behavior changes, start with a failing test and observe the RED result.
+3. Implement the smallest coherent change that satisfies the phase.
+4. Use `implementation-coder` subagents only when the task can be scoped with exact files, requirements, and verification.
+5. Integrate subagent changes by inspecting the actual diff; never trust a subagent report without checking the working tree.
+6. Run a controller-side two-pass review when subagents contributed code: first spec compliance against the plan/success criteria, then code quality against local patterns.
+7. Run the phase's automated success criteria exactly as written.
+8. Fix failures before proceeding.
+9. Check off completed `#### Automated Verification:` items in the plan after fresh evidence exists.
+10. Update or append a compact `#### Implementation Status:` note for the phase: `completed | paused | blocked`, timestamp, evidence commands, and any factual plan/code divergence.
+11. Leave `#### Manual Verification:` items unchecked for Stage 4/manual verification unless the plan explicitly says the phase owner should complete them.
+12. If scoped to one phase, stop after that phase passes and print the completion block.
 
-If you encounter a mismatch:
-- STOP and think deeply about why the plan can't be followed
-- Present the issue clearly:
-  ```
-  Issue in Phase {N}:
-  Expected: {what the plan says}
-  Found: {actual situation}
-  Why this matters: {explanation}
+## Subagent guidance
 
-  ```
+Use subagents when they reduce context load or isolate a task. Prefer the bundled `implementation-coder` agent for implementation work. Provide the subagent:
 
-  Use the `ask_user_question` tool to resolve the mismatch. Question: "{Brief summary of the mismatch}". Header: "Mismatch". Options: "Follow the plan" (Adapt the plan's approach to the current code state); "Skip this change" (Move on without this change — it may not be needed); "Update the plan" (The plan needs to be revised before continuing).
+- Exact phase/task text.
+- Files it may edit.
+- Relevant code excerpts or paths already read.
+- Applicable success criteria.
+- TDD expectation.
+- Clear instruction not to commit or edit the plan.
+
+Do not dispatch multiple implementation subagents against the same files. Parallel dispatch is only safe for independent domains with no shared state; after agents return, inspect diffs, resolve conflicts, and run the full phase checks yourself.
+
+## Review subagent output
+
+When an implementation subagent returns, treat its report as a lead, not proof:
+
+1. Inspect the actual diff in the working tree.
+2. Run a spec compliance review: does the diff satisfy the exact phase/task text and success criteria without adding unrelated behavior?
+3. Run a code quality review: does the diff follow local naming, boundaries, error handling, test style, and maintainability conventions?
+4. Run the relevant verification commands yourself before checking any plan boxes.
+
+If the subagent reports `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`, resolve that status before continuing the phase.
+
+## Mismatch Handling
+
+Plans are carefully designed, but reality can be messy. If code reality does not match the plan:
+
+- STOP and explain the mismatch.
+- Use `ask_user_question` with: "Follow the plan" / "Skip this change" / "Update the plan".
+- If the answer is "Update the plan", stop and route to `/skill:revise <plan-path>`.
+- Do not rewrite plan content from inside `implement` except checking off completed automated verification items and updating the phase's compact `#### Implementation Status:` note.
 
 ## Verification Approach
 
 After implementing a phase:
-- Run the success criteria checks (usually `make check test` covers everything)
-- Fix any issues before proceeding
-- Update your progress in both the plan and your todos
-- Check off completed items in the plan file itself using Edit
-- If the input scopes you to a single phase, stop immediately after that phase's checks pass — do not advance to other phases
-
-Don't let verification interrupt your flow - batch it at natural stopping points.
-
-## If You Get Stuck
-
-When something isn't working as expected:
-- First, make sure you've read and understood all the relevant code
-- Consider if the codebase has evolved since the plan was written
-- Present the mismatch clearly and ask for guidance
-
-Use skills sparingly - mainly for targeted debugging or exploring unfamiliar territory.
+- Run every automated success criterion for that phase.
+- Read the full output and confirm exit codes.
+- Fix failures before proceeding.
+- Update todos, automated checkboxes, and the phase `#### Implementation Status:` note only after fresh evidence.
+- Do not make completion claims based on expectation, stale output, or subagent reports.
 
 ## Resuming Work
 
 If the plan has existing checkmarks:
-- Trust that completed work is done
-- Pick up from the first unchecked item
-- Verify previous work only if something seems off
-
-Remember: You're implementing a solution, not just checking boxes. Keep the end goal in mind and maintain forward momentum.
+- Trust completed automated checks unless something looks off.
+- Resume from the first unchecked in-scope automated item.
+- If the plan was revised, trust `revise` to have unchecked invalidated work.
 
 ## Present and Chain
 
 When the last in-scope phase is complete, print the **completion** closing block:
 
-```
+```text
 Implementation complete:
 `.myflow/artifacts/plans/{filename}.md`
 
@@ -111,14 +125,14 @@ Please review the diff and let me know if anything should reopen a phase.
 
 💬 Follow-up: surface code/plan mismatches inline via the `ask_user_question` flow ("Follow the plan / Skip this change / Update the plan") — that is implement's only in-skill follow-up surface. For plan-level changes run `/skill:revise <plan-path>`; for session pauses run `/skill:create-handoff`.
 
-**Next step:** `/skill:validate .myflow/artifacts/plans/{filename}.md` — verify the implementation against the plan's success criteria before committing.
+**Next step:** `/skill:validate .myflow/artifacts/plans/{filename}.md` — verify the implementation against the plan's success criteria before review/land.
 
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 ```
 
 If the run was paused mid-plan rather than completed, print the **paused** variant instead:
 
-```
+```text
 Implementation paused at Phase {N}:
 `.myflow/artifacts/plans/{filename}.md`
 
@@ -138,7 +152,8 @@ Please review what landed and let me know if anything needs to change before res
 
 ## Handle Follow-ups
 
-- **Implement owns checkboxes, not plan content.** Check off `#### Automated Verification:` items `- [ ]` → `- [x]` as each phase's checks pass. Everything else is revise's — run `/skill:revise <plan-path>`; never rewrite plan content from inside implement.
-- **For plan-level changes.** Run `/skill:revise <plan-path>` first — it appends a timestamped Follow-up section to the plan and preserves history. Then resume implement at the affected phase.
-- **For session pauses.** Run `/skill:create-handoff` to capture in-flight state, then `/new` and `/skill:resume-handoff` in the next session.
-- **Mismatch handling stays inline.** When code reality diverges from the plan, use the inline `ask_user_question` flow ("Follow the plan / Skip this change / Update the plan") — that is implement's only follow-up surface; everything else escalates to revise or create-handoff.
+- **Implement owns automated checkboxes and phase status notes, not plan design content.** Check off `#### Automated Verification:` items `- [ ]` → `- [x]` as each phase's checks pass. Maintain a compact `#### Implementation Status:` note per worked phase. Everything else is revise's.
+- **Manual criteria stay manual.** Leave `#### Manual Verification:` items for Stage 4/manual verification unless the plan explicitly says otherwise.
+- **For plan-level changes.** Run `/skill:revise <plan-path>` first, then resume implement at the affected phase.
+- **For session pauses.** Run `/skill:create-handoff`, then `/new` and `/skill:resume-handoff` in the next session.
+- **Mismatch handling stays inline.** Use the inline `ask_user_question` flow; everything else escalates to revise or create-handoff.

@@ -4,14 +4,6 @@ description: Use when the feature integrates with external services (Telegram, O
 argument-hint: "--deps [dependency-inventory]"
 allowed-tools: Read, Bash(curl *), Bash(ping *), Glob, Grep
 shell-timeout: 10
-contract:
-  produces:
-    kind: artifact
-    meta:
-      artifactKind: manual-verification
-  consumes:
-    meta:
-      world: working-tree
 ---
 
 # Manual Verification

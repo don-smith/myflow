@@ -38,9 +38,9 @@ import { isStaleCtxError } from "./utils.js";
 /**
  * Module-local latch for the startup-maintenance block (per-cwd agent cleanup,
  * bundled-agent sync, and the banner). Pi fires `session_start` for every
- * session including programmatic spawns (workflow stages, batch ops), but this
- * work must run ONCE per process load, not per fire: the banner would otherwise
- * reprint on every `/wf` stage, and `syncBundledAgents` targets the global
+ * session including programmatic spawns (batch ops), but this work must run
+ * ONCE per process load, not per fire: the banner would otherwise reprint on
+ * every session start, and `syncBundledAgents` targets the global
  * `~/.pi/agent/agents/` dir whose source can't change mid-process (upgrades need
  * a restart or `/reload`) — so re-running just recomputes identical hashes.
  * `/myflow-update-agents` and `/reload` remain the explicit re-sync paths.
