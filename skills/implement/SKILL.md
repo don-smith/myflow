@@ -92,6 +92,8 @@ If the plan has existing checkmarks:
 - Pick up from the first unchecked item
 - Verify previous work only if something seems off
 
+All plans carry a Context Checkpoint section that tracks in-progress implementation state. In a fresh session, read the Context Checkpoint first — it tells you which phase is current, what's been completed, and what to do next. Then cross-reference with the plan's checkmarks.
+
 Remember: You're implementing a solution, not just checking boxes. Keep the end goal in mind and maintain forward momentum.
 
 ## Present and Chain
@@ -116,7 +118,7 @@ Please review the diff and let me know if anything should reopen a phase.
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 ```
 
-If the run was paused mid-plan rather than completed, print the **paused** variant instead:
+If the run was paused mid-plan rather than completed, first update the plan's Context Checkpoint to record which phase paused, what was completed, and the next action. Then print the **paused** variant instead:
 
 ```
 Implementation paused at Phase {N}:

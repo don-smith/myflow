@@ -260,7 +260,9 @@ After the design summary is confirmed, decompose the feature into vertical slice
    - **## Migration Notes**: If applicable — existing data, schema changes, rollback strategy, backwards compatibility. Empty if not applicable.
    - **## Pattern References**: `path/to/similar.ext:line-range` — what pattern to follow and why.
    - **## Developer Context**: Record questions exactly as asked during checkpoint, including `file:line` evidence. For iterative variant: also record micro-checkpoint interactions from Step 6.3.
+   - **## Context Checkpoint**: Written progressively during slice generation. Tracks status (in-progress), completed slices, working set, and next action. Follows the format in `skills/myflow/templates/stage-context-checkpoint.md`.
    - **## Design History**: Slice approval/revision log. `- Slice N: {name} — pending/approved as generated/revised: {what changed}`. plan ignores this section.
+   - **## Rehydration Manifest**: Written at finalization (Step 7). Tells the plan skill what artifacts/files/decisions to re-read. Follows the format in `skills/myflow/templates/stage-context-checkpoint.md`.
    - **## References**: Research artifacts, tickets, similar implementations.
 
    **Architecture format in skeleton**:
@@ -371,7 +373,9 @@ The artifact was created as a skeleton in Step 5 and filled progressively in Ste
 
 3. **Verify cross-slice file merges**: For files touched by multiple slices, confirm the Architecture entry contains the final merged code, not just the last slice's contribution.
 
-4. **Update frontmatter** via Edit: `status: in-progress` → `status: ready`. Design owns no post-finalization review — `/skill:plan` runs the artifact-code-reviewer + artifact-coverage-reviewer pair against the phased plan that inherits this design's `## Slices` boundaries 1:1. Leave `last_updated` / `last_updated_by` as-is.
+4. **Fill or update the Rehydration Manifest**: Write the Rehydration Manifest section with final artifact path, key source files to re-read, key decisions, and the next command (`/skill:plan .myflow/artifacts/designs/{filename}.md`). This tells the next session exactly what to re-read before planning.
+
+5. **Update frontmatter** via Edit: `status: in-progress` → `status: ready`. Design owns no post-finalization review — `/skill:plan` runs the artifact-code-reviewer + artifact-coverage-reviewer pair against the phased plan that inherits this design's `## Slices` boundaries 1:1. Leave `last_updated` / `last_updated_by` as-is.
 
 5. **Verify template completeness**: Ensure all sections from the template reference in Step 5 are present and filled. Edit to fix any gaps.
 

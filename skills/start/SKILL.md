@@ -105,7 +105,7 @@ Common tracks:
 - telemetry and replay needs
 - solution options, only when multiple viable paths are obvious
 
-Ask one focused question at a time unless 2-4 independent details can be batched safely.
+Ask one focused question at a time unless 2-4 independent details can be batched safely. When the question offers concrete choices, use the `ask_user_question` tool rather than a prose menu; lead with the recommended option when one exists and rely on the tool's automatic free-text escape hatch for corrections or combinations.
 
 ### Step 4: Minimum Alignment
 
@@ -196,6 +196,10 @@ Do not silently turn an inference into a decision. If a decision matters, either
 
 Read `templates/alignment.md` relative to this skill folder before writing. Use it as the artifact structure.
 
+Include the Context Checkpoint and Rehydration Manifest sections in the alignment artifact, following the shared template at `skills/myflow/templates/stage-context-checkpoint.md`. The Context Checkpoint tracks in-progress alignment state; the Rehydration Manifest tells the next session what to re-read before the next skill (typically `research`).
+
+When the suggested next step is `continue_to_research`, set the Rehydration Manifest's Next Command to `/skill:research <alignment-path>`.
+
 Write the artifact to:
 
 ```text
@@ -257,16 +261,16 @@ Then derive and present:
 - suggested branch name, usually `feature/<topic-slug>`
 - suggested worktree path
 - alignment artifact path
-- next-stage command
+- next-stage command (typically `continue_to_research` when codebase research is needed)
 
-If the user is on `main` or another shared branch, offer to set up an isolated worktree before Stage 2. Use the `using-git-worktrees` skill behavior for actual creation.
+If the user is on `main` or another shared branch, offer to set up an isolated worktree before the next skill. Use the `using-git-worktrees` skill behavior for actual creation.
 
 When creating a worktree from Stage 1:
 
 1. Create the worktree using `using-git-worktrees` safety rules.
 2. Ensure `.myflow/artifacts/alignment/` exists in the target worktree.
 3. Copy or rewrite the alignment artifact to the same relative path in the target worktree.
-4. Recommend a fresh session inside the worktree and show the exact next-stage command.
+4. Recommend a fresh session inside the worktree and show the exact next-stage command (e.g. `/skill:research <alignment-path>`).
 
 Stage boundaries should normally resume from artifacts, not `create-handoff` / `resume-handoff`. Handoffs remain available for unusual mid-stage interruption.
 
@@ -288,11 +292,11 @@ Suggested branch:
 Suggested worktree:
 `<path>`
 
-**Next step:**
-`/skill:<recommended-skill> .myflow/artifacts/alignment/<timestamp>_<topic>.md`
+**Next step (Stage 1 continues):**
+`/skill:research .myflow/artifacts/alignment/<timestamp>_<topic>.md`
 ```
 
-If a fresh session is recommended, say so explicitly and include the expected directory.
+If the suggested next step is `continue_to_research`, recommend starting a fresh session for research. If the suggested next step is `continue_to_design` (work is simple enough to skip research), chain directly to design. If a fresh session is recommended, say so explicitly and include the expected directory.
 
 ---
 

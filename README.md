@@ -30,20 +30,20 @@ This creates/loads your personal per-repo MyFlow store, initializes gitignored w
 myflow is a single pipeline that adapts to work size. No modes to choose from — follow the stages, and the artifacts guide what comes next.
 
 ```
-1. Discover & Align → 2. Research & Design → 3. Implement → 4. Validate & Review → 5. Land & Learn
+1. Discover, Align & Research → 2. Design & Plan → 3. Implement → 4. Validate & Review → 5. Land & Learn
 ```
 
 | Stage | What happens | Key skills |
 |---|---|---|
-| 1. **Discover & Align** | Shape the work, classify risk, capture acceptance criteria | `start` |
-| 2. **Research & Design** | Ground in code, design the solution | `research`, `design`, `architecture-review`, `blueprint`/`plan` |
+| 1. **Discover, Align & Research** | Shape the work, classify risk, capture acceptance criteria, research codebase | `start`, `research` |
+| 2. **Design & Plan** | Design the solution, sequence into implementation phases | `design`, `plan` |
 | 3. **Implement** | Execute the plan, write the code | `implement` + TDD, subagents, `verification-before-completion` |
 | 4. **Validate & Review** | Verify the work, gate the commit | `validate`, `code-review`, `receiving-code-review`, `revise` |
 | 5. **Land & Learn** | Close the cycle, document, reflect | `land` (→ commit, as-built, retro, memory reconcile) |
 
-Between stages, artifacts hand off: Alignment → Plan → Working tree → Validation → As-built docs.
+Between stages, artifacts hand off: Alignment → Research → Design → Plan → Working tree → Validation → As-built docs.
 
-Stage 1 begins with `/skill:start`, which writes an Adaptive Alignment Artifact under `.myflow/artifacts/alignment/`. The artifact records intent, risk triggers, acceptance criteria, decisions, open questions, replay/telemetry fields, and the suggested next step.
+Stage 1 begins with `/skill:start`, which writes an Adaptive Alignment Artifact under `.myflow/artifacts/alignment/`. The artifact records intent, risk triggers, acceptance criteria, decisions, open questions, replay/telemetry fields, and the suggested next step. Research follows as the second Stage 1 skill, producing a Research doc under `.myflow/artifacts/research/`.
 
 At the end of Stage 1, `start` should suggest a branch/worktree name, optionally create the worktree using `using-git-worktrees`, copy the alignment artifact there, and recommend a fresh session in the worktree for Stage 2.
 

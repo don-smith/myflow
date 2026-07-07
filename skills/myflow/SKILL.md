@@ -42,29 +42,32 @@ pi install ./myflow
 ## The 5-Stage Pipeline
 
 ```
-Stage 1: Discover & Align → Stage 2: Research & Design → Stage 3: Implement
+Stage 1: Discover, Align & Research → Stage 2: Design & Plan → Stage 3: Implement
 → Stage 4: Validate & Review → Stage 5: Land & Learn
 ```
 
 Each stage produces an artifact that gates the next. The presence of the artifact determines what can run next — no ambiguity about "what's next."
 
-### Stage 1 — Discover & Align
+### Stage 1 — Discover, Align & Research
 
-Shape the work. Capture intent. Choose the right amount of rigor.
+Shape the work. Capture intent. Ground in codebase reality. Choose the right amount of rigor.
 
-**Primary skill:**
+**Primary skills:**
 - `start` — canonical Stage 1 entry point. Accepts rough ideas, transcripts, tickets, or notes; produces an Adaptive Alignment Artifact.
+- `research` — codebase analysis grounded in the alignment artifact. Produces a Research doc.
 
 **Supporting skills, used explicitly when needed:**
 - `brainstorming` — source material for open-ended ideation when the concept is still fuzzy.
 - `discover` — deeper requirements extraction when intent remains ambiguous.
 - `explore` — option analysis when multiple viable solution paths need comparison.
 
-**Typical flow:** `/skill:start "[rough idea]"` → recommended next stage. `start` may stay compact for low-risk work or deepen the same artifact when risk triggers justify more alignment.
+**Typical flow:** `/skill:start "[rough idea]"` → alignment artifact → `/skill:research <alignment-path>` → research artifact. `start` may stay compact for low-risk work or deepen the same artifact when risk triggers justify more alignment.
 
-**Artifact:** `.myflow/artifacts/alignment/` — Adaptive Alignment Artifact containing intent, risk triggers, acceptance criteria, decisions, open questions, replay links, and the suggested next step.
+**Artifacts:**
+- `.myflow/artifacts/alignment/` — Adaptive Alignment Artifact containing intent, risk triggers, acceptance criteria, decisions, open questions, replay links, and the suggested next step.
+- `.myflow/artifacts/research/` — Research doc with codebase findings, integration points, and precedents.
 
-**Checkpoint:** Run `capturing-learnings` after the alignment artifact is accepted.
+**Checkpoints:** Run `capturing-learnings` after each artifact is accepted. Each artifact carries a Context Checkpoint (in-progress state) and a Rehydration Manifest (finalized handoff to the next skill) — see the shared template at `skills/myflow/templates/stage-context-checkpoint.md`.
 
 **Skill invocations:**
 | I want to... | Invoke |
@@ -72,29 +75,30 @@ Shape the work. Capture intent. Choose the right amount of rigor.
 | Begin new work | `/skill:start "[rough idea]"` |
 | Deepen fuzzy intent explicitly | `brainstorming` or `/skill:discover "[description]"` |
 | Compare solution options explicitly | `/skill:explore "[problem]"` |
+| Research the codebase | `/skill:research <alignment-path>` |
 
-### Stage 2 — Research & Design
+### Stage 2 — Design & Plan
 
-Ground intent in codebase reality. Design the solution. Stress-test the architecture.
+Design the solution. Stress-test the architecture. Sequence into implementation phases.
 
 **Skills:**
-- `research` — codebase analysis, produces Research doc
 - `design` — decompose into vertical slices, produces Design doc
 - `architecture-review` — stress-test the design against existing architecture (moved from Land)
 - `plan` — turn design into phased implementation steps and run the review quality gate
 
-**Path:** `research` → `design` → `plan` (with `architecture-review` feeding design when a structural audit is needed).
+**Path:** `design` → `plan` (with `architecture-review` feeding design when a structural audit is needed).
 
-**Artifact:** `.myflow/artifacts/plans/` — canonical format. `implement` consumes this.
+**Artifacts:**
+- `.myflow/artifacts/designs/` — Design doc with architectural decisions, full implementation code, and per-slice Success Criteria.
+- `.myflow/artifacts/plans/` — reviewed implementation plan. `implement` consumes this.
 
-**Checkpoint:** Run `capturing-learnings` after the plan is accepted.
+**Checkpoints:** Run `capturing-learnings` after the plan is accepted. Each artifact carries a Context Checkpoint (in-progress state during generation) and a Rehydration Manifest (finalized handoff to the next skill).
 
 **Cross-cutting:** `epiphany-tabling` active. Any realization not trivially in-scope → the personal repo tabled file (`node "${SKILL_DIR}/../_shared/repo-store.mjs" state tabled`).
 
 **Skill invocations:**
 | I want to... | Invoke |
 |---|---|
-| Analyze the codebase | `/skill:research <artifact-or-topic>` |
 | Design then plan | `/skill:design <research>` → `/skill:plan <design>` |
 | Stress-test architecture | `/skill:architecture-review` |
 
@@ -187,14 +191,20 @@ Before any completion claim — a test passing, a phase done, a feature working 
 
 ### Telemetry and replay checkpoints
 
-Each stage should have an explicit checkpoint where the artifact captures workflow signals that help evaluate whether MyFlow is working: artifact path, risk/complexity classification, decisions and corrections, restart recommendation, next-stage choice, and telemetry/session references when available. Stage 1 records these in the alignment artifact's `Replay / Telemetry` section. Full workflow telemetry events are deferred future work; the checkpoint discipline starts now.
+Each stage should have an explicit checkpoint where the artifact captures workflow signals that help evaluate whether MyFlow is working: artifact path, risk/complexity classification, decisions and corrections, restart recommendation, next-stage choice, and telemetry/session references when available. Stage 1 records these in the alignment artifact's `Replay / Telemetry` section.
+
+Every stage artifact also carries two additional state sections, defined by the shared template at `skills/myflow/templates/stage-context-checkpoint.md`:
+- **Context Checkpoint** — written progressively during artifact creation. Tracks status, completed items, working set, and next action.
+- **Rehydration Manifest** — written at artifact finalization. Lists artifacts to read, source files to read, key decisions, and the next command.
+
+Together these make each artifact self-contained: the current session's context is checkpointed to disk, and the next session knows exactly what to re-read. Full workflow telemetry events are deferred future work; the checkpoint discipline starts now.
 
 ### Stage-boundary restarts
 
 MyFlow expects fresh sessions at natural stage boundaries when context is getting large:
 
-- after Stage 1 completes and the alignment artifact/worktree exists
-- after the Stage 2 plan/design is accepted
+- after Stage 1 completes and the alignment and research artifacts exist
+- after Stage 2 design and plan artifacts are accepted
 - after Stage 3 implementation completes
 - after Stage 4 validation/review passes
 - after Stage 5 land/learn completes
@@ -253,8 +263,8 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 
 | Stage | Primary Skill(s) | Artifact Produced |
 |---|---|---|
-| 1. Discover & Align | `start` | Alignment (`.myflow/artifacts/alignment/`) |
-| 2. Research & Design | `research`, `design`, `plan` | Plan (`.myflow/artifacts/plans/`) |
+| 1. Discover, Align & Research | `start`, `research` | Alignment + Research (`.myflow/artifacts/alignment/` + `.myflow/artifacts/research/`) |
+| 2. Design & Plan | `design`, `plan` | Design + Plan (`.myflow/artifacts/designs/` + `.myflow/artifacts/plans/`) |
 | 3. Implement | `implement` + TDD, subagents | Working tree changes |
 | 4. Validate & Review | `validate`, `manual-verification`, `code-review`, `revise` | Validation + Manual Verification + Review |
 | 5. Land & Learn | `land` (→ commit, as-built, retro...) | Configured repo docs + personal repo retros/memory |

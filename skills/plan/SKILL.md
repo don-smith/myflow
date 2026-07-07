@@ -124,7 +124,7 @@ Write the plan **incrementally** — skeleton first, then fill each phase. Code 
    - Examples:
      - With ticket: `2025-01-08_14-30-00_ENG-1478-parent-child-tracking.md`
      - Without ticket: `2025-01-08_14-30-00_improve-error-handling.md`
-   - The skeleton includes everything EXCEPT large code blocks: frontmatter, Overview, Desired End State, What We're NOT Doing, full phase structure (Overview, Changes Required with file paths and change summaries, **Success Criteria copied verbatim from design's `## Slices`**, parallelism annotations), Testing Strategy, Performance Considerations, References. Phase boundaries are inherited 1:1 from `## Slices` — no recomposition.
+   - The skeleton includes everything EXCEPT large code blocks: frontmatter, Overview, Desired End State, What We're NOT Doing, full phase structure (Overview, Changes Required with file paths and change summaries, **Success Criteria copied verbatim from design's `## Slices`**, parallelism annotations), Context Checkpoint, Testing Strategy, Performance Considerations, Migration Notes, Developer Context, Rehydration Manifest, References. Phase boundaries are inherited 1:1 from `## Slices` — no recomposition.
    - **Frontmatter `phases:` array** — one `{ n, title }` entry per `## Phase N:` section, in body order; `phase_count` equals its length. `implement` fans out over it.
 
 2. **Fill code blocks using Edit** — one phase at a time:
@@ -219,6 +219,37 @@ last_updated_by: {`author:` from Metadata block}
 ## Developer Context
 
 {Empty at skeleton write; Step 4.4 fallback notes and any post-write developer interactions land here.}
+
+## Context Checkpoint
+
+status: in-progress
+
+### Completed
+- {Phases completed during implementation}
+
+### Working Set
+- Files changed: {paths}
+- Key references: {artifact paths}
+
+### Next Action
+- {What to implement or verify next}
+
+---
+
+## Rehydration Manifest
+
+### Artifacts to Read
+- `.myflow/artifacts/plans/{timestamp}_{topic}.md` — full
+
+### Source Files to Read
+- {Key files from plan phases}
+
+### Key Decisions
+- {Decision 1}: {verdict}
+- {Decision 2}: {verdict}
+
+### Next Command
+`/skill:implement .myflow/artifacts/plans/{timestamp}_{topic}.md`
 
 ## References
 

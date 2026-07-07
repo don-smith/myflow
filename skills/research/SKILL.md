@@ -52,11 +52,14 @@ The final artifact feeds design.
    ```
    Then wait for input.
 
-2. **Detect chained discover artifact:** If the input includes a path matching `.myflow/artifacts/discover/.*\.md`, read it FULLY using the Read tool (no limit/offset) before scope-tracer dispatch:
-   - Translate each `### [Decision title]` block in the FRD's `## Decisions` section into a Developer Context entry: `**Q (discover: <Decision title>): <Question text>**` followed by `A: <Chosen text>`. Hold these entries in main context — they're recorded in the research artifact's Developer Context section in Step 4 (write document).
-   - Use the FRD's `## Recommended Approach` text (1-2 sentences naming the architectural shape) as the topic body for the next sub-step's scope-tracer prompt. The full discover artifact path stays in the input so scope-tracer's "read mentioned files first" rule picks up the file naturally for additional context.
-   - Carry the FRD's Open Questions forward verbatim into the research artifact's Open Questions section in Step 4.
-   - If the input is plain free-text or includes a non-discover path, skip this sub-step and proceed directly to scope-tracer dispatch with the input as the topic.
+2. **Detect chained alignment or discover artifact:** If the input includes a path matching `.myflow/artifacts/alignment/.*\.md`, read it FULLY using the Read tool (no limit/offset) before scope-tracer dispatch:
+   - Extract from the alignment artifact: Intent, Desired Outcome, Non-Goals, Acceptance Criteria, Decisions, Open Questions, Risk Triggers
+   - Translate each decision into a Developer Context entry in the research artifact.
+   - Carry the alignment artifact's Open Questions forward into the research artifact's Open Questions.
+   - Use the alignment's Intent + Desired Outcome as the topic body for scope-tracer.
+   - If the input is plain free-text or includes a non-alignment/non-discover path, skip to step 3.
+
+   If the input includes a path matching `.myflow/artifacts/discover/.*\.md`, process as before: translate FRD Decisions into Developer Context entries, pass Recommended Approach as topic body, carry Open Questions forward.
 
 3. **Dispatch the scope-tracer agent** to formulate trace-quality research questions for the user's topic:
    ```
@@ -309,7 +312,41 @@ Findings go into Precedents & Lessons. Otherwise skip and note "git history unav
 
    ## Open Questions
    {Only questions NOT resolved during checkpoint}
+
+   ## Context Checkpoint
+
+   status: in-progress
+
+   ### Completed
+   - {Questions answered, findings compiled}
+   - {Key discoveries and decisions locked}
+
+   ### Working Set
+   - Files read: {paths with why each matters}
+   - Key references: {artifact paths, doc links}
+
+   ### Next Action
+   - {e.g. "Begin design: /skill:design <research-path>"}
+
+   ---
+
+   ## Rehydration Manifest
+
+   ### Artifacts to Read
+   - `.myflow/artifacts/research/{timestamp}_{topic}.md` — full
+
+   ### Source Files to Read
+   - {Key files referenced in Code References and Integration Points}
+
+   ### Key Decisions
+   - {Decision 1}: {verdict} — {evidence}
+   - {Decision 2}: {verdict} — {evidence}
+
+   ### Next Command
+   `/skill:design .myflow/artifacts/research/{timestamp}_{topic}.md`
    ```
+
+   During research execution, update the Context Checkpoint progressively as each synthesis section is completed. At finalization, fill the Rehydration Manifest so the design session knows what to re-read.
 
 ### Step 5: Present and Chain
 
@@ -324,6 +361,8 @@ Please review and let me know if you have follow-up questions.
 ---
 
 💬 Follow-up: describe the change in chat to append a timestamped Follow-up section to this artifact. Re-run `/skill:research` for a fresh artifact.
+
+Context Checkpoint and Rehydration Manifest included: the research artifact carries in-progress state during creation and a rehydration contract for the design session.
 
 **Next step:** `/skill:design .myflow/artifacts/research/{filename}.md` — iterative design with vertical-slice decomposition (produces design artifact for plan)
 
@@ -341,7 +380,7 @@ Please review and let me know if you have follow-up questions.
 
 - **Analysis only**: This skill answers questions. Question formulation is delegated to the scope-tracer subagent at Step 1.
 - **Single entry point**: Free-text research prompt. Argument substitution is handled by `rpiv-args`; scope-tracer runs in-band before analysis dispatch.
-- **Chained from discover**: when the input includes a path to a `.myflow/artifacts/discover/*.md` artifact, read it FULLY in Step 1 and translate each Decision into a `Q (discover: <title>) / A: <Chosen>` Developer Context entry. Pass the FRD's `Recommended Approach` text as the scope-tracer topic. Open Questions carry forward verbatim. The `argument-hint` stays free-text-only — discover artifact recognition is by path-mention, not by argument-hint widening.
+- **Chained from alignment or discover**: when the input includes a path to a `.myflow/artifacts/alignment/*.md` artifact, read it fully in Step 1 and extract Decisions, Open Questions, Intent, and Desired Outcome as starting context. When chained from `.myflow/artifacts/discover/*.md`, the existing discover chain applies. The `argument-hint` stays free-text-only — recognition is by path-mention.
 - **Grouped dispatch**: Related questions are batched per agent based on file overlap. Default agent: codebase-analyzer. This reduces token waste from redundant file reads and lets agents build cross-question context.
 - **Downstream compatible**: Research documents feed directly into design and plan — the same Code References / Integration Points / Architecture Insights sections they expect.
 - **Agent-message parsing**: scope-tracer emits Discovery Summary + numbered Questions inline in its final assistant message; parse the agent's final-message text (no file write).

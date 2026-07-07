@@ -70,3 +70,34 @@ None — {one-line reason, e.g., "the plan explicitly requires no functional cha
 - {Actionable bullet — e.g., "Address linting warnings before merge"}
 - {…}
 - {Or, when `verdict: pass`:} Ready to commit — implementation is complete and validated.
+
+## Context Checkpoint
+
+status: ready
+
+### Completed
+- {Phases verified and their verdicts}
+- {Automated checks run}
+
+### Working Set
+- Files inspected: {key paths}
+- Plans validated against: {plan path}
+
+### Next Action
+- {e.g. "Proceed to Land"}
+
+---
+
+## Rehydration Manifest
+
+### Artifacts to Read
+- `.myflow/artifacts/validation/{timestamp}_{topic}.md` — full
+
+### Source Files to Read
+- {Key files from plan phases that were validated}
+
+### Key Decisions
+- {Verdict}: {summary}
+
+### Next Command
+`/skill:land`

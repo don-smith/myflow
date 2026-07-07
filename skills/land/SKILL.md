@@ -30,6 +30,8 @@ This is a **cycle boundary** — the moment between "we finished that" and "what
 
 Land has 9 steps in 3 groups. **Each step is a conversation between agent and human, not unilateral execution.** Surface findings or work for the step, get review, decide together when to advance.
 
+During execution, maintain a Context Checkpoint to track which group/step is current, what's been completed, and what's next. When Land completes, the as-built docs, retros, and memory serve as the Rehydration Manifest — they tell future sessions what shipped and why.
+
 ### Group 1 — Commit & Document
 
 Ship the code and record what shipped.

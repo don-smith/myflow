@@ -71,6 +71,38 @@ Rationale: {why this is the right next step}
 - restart_recommended: yes/no
 - next_session_expected_in:
 
+## Context Checkpoint
+
+status: in-progress
+
+### Completed
+- {Key decisions locked}
+- {Risk classification accepted}
+
+### Working Set
+- Files read: {ticket, input notes, repo guidance}
+- Key references: {artifact paths, doc links}
+
+### Next Action
+- {e.g. "Begin research: /skill:research `<alignment-path>`"}
+
+---
+
+## Rehydration Manifest
+
+### Artifacts to Read
+- `.myflow/artifacts/alignment/{timestamp}_{topic}.md` — full
+
+### Source Files to Read
+- (filled as needed during alignment)
+
+### Key Decisions
+- {Decision 1}: {verdict} — {evidence}
+- {Decision 2}: {verdict} — {evidence}
+
+### Next Command
+`/skill:research .myflow/artifacts/alignment/{timestamp}_{topic}.md`
+
 ## Future-Stage Carry-Forward
 
 Optional. Capture ideas that should inform later stages without expanding Stage 1 scope.

@@ -454,7 +454,7 @@ Before writing the artifact, spawn ONE `claim-verifier` whose sole job is to gro
    - `date:` ← `<iso>` (first tab-separated field on line 1 of the Metadata block above, offset verbatim).
    - Reviewer: `author:` from the Metadata block (fallback: `unknown`).
 
-2. **Write the artifact** using the Write tool (no Edit — this skill writes once per run).
+2. **Write the artifact** using the Write tool (no Edit — this skill writes once per run). At the end of the review document, include the Context Checkpoint and Rehydration Manifest sections (following the shared format at `skills/myflow/templates/stage-context-checkpoint.md`). The Context Checkpoint tracks review steps completed; the Rehydration Manifest lists the review artifact, key files, and next command (typically a fix plan).
 
 **Finding IDs**: lens-prefix + ordinal, stable across severity moves. `I` = interaction, `Q` = quality, `S` = security, `G` = gap. Ordinals never renumber — if a finding is dropped by Step 6, its ID is retired, not reused.
 
@@ -472,6 +472,38 @@ Before writing the artifact, spawn ONE `claim-verifier` whose sole job is to gro
 **What is NOT emitted to the artifact**: verification outcomes in prose (frontmatter `verification` string is the only channel), advisor availability / dispatch path / tool failures (skill trace, not review content), `last_updated` / `last_updated_by` (git mtime + git author carry this for a write-once artifact).
 
 **Advisor prose**, when advisor ran, is pasted verbatim as a blockquote at the top of `## Recommendation`, not as a standalone section.
+
+## Context Checkpoint
+
+status: ready
+
+### Completed
+- {Review steps completed}
+- {Findings classified and verified}
+
+### Working Set
+- Files reviewed: {key paths}
+- Scope: {review scope}
+
+### Next Action
+- {e.g. "Address blockers before proceeding"}
+
+---
+
+## Rehydration Manifest
+
+### Artifacts to Read
+- `.myflow/artifacts/reviews/{filename}.md` — full
+
+### Source Files to Read
+- {Key files from review findings}
+
+### Key Decisions
+- {Finding summary}: {severity}
+- {Required action}: {recommendation}
+
+### Next Command
+`/skill:design "Address findings from .myflow/artifacts/reviews/{filename}.md"`
 
 **Template shape**: Read the full template at `templates/review.md` (house pattern per `.myflow/guidance/skills/architecture.md:66` — `templates/` subfolder, runtime-read, never inlined). At emission time: Read `templates/review.md`, fill every `{placeholder}` with reconciled-and-verified values from Steps 5 and 6, apply the section-omission rules above (delete the whole section AND its trailing separator line when its input is empty), strip the leading `<!-- -->` comment, and Write the result to the target path.
 

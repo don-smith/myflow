@@ -128,7 +128,7 @@ For each phase in the plan:
    - `verdict: pass` — every phase marked `- [x]` in the plan is verified against the code, every automated command passes, no Deviations from Plan and no Potential Issues require action.
    - `verdict: fail` — any phase fails verification, any automated command fails, or Deviations / Potential Issues list items that require action.
 
-3. **Write the artifact** using the Write tool (no Edit — this skill writes once per run). Read `templates/validation.md`, fill every `{placeholder}` with the values determined above and the observations gathered in Step 2, apply the section-omission rules in the template (omit `#### Pattern Conformance:` and `#### Potential Issues:` entirely when empty; keep all other sections and emit `None — …` literals when empty), and Write the result to the target path.
+3. **Write the artifact** using the Write tool (no Edit — this skill writes once per run). Read `templates/validation.md`, fill every `{placeholder}` with the values determined above and the observations gathered in Step 2, apply the section-omission rules in the template (omit `#### Pattern Conformance:` and `#### Potential Issues:` entirely when empty; keep all other sections and emit `None — …` literals when empty), and Write the result to the target path. The template includes `## Context Checkpoint` — update it progressively during validation. Fill `## Rehydration Manifest` at finalization.
 
 **What is NOT emitted to the artifact**: per-agent dispatch logs, raw `git log` output, intermediate reasoning. The Findings subsections capture verified outcomes only — the agent trace stays in the skill run, not the artifact.
 
