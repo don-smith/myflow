@@ -259,6 +259,8 @@ Generate code one slice at a time. Each slice sees the fixed code from all previ
 
 #### 6.1. Generate slice code and Success Criteria (internal)
 
+> 🛑 **SOURCE FILES ARE OFF-LIMITS**: The code you generate in this step goes into the design ARTIFACT, never into actual source files. You are writing code into a markdown document — do NOT touch `src/`, `packages/`, `lib/`, or any other source directory. The Edit tool calls in Step 6.4 write to `.myflow/artifacts/designs/*.md`, nowhere else.
+
 Generate complete, copy-pasteable code AND the slice's `### Success Criteria:` for every file in this slice — but **hold both for the artifact, do NOT present full code to the developer**. The developer sees a condensed review in 6.3; the full code and criteria go into the artifact in 6.4.
 
 - **New files**: complete code — imports, types, implementation, exports. Follow the pattern template from Step 2.
@@ -402,6 +404,8 @@ Present the design artifact location to the developer:
 
 ## Guidelines
 
+0. **CRITICAL: Never Write to Source Files**: This skill produces a design artifact, NOT implementation. All generated code goes into the design document (`.myflow/artifacts/designs/*.md`) via the Write and Edit tools. NEVER use the write or edit tools on actual source files in the codebase. Source file editing is exclusively the implement skill's job. **If you find yourself reaching for a source file path, STOP — you are in the wrong stage.**
+
 1. **Be Architectural**: Design shapes code; plans sequence work. Every decision must be grounded in `file:line` evidence from the actual codebase.
 
 2. **Be Interactive**: Don't produce the full design in one shot. Resolve ambiguities through the checkpoint first, get buy-in on the approach, THEN decompose and generate slice-by-slice.
@@ -427,6 +431,8 @@ Spawn multiple agents in parallel when they're searching for different things. E
 
 ## Important Notes
 
+> 🛑 **PRIME DIRECTIVE — NEVER EDIT SOURCE FILES**: This skill produces a design artifact (`.myflow/artifacts/designs/*.md`), NOT implementation. All generated code goes into the design document. Source file editing (`src/`, `packages/`, `lib/`, etc.) is exclusively the implement skill's job. Violating this boundary contaminates the codebase with unreviewed code and voids the design's value as a planning document.
+
 - **Always chained or standalone**: This skill accepts a research artifact, a solutions artifact, an architecture-review artifact, a code-review artifact, or a free-text feature description for standalone mode. Standalone mode skips the artifact read; Step 2 dispatches all agents to fill the integration and precedent slots.
 - **File reading**: Always read research artifacts and referenced files FULLY (no limit/offset) before spawning agents
 - **Critical ordering**: Follow the numbered steps exactly
@@ -442,7 +448,6 @@ Spawn multiple agents in parallel when they're searching for different things. E
   - Post-finalization code + coverage review runs in `/skill:plan` Step 4 (not here); design's quality gate is per-slice via slice-verifier at 6.2
   - Design flips `status: in-progress` → `status: ready` directly at Step 7; no `in-review` intermediate (no Step 8 reviewer to wait for)
 - NEVER skip the developer checkpoint — developer input on architectural decisions is the highest-value signal in the design process
-- NEVER edit source files — all code goes into the design document, not the codebase. This skill produces a document, not implementation. Source file editing is implement's job.
 - **Code is source of truth** — if the Architecture code section conflicts with the Decisions prose or the `## Slices` Success Criteria, the code wins. Update the prose and criteria.
 - **Checkpoint recordings**: Record micro-checkpoint interactions in Developer Context with `file:line` references, same as Step 4 questions.
 - **Frontmatter consistency**: Always include frontmatter, use snake_case for multi-word fields, keep tags relevant

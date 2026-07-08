@@ -28,7 +28,7 @@ This is a **cycle boundary** — the moment between "we finished that" and "what
 
 ## The Process
 
-Land has 9 steps in 3 groups. **Each step is a conversation between agent and human, not unilateral execution.** Surface findings or work for the step, get review, decide together when to advance.
+Land has 9 steps in 3 groups. **Each step is a mandatory conversation — the agent must not advance without explicit human approval.** Surface findings or work for the step, present them via `ask_user_question`, and wait for the human to say "Proceed" before advancing. Never execute multiple steps in a single agent turn. Each step ends with a **⛔ GATE** checkpoint that blocks forward progress until answered.
 
 During execution, maintain a Context Checkpoint to track which group/step is current, what's been completed, and what's next. When Land completes, the as-built docs, retros, and memory serve as the Rehydration Manifest — they tell future sessions what shipped and why.
 
@@ -40,9 +40,13 @@ Ship the code and record what shipped.
 
 Group staged/unstaged changes into logical, atomic commits. Use `/skill:commit [message-hint]` for structured commits. On a feature branch, you may commit close-out artifacts (as-built, retro, memory updates) separately. On `main`, present commit groupings for human approval.
 
+**⛔ GATE**: After committing, use `ask_user_question` to present the commit summary and ask: "Step 1 complete — proceed to Step 2 (As-Built Documentation)?" Options: "Proceed" / "Revise commits".
+
 #### 2. As-Built Documentation
 
 Once the code is committed, capture what changed and why in the configured as-built path (`node "${SKILL_DIR}/../_shared/repo-store.mjs" path as_built`). Use the `as-built-documentation` skill — it handles the synthesis, writing, and cleanup of superseded plans. This is the permanent record; specs and plans are scaffolding, as-builts are durable.
+
+**⛔ GATE**: After documentation is written, use `ask_user_question` to present a summary and ask: "Step 2 complete — proceed to Step 3 (Retro)?" Options: "Proceed" / "Revise docs".
 
 ### Group 2 — Reflect & Reconcile
 
@@ -52,9 +56,13 @@ Look back at what happened and what we learned.
 
 Reflect on the cycle. What went well, what was hard, patterns to capture, anti-patterns to nudge against. Produce a retro in the personal repo retros directory (`node "${SKILL_DIR}/../_shared/repo-store.mjs" state retros`). **Start by reading the previous retro in that directory** — this threads the continual-improvement loop forward across cycles on this machine. Retro closes off the cycle's work — process improvement, not scope. Promote repo-relevant lessons to committed artifacts when warranted.
 
+**⛔ GATE**: After the retro is written, use `ask_user_question` to present key findings and ask: "Step 3 complete — proceed to Step 4 (Capturing Learnings)?" Options: "Proceed" / "Revise retro".
+
 #### 4. Capturing Learnings
 
 Run `capturing-learnings` — review tabled observations and apply the promotion rule: **once is a moment; twice is a pattern.** Promote twice-seen patterns to skills, runbooks, or memory entries.
+
+**⛔ GATE**: After learnings are captured, use `ask_user_question` to present promotion decisions and ask: "Step 4 complete — proceed to Step 5 (Doc Review)?" Options: "Proceed" / "Revise learnings".
 
 ### Group 3 — Update & Close
 
@@ -64,13 +72,19 @@ Update shared context and close the branch.
 
 Sweep over docs touched by this cycle. Add or refresh README files in the significant folders we worked in, per the incremental "build by touched folder" pattern. Look for stale, contradictory, or low-signal docs and prune. Keep signal-to-noise high.
 
+**⛔ GATE**: After docs are reviewed, use `ask_user_question` to present changes and ask: "Step 5 complete — proceed to Step 6 (AGENTS.md Updates)?" Options: "Proceed" / "Revise docs".
+
 #### 6. AGENTS.md Updates
 
 Root and repo-level. Only update what actually changed during this cycle.
 
+**⛔ GATE**: After AGENTS.md is updated, use `ask_user_question` to present changes and ask: "Step 6 complete — proceed to Step 7 (Memory Reconcile)?" Options: "Proceed" / "Revise AGENTS.md".
+
 #### 7. Memory Reconcile
 
 Review personal repo memory (`node "${SKILL_DIR}/../_shared/repo-store.mjs" state memory`) against the new state. Correct stale entries, remove redundancies, add new memories warranted by the cycle. Memory is a thin index pointing at authoritative sources, not a duplication.
+
+**⛔ GATE**: After memory is reconciled, use `ask_user_question` to present changes and ask: "Step 7 complete — proceed to Step 8 (Status Review + Tabled Resolution)?" Options: "Proceed" / "Revise memory".
 
 #### 8. Status Review + Tabled Items Resolution
 
@@ -94,15 +108,19 @@ After this step, the tabled file **must be empty.** It can retain a structural h
 
 Identify the next piece of work — usually the highest-priority item moved to What's Next.
 
+**⛔ GATE**: After all tabled items are resolved and status is updated, use `ask_user_question` to present the resolution summary, updated What's Next, and ask: "Step 8 complete — proceed to Step 9 (Integrate)?" Options: "Proceed" / "Revise resolutions".
+
 #### 9. Integrate
 
 If on a **feature branch**, invoke the **`finishing-a-development-branch`** skill to handle merge/PR/cleanup decisions.
 
 If on **`main`**, stage all close-out changes in appropriately grouped commits and present a summary for review. Do NOT commit unilaterally — let the human approve groupings first.
 
+**⛔ GATE**: After integration, use `ask_user_question` to present the final state and ask: "Land complete — close this cycle?" Options: "Close cycle" / "Return to a previous step".
+
 ## Key Principles
 
-- **Each step is a conversation.** Surface findings, get review, advance together. Don't execute multiple steps in a single agent turn without human checkpoints.
+- **Every step ends with a ⛔ GATE.** The agent must use `ask_user_question` to present the step's output and get explicit "Proceed" approval before advancing. Never execute multiple steps in a single agent turn. If a step feels check-boxable, you're doing it wrong — slow down and make it a real conversation.
 - **This skill owns the sequence; child skills own the execution.** Don't duplicate instructions that live in referenced skills (`as-built-documentation`, `finishing-a-development-branch`, `capturing-learnings`).
 - **Documents live where their scope lives.** Repo-specific durable docs go to configured repo paths. MyFlow process state lives in the personal per-repo store.
 - **Set up the next agent for success.** Every step should leave the codebase navigable: tabled items resolved, status current, retro filed in the personal store, memories reconciled.
@@ -111,7 +129,7 @@ If on **`main`**, stage all close-out changes in appropriately grouped commits a
 ## Anti-patterns
 
 - **Merge before close-out.** Don't partial-merge an in-flight branch and then try to retroactively close out a subset. Close the branch as a complete piece of work.
-- **Treating a step as a checkbox.** Each is a conversation. Rushing produces work that needs walking back.
+- **Speed-running steps.** The ⛔ GATE at each step exists to prevent this. A step is not complete until the human says "Proceed." Batching multiple steps or presenting outputs without waiting for approval voids the land process — the close-out is invalid and must be redone from the first skipped checkpoint.
 - **Leaving the tabled file non-empty after land.** Step 8 must clear every entry. The tabled file is ephemeral to the branch — entries don't carry forward. If an entry survives land, it leaks into the next cycle without context and rots.
 - **Re-reviewing code during closeout.** Code review and architectural review happen in stages 2 and 4. If new issues surface during closeout, table them — don't re-open review.
 - **Skipping the retro.** The retro is the mechanism that improves the process. Without it, the same friction repeats cycle after cycle.
