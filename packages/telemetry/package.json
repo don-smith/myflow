@@ -59,6 +59,12 @@
 		"providers/mlflow/tool-spans.ts",
 		"providers/mlflow/trace-session-shim.ts",
 		"providers/mlflow/turn-spans.ts",
+		"checkpoint.ts",
+		"eval/detectors.ts",
+		"eval/land-integration.ts",
+		"eval/reducer.ts",
+		"eval/types.ts",
+		"instrumentation/session-summary.ts",
 		"README.md",
 		"CHANGELOG.md",
 		"LICENSE"

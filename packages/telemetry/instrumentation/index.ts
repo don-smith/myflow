@@ -5,6 +5,8 @@ import { registerConfiguredProviders } from "../providers/index.js";
 import { PI_HANDLERS } from "./pi-handlers.js";
 import { eventBusUnsubscribers, setLlmPayloadMode } from "./state.js";
 import { handleSubAgentBusEvent, SUBAGENT_HANDLERS } from "./subagent-handlers.js";
+import { registerTelemetryProvider } from "../dispatcher.js";
+import { SessionSummaryProvider } from "./session-summary.js";
 
 export { teardownTelemetry } from "./state.js";
 
@@ -22,6 +24,9 @@ export function initInstrumentation(pi: ExtensionAPI): void {
 	const config = loadTelemetryConfig();
 	setLlmPayloadMode(config.llmPayload);
 	registerConfiguredProviders(config);
+	// Always-registered summary collector — captures deterministic metrics
+	// even without MLflow configured.
+	registerTelemetryProvider(new SessionSummaryProvider());
 
 	for (const h of PI_HANDLERS) {
 		pi.on(h.piEvent as any, async (event: any, ctx: ExtensionContext) => {

@@ -84,6 +84,7 @@ export class MlflowProvider implements TelemetryProvider {
 			case "session_compact":
 			case "before_agent_start":
 			case "model_select":
+			case "myflow_checkpoint":
 				onAttributeEvent(this.registry, event);
 				return;
 			case "subagent_created":

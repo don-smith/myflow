@@ -22,7 +22,8 @@ export type TelemetryEvent =
 	| SubAgentCompletedEvent
 	| SubAgentFailedEvent
 	| SubAgentCompactedEvent
-	| SubAgentSteeredEvent;
+	| SubAgentSteeredEvent
+	| MyFlowCheckpointEvent;
 
 // ---------------------------------------------------------------------------
 // Shared shapes
@@ -218,6 +219,28 @@ export interface MessageEndEvent extends TelemetryEventBase {
 	usage?: LlmUsage;
 }
 
+// -- MyFlow checkpoint events --
+
+/**
+ * Emitted at MyFlow stage boundaries to capture stage/artifact lifecycle
+ * context that deterministic Pi events (turns, tools, sub-agents) don't
+ * provide. Joined with the session's event stream via `sessionId`.
+ */
+export interface MyFlowCheckpointEvent extends TelemetryEventBase {
+	kind: "myflow_checkpoint";
+	/** MyFlow stage name: "research", "design", "plan", "implement", "validate", "review", "land". */
+	stage: string;
+	/** Path to the artifact produced or consumed at this checkpoint, if any. */
+	artifactPath?: string;
+	/** Artifact bucket/kint: "designs", "plans", "alignment", etc. */
+	artifactKind?: string;
+	riskLevel?: "low" | "medium" | "high";
+	decisionCount?: number;
+	restartRecommended?: boolean;
+	/** Pi session ID from the checkpoint's context — may differ from the telemetry event's sessionId for sub-agent workstreams. */
+	piSessionId?: string;
+}
+
 // ---------------------------------------------------------------------------
 // TelemetryEvent kind constants + type
 // ---------------------------------------------------------------------------
@@ -244,6 +267,7 @@ export const TELEMETRY_EVENT_KINDS = [
 	"subagent_failed",
 	"subagent_compacted",
 	"subagent_steered",
+	"myflow_checkpoint",
 ] as const;
 
 export type TelemetryEventKind = (typeof TELEMETRY_EVENT_KINDS)[number];

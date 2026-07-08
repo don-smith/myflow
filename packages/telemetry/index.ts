@@ -27,6 +27,8 @@ export {
 	resetTelemetryDispatcher,
 	shutdownTelemetryDispatcher,
 } from "./dispatcher.js";
+export { emitMyFlowCheckpoint } from "./checkpoint.js";
+export type { MyFlowCheckpointData } from "./checkpoint.js";
 export { teardownTelemetry } from "./instrumentation/index.js";
 export {
 	BUILT_IN_PROVIDERS,

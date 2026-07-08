@@ -1,6 +1,7 @@
 import type {
 	BeforeAgentStartEvent,
 	ModelSelectEvent,
+	MyFlowCheckpointEvent,
 	SessionCompactEvent,
 	TurnEndEvent,
 	TurnStartEvent,
@@ -16,7 +17,8 @@ type AttributeOnlyEvent =
 	| TurnEndEvent
 	| SessionCompactEvent
 	| BeforeAgentStartEvent
-	| ModelSelectEvent;
+	| ModelSelectEvent
+	| MyFlowCheckpointEvent;
 
 /**
  * Write per-kind typed attributes onto the active turn span. Unlike the prior
@@ -51,6 +53,14 @@ export function onAttributeEvent(registry: MlflowSpanRegistry, event: AttributeO
 			span.setAttribute("model.id", event.modelId);
 			span.setAttribute("model.provider", event.modelProvider);
 			span.setAttribute("model.select_source", event.source);
+			return;
+		case "myflow_checkpoint":
+			span.setAttribute("workflow.stage", event.stage);
+			if (event.artifactPath !== undefined) span.setAttribute("workflow.artifact_path", event.artifactPath);
+			if (event.artifactKind !== undefined) span.setAttribute("workflow.artifact_kind", event.artifactKind);
+			if (event.riskLevel !== undefined) span.setAttribute("workflow.risk_level", event.riskLevel);
+			if (event.decisionCount !== undefined) span.setAttribute("workflow.decision_count", event.decisionCount);
+			if (event.restartRecommended !== undefined) span.setAttribute("workflow.restart_recommended", event.restartRecommended);
 			return;
 	}
 }
