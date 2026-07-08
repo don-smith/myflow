@@ -228,7 +228,7 @@ export interface MessageEndEvent extends TelemetryEventBase {
  */
 export interface MyFlowCheckpointEvent extends TelemetryEventBase {
 	kind: "myflow_checkpoint";
-	/** MyFlow stage name: "research", "design", "plan", "implement", "validate", "review", "land". */
+	/** MyFlow stage name: "alignment", "research", "design", "plan", "implement", "validate", "review", "close". */
 	stage: string;
 	/** Path to the artifact produced or consumed at this checkpoint, if any. */
 	artifactPath?: string;

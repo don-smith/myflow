@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
-// Land integration — runs the friction reducer and routes high-confidence
+// Close integration — runs the friction reducer and routes high-confidence
 // findings to the personal repo tabled file (epiphany-tabling convention).
 //
-// Intended to be invoked as part of the Stage 5 Land closeout process
-// (`/skill:land`). The function is a no-op when no findings are produced
+// Intended to be invoked as part of the Stage 5 Close process
+// (`/skill:close`). The function is a no-op when no findings are produced
 // or when the tabled file cannot be resolved.
 // ---------------------------------------------------------------------------
 

@@ -10,7 +10,7 @@ The system has three layers:
 
 1. **Checkpoint events** — explicit `myflow_checkpoint` events emitted at MyFlow stage boundaries
 2. **Session summary collector** — an always-registered telemetry provider that accumulates deterministic metrics and persists a `SessionSummary` JSON at shutdown
-3. **Friction reducer** — a set of detectors that analyze the summary and route findings to the personal repo tabled file during Land
+3. **Friction reducer** — a set of detectors that analyze the summary and route findings to the personal repo tabled file during Close
 
 ---
 
@@ -38,7 +38,7 @@ emitMyFlowCheckpoint──▶ │ dispatchTelemetry │──▶ MLflow (workflo
                     Contains: tool calls, tokens, sub-agents, checkpoints
                     Fast — no analysis, just counters
                                 │
-                          (months later, during Land)
+                          (after shutdown, during Close)
                                 │
                                 ▼
                     reportFrictionFindings(sessionId)
@@ -54,7 +54,7 @@ emitMyFlowCheckpoint──▶ │ dispatchTelemetry │──▶ MLflow (workflo
 
 ## What happens at each MyFlow stage
 
-### Stage 1 — Discover & Align
+### Stage 1 — Scope
 
 **What the skill should do:** At the end of Stage 1, when the alignment artifact is written, emit a checkpoint:
 
@@ -79,7 +79,7 @@ emitMyFlowCheckpoint({
 
 **Who listens:** `SessionSummaryProvider` (records the checkpoint for later analysis), `MlflowProvider` (writes span attributes).
 
-### Stage 2 — Research & Design
+### Stage 2 — Plan
 
 **What the skill should do:** Emit checkpoints at each artifact boundary — after research, after design, after plan approval:
 
@@ -108,7 +108,7 @@ emitMyFlowCheckpoint({ stage: "implement", artifactKind: "phase", riskLevel: "me
 
 **What's happening automatically:** High tool churn during implementation (e.g., many `read`/`edit` loops) is captured as `turn_end.toolResultCount` → `highChurnTurnCount`. Tool errors from failed edits, compilations, or test runs are captured as `tool_execution_end.isError`.
 
-### Stage 4 — Validate & Review
+### Stage 4 — Review
 
 **What the skill should do:** Emit a checkpoint at validation:
 
@@ -117,13 +117,13 @@ emitMyFlowCheckpoint({ stage: "validate", artifactKind: "validation" });
 emitMyFlowCheckpoint({ stage: "review", artifactKind: "review", riskLevel: "low" });
 ```
 
-### Stage 5 — Land & Learn
+### Stage 5 — Close
 
-**This is where the friction reducer runs.** The Land skill should include a step that invokes the reducer:
+**This is where the friction reducer runs.** The Close skill should include a step that invokes the reducer:
 
 ```
 1. Run the friction reducer:
-   import { reportFrictionFindings } from "@myflow/telemetry/eval/land-integration";
+   import { reportFrictionFindings } from "@myflow/telemetry/eval/close-integration";
    const count = reportFrictionFindings(sessionId);
    // count = number of findings routed to the tabled file
 
@@ -133,7 +133,7 @@ emitMyFlowCheckpoint({ stage: "review", artifactKind: "review", riskLevel: "low"
    - High tool churn (medium) — 3 turns with 8+ tool calls each
    - Missing checkpoints (medium) — 10 turns with zero checkpoint events
 
-3. Continue with the normal Land process:
+3. Continue with the normal Close process:
    - Process tabled items (including the new friction findings)
    - Determine if any pattern is a "second sighting" → promote to skill, runbook, or memory
    - Commit, as-built documentation, retro
@@ -190,7 +190,7 @@ emitMyFlowCheckpoint({ stage: "review", artifactKind: "review", riskLevel: "low"
 
 ## How to use the findings
 
-The friction reducer routes findings to the personal repo tabled file. These are processed during the normal Land closeout:
+The friction reducer routes findings to the personal repo tabled file. These are processed during the normal Close closeout:
 
 1. **Review the tabled entries** — each finding has a severity, description, and evidence
 2. **First sighting** — leave it tabled; wait for the pattern to repeat
@@ -221,7 +221,7 @@ Example findings that might lead to improvements:
 | `packages/telemetry/instrumentation/session-summary.ts` | `SessionSummaryProvider` — always-registered telemetry provider |
 | `packages/telemetry/eval/detectors.ts` | 7 friction detector functions |
 | `packages/telemetry/eval/reducer.ts` | `analyzeSession()` and `analyzeAllSessions()` |
-| `packages/telemetry/eval/land-integration.ts` | `reportFrictionFindings()` — routes to tabled file |
+| `packages/telemetry/eval/close-integration.ts` | `reportFrictionFindings()` — routes to tabled file |
 
 ### Modified files
 
@@ -256,12 +256,12 @@ All `myflow_checkpoint` events write the following attributes on the active agen
 
 The current implementation is the infrastructure. The next step is to integrate checkpoint calls into the MyFlow skills:
 
-1. **`start` skill** — emit checkpoint after alignment artifact is written
+1. **`scope` skill** — emit checkpoint after alignment artifact is written
 2. **`research` skill** — emit checkpoint after research artifact is written
 3. **`design` skill** — emit checkpoint after design artifact is written
 4. **`plan` skill** — emit checkpoint after plan artifact is written
 5. **`implement` skill** — emit checkpoint at phase boundaries
 6. **`validate` skill** — emit checkpoint after validation
-7. **`land` skill** — add friction reducer step and process findings
+7. **`close` skill** — add friction reducer step and process findings
 
 These skill integrations are not yet implemented — the public API exists and is ready to be called.

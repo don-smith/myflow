@@ -13,7 +13,7 @@ import { currentSessionId } from "./instrumentation/state.js";
  * optional — the event fills in `kind`, `sessionId`, and `timestamp`.
  */
 export interface MyFlowCheckpointData {
-	/** MyFlow stage name: "research", "design", "plan", "implement", "validate", "review", "land". */
+	/** MyFlow stage name: "alignment", "research", "design", "plan", "implement", "validate", "review", "close". */
 	stage: string;
 	/** Path to the artifact produced or consumed at this checkpoint, if any. */
 	artifactPath?: string;

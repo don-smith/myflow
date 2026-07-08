@@ -2,7 +2,7 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { reportFrictionFindings } from "./land-integration.js";
+import { reportFrictionFindings } from "./close-integration.js";
 import type { SessionSummary } from "./types.js";
 
 const SAMPLE_SUMMARY: SessionSummary = {
@@ -20,7 +20,7 @@ describe("reportFrictionFindings", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {
-		tmpDir = join(tmpdir(), "land-eval-test-" + Date.now());
+		tmpDir = join(tmpdir(), "close-eval-test-" + Date.now());
 		const sessionsDir = join(tmpDir, ".myflow", "telemetry", "sessions");
 		mkdirSync(sessionsDir, { recursive: true });
 		writeFileSync(join(sessionsDir, "test-session.json"), JSON.stringify(SAMPLE_SUMMARY), "utf-8");

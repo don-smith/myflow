@@ -61,7 +61,7 @@
 		"providers/mlflow/turn-spans.ts",
 		"checkpoint.ts",
 		"eval/detectors.ts",
-		"eval/land-integration.ts",
+		"eval/close-integration.ts",
 		"eval/reducer.ts",
 		"eval/types.ts",
 		"instrumentation/session-summary.ts",

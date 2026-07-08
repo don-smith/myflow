@@ -5,7 +5,7 @@
 //
 // This is the "auto-collect" half of the hybrid reducer architecture:
 // data is persisted locally at shutdown (fast, no analysis), and the
-// friction reducer queries this file during Land.
+// friction reducer queries this file during Close.
 // ---------------------------------------------------------------------------
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";

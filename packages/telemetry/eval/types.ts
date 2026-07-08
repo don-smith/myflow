@@ -48,7 +48,7 @@ export interface FrictionFinding {
 /**
  * Lightweight per-session summary persisted at session shutdown.
  * Captures deterministic metrics from the telemetry event stream that the
- * friction reducer analyzes during Land. Persisted as JSON to
+ * friction reducer analyzes during Close. Persisted as JSON to
  * `.myflow/telemetry/sessions/<sessionId>.json`.
  */
 export interface SessionSummary {

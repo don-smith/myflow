@@ -2,7 +2,7 @@
 // Friction reducer — per-run friction analysis
 //
 // Reads a persisted SessionSummary JSON, runs all detectors, and returns
-// structured FrictionFindings. Designed to be invoked from the Land skill
+// structured FrictionFindings. Designed to be invoked from the Close skill
 // (Stage 5) or manually during development.
 // ---------------------------------------------------------------------------
 
