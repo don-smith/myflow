@@ -100,4 +100,4 @@ status: ready
 - {Verdict}: {summary}
 
 ### Next Command
-`/skill:land`
+`/skill:close`

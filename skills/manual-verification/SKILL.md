@@ -19,7 +19,7 @@ Automated tests verify that code works as designed. Manual verification confirms
 - The feature has a CLI, chat, or UI surface a human interacts with
 - The feature processes human-generated input (voice, images, files)
 - Automated tests mock or stub the external service
-- You are about to start the `land` / closeout process
+- You are about to start the `close` / closeout process
 
 **Do NOT use for:**
 - Purely internal refactors with 100% test coverage
@@ -145,7 +145,7 @@ Provide the exact command to run and the expected output. Do not assume the huma
 
 ## Relationship to Other Skills
 
-This skill is part of **stage 4 (Validate & Review)** of the myflow pipeline. It runs after `validate` and `code-review` reach zero blockers, and before stage 5 (Land). It does not replace the `validate` skill — it supplements it for features with external services or human-interactive surfaces.
+This skill is part of **stage 4 (Review)** of the myflow pipeline. It runs after `validate` and `code-review` reach zero blockers, and before stage 5 (Close). It does not replace the `validate` skill — it supplements it for features with external services or human-interactive surfaces.
 
 ```
 validate → code-review → manual-verification (if external deps) → land
