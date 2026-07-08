@@ -3,20 +3,6 @@ name: revise
 description: Surgically update an existing implementation plan in .myflow/artifacts/plans/ based on review feedback, mid-implementation discoveries, or new constraints, preserving structure and quality rather than rewriting. Use when the user wants a plan adjusted after code-review feedback, has hit a blocker mid-implement, scope changed, or asks to "revise the plan".
 argument-hint: "[plan-path | --plans <path> --reviews <path>] [feedback]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: plan
-    data:
-      type: object
-      properties:
-        status:
-          enum: [in-progress, in-review, ready]
-  consumes:
-    reads:
-      plans: {}
-      reviews: {}
 ---
 
 # Revise

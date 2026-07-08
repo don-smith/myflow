@@ -3,40 +3,6 @@ name: architecture-review
 description: Conduct a top-down, layer-by-layer architecture review of a software module by reading every file in scope, running a uniform 10-dimension checklist per layer, and triaging each candidate finding through a structured developer checkpoint. Produces a phased polish plan in .myflow/artifacts/architecture-reviews/ that design/plan can consume per phase. Language-agnostic — works on TypeScript, Java, .NET, Rust, Python, Go, or any other typed module. Use before a 1.0 release, after a major refactor, or when a module has grown enough to warrant a structural audit.
 argument-hint: "[target path: file, directory, or module]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: architecture-review
-    data:
-      type: object
-      required: [phases, layer_count]
-      properties:
-        status:
-          enum: [in-progress, ready]
-        layer_count:
-          type: integer
-          minimum: 1
-        phases:
-          type: array
-          minItems: 1
-          maxItems: 32
-          items:
-            type: object
-            required: [n, title]
-            properties:
-              n: { type: integer, minimum: 1 }
-              title: { type: string }
-              depends_on:
-                type: array
-                items: { type: integer, minimum: 1 }
-              blast_radius:
-                enum: [internal, public-API, on-disk, cross-module]
-              effort:
-                enum: [S, M, L]
-  consumes:
-    meta:
-      world: target-path
 ---
 
 # Architecture Review

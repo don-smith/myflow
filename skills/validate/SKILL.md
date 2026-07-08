@@ -4,23 +4,6 @@ description: Verify that an implementation plan was correctly executed by runnin
 argument-hint: "[plan-path]"
 allowed-tools: Read, Bash(git *), Bash(make *), Glob, Grep, Agent
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: validation
-    data:
-      type: object
-      properties:
-        status:
-          enum: [in-progress, in-review, ready]
-        verdict:
-          enum: [pass, fail]
-  consumes:
-    reads:
-      plans: {}
-    meta:
-      world: working-tree
 ---
 
 # Validate

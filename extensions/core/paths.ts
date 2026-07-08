@@ -69,8 +69,7 @@ export function loadBundledSkillNames(dir: string): ReadonlySet<string> {
  *     owned by @myflow/pi claim the status line; user-supplied or third-party
  *     skills passthrough.
  *
- * The TS-native workflow runner does NOT enforce a skill-name allowlist at
- * load time; Pi resolves the skill at run time and surfaces a clear error
- * if it can't load. See `@myflow/workflow`'s `api.ts` `skill` field.
+ * Pi resolves skill commands at run time and surfaces a clear error
+ * if a bundled or user-provided skill cannot load.
  */
 export const BUNDLED_SKILL_NAMES: ReadonlySet<string> = loadBundledSkillNames(BUNDLED_SKILLS_DIR);

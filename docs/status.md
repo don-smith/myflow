@@ -2,6 +2,12 @@
 
 ## Recently Completed
 
+- **Stage 3 implementation refresh** (2026-06-29)
+  - Made `implement` the sole Stage 3 executor and moved TDD/subagents/parallel dispatch into in-phase tactics
+  - Replaced the standalone subagent executor with a scoped `implementation-coder` agent
+  - Removed the obsolete workflow runtime, workflow sibling, built-in workflow registrations, workflow contracts, and workflow model override scopes
+  - Contract frontmatter is no longer emitted on active skills because the workflow contract consumer was deleted
+
 - **Stage 2 design/planning restructure** (2026-06-29)
   - Removed the separate `blueprint` skill and standardized Stage 2 on `research/explore → design → plan → implement`
   - Moved standalone/free-text entry into `design`
@@ -30,7 +36,6 @@
 
 ## What's Next
 
-- **Stage 3 implementation refresh** — clarify how `implement`, TDD, subagent-driven development, and parallel dispatch compose without creating competing execution paths.
 - **Stage 4 validation/review refresh** — clarify validation, manual verification, code review, revise loops, and when each gate should run.
 - **Stage 5 closeout refresh** — keep landing, documentation, changelog, retros, and learning capture useful without becoming a heavy ritual.
 - **Canonical `resume` skill** — artifact-led continuation. Single `/skill:resume` command that reads `.myflow/artifacts/`, infers stage, and proposes next action. Replaces ad-hoc handoff-first recovery.

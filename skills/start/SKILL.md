@@ -3,20 +3,6 @@ name: start
 description: Begin a MyFlow workstream with right-sized Stage 1 alignment. Accepts rough ideas, voice transcripts, tickets, or notes; produces an Adaptive Alignment Artifact under .myflow/artifacts/alignment/ and recommends the next stage.
 argument-hint: "[rough idea | transcript | ticket path | notes path]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: alignment
-    data:
-      type: object
-      properties:
-        status:
-          enum: [in-progress, ready]
-        risk_level:
-          enum: [low, medium, high]
-        suggested_next_step:
-          enum: [escalate_to_brainstorming, escalate_to_discover, escalate_to_explore, continue_to_research, continue_to_design, implement_directly, stop]
 ---
 
 # Start

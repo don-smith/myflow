@@ -3,24 +3,6 @@ name: design
 description: Design complex features by decomposing them into vertical slices, generating code slice-by-slice with per-slice verifier dispatch, and producing a design artifact (architecture decisions, slice breakdown, file map) in .myflow/artifacts/designs/. The design feeds the plan skill, which sequences it into implementation phases and runs the post-finalization reviewer pair. Accepts a research artifact, solutions artifact, architecture-review artifact, code-review artifact, or free-text feature description (standalone mode for small tasks). Use for complex multi-component features touching 6+ files across multiple layers, when the user wants a feature designed before implementation. Requires an upstream artifact or a free-text feature description for standalone mode.
 argument-hint: "[research artifact path | solutions artifact path | architecture-review artifact path | review artifact path | free-text feature description]"
 shell-timeout: 10
-contract:
-  produces:
-    kind: produces
-    meta:
-      artifactKind: design
-    data:
-      type: object
-      properties:
-        status:
-          enum: [in-progress, in-review, ready]
-  consumes:
-    data:
-      type: object
-      properties:
-        status:
-          const: ready
-    meta:
-      artifactKind: [research, solutions, review, architecture-review]
 ---
 
 # Design

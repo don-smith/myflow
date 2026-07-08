@@ -4,7 +4,7 @@ empty), strip this comment, Write once. The artifact LEADS with the decision: a 
 Bottom line, the ranked Top Blockers, and a Legend — so a reader can act in under a
 minute without reading every finding. All counts ({*_count}) are computed mechanically
 by the skill (Step 5) from the agent rows — never re-counted in prose. Routing fields in
-frontmatter are integers the workflow gate reads via Number(); the enums are display
+frontmatter are integer display mirrors; the enums are
 mirrors. -->
 ---
 template_version: 2
@@ -45,7 +45,7 @@ headline judgment.}
 **Recommendation:** {Review | Request changes | Hold | Decline} — {the concrete next step: open a
 review / send back to the author with the blockers / comment the scope question / close with a
 pointer to where it belongs.}
-**rpiv (optional):** `/wf vet "{pr_url}"` runs the review → repair → commit loop on the diff (Review only).  {BLOCK: "— STOP: resolve the security finding before any checkout"}
+**Review follow-up:** {Review only: run `/skill:code-review` after preparing the accepted PR diff.} {BLOCK: "— STOP: resolve the security finding before any checkout"}
 **Definition of done:** {Request changes → resolve the {blockers_count} blockers, then it is Review-ready. Hold → the question that, once answered, unblocks. Decline → where it belongs instead.}
 
 ---
@@ -68,7 +68,7 @@ disposition  Review (proceed to the review stage) · Request changes (back to th
 security     SAFE · REVIEW · BLOCK (a BLOCK halts before any checkout)
 drift        local = contained convention slip · structural = breaks a boundary/contract the standard sets
 blockers     structural-drift rows + undelivered-intent claims (minor drift is non-blocking)
-rpiv         optional, with Review: `/wf vet "<pr-url>"` runs the review → repair → commit loop on the diff
+review       with Review: proceed to MyFlow Stage 4 code review (`/skill:code-review`) after preparing the accepted PR diff
 ```
 
 ---

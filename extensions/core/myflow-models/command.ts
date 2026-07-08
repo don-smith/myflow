@@ -234,7 +234,7 @@ function requireInteractive(ctx: ExtensionContext): boolean {
 }
 
 /**
- * First picker: which scope to override (defaults/agents/.../presets or
+ * First picker: which scope to override (defaults/agents/skills or
  * reset-all). `preselect` re-highlights the scope the user just backed out of.
  */
 function pickScope(
