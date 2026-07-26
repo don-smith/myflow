@@ -513,7 +513,7 @@ Ask follow-ups, or chain forward.
 
 💬 Follow-up: describe the question in chat to append a timestamped Follow-up section. Retired IDs stay retired; re-run `/skill:code-review` for a fresh review.
 
-**Next step:** `/skill:design "Address findings from .myflow/artifacts/reviews/{filename}.md"` — run the design phase over the review document to produce a fix plan.
+**Next step:** If `blockers_count > 0`: `/skill:design "Address findings from .myflow/artifacts/reviews/{filename}.md"` — run the design phase over the review document to produce a fix plan. If `blockers_count == 0`: `/skill:close` — proceed to stage 5 closeout (or run `manual-verification` first if the feature touches external services or human-interactive surfaces).
 
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 ```

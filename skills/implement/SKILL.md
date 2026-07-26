@@ -127,7 +127,7 @@ Please review the diff and let me know if anything should reopen a phase.
 
 💬 Follow-up: surface code/plan mismatches inline via the `ask_user_question` flow ("Follow the plan / Skip this change / Update the plan") — that is implement's only in-skill follow-up surface. For plan-level changes run `/skill:revise <plan-path>`; for session pauses run `/skill:create-handoff`.
 
-**Next step:** `/skill:validate .myflow/artifacts/plans/{filename}.md` — verify the implementation against the plan's success criteria before review/land.
+**Next step:** `/skill:validate .myflow/artifacts/plans/{filename}.md` — verify the implementation against the plan's success criteria. Then run `/skill:code-review` (mandatory Stage 4 gate) before committing.
 
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 ```
@@ -147,7 +147,7 @@ Please review what landed and let me know if anything needs to change before res
 
 💬 Follow-up: surface code/plan mismatches inline via the `ask_user_question` flow ("Follow the plan / Skip this change / Update the plan") — that is implement's only in-skill follow-up surface. For plan-level changes run `/skill:revise <plan-path>` first.
 
-**Next step:** `/skill:create-handoff` — capture in-flight state so the next session can resume cleanly via `/skill:resume-handoff`.
+**Next step:** `/skill:create-handoff` — capture in-flight state so the next session can resume cleanly via `/skill:resume-handoff`. When resuming, remember: after implementation completes, run `/skill:validate` then `/skill:code-review` (mandatory Stage 4 gate) before committing.
 
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 ```

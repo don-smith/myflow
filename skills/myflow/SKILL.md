@@ -128,16 +128,22 @@ Execute the plan. Write the code.
 
 ### Stage 4 — Review
 
-Verify the work. Gate the commit.
+Verify the work. Review the code. Gate the commit.
+
+**Ordered flow:**
+1. `validate` — re-check each phase against its success criteria
+2. `code-review` — structured audit across quality, security, and dependencies. Emits `blockers_count`. **Mandatory gate** — do not skip.
+3. `manual-verification` — exercise external services and human-interactive surfaces before close (skip for pure internal refactors)
+4. If blockers: `receiving-code-review` → `revise` → re-implement affected phases → re-validate → re-review
 
 **Skills:**
 - `validate` — re-check each phase against its success criteria
-- `manual-verification` — exercise external services and human-interactive surfaces before close (skip for pure internal refactors)
 - `code-review` — structured audit across quality, security, and dependencies. Emits `blockers_count`.
+- `manual-verification` — exercise external services and human-interactive surfaces before close (skip for pure internal refactors)
 - `receiving-code-review` — process review findings with technical rigor
 - `revise` — surgically update the plan from review feedback
 
-**Gate:** `code-review` loops until zero blockers (max 3 passes). Blockers → `revise` → re-implement → re-validate. Zero blockers → proceed to stage 5. Three loops with remaining blockers → stops for human decision.
+**Gate:** `code-review` loops until zero blockers (max 3 passes). Blockers → `revise` → re-implement → re-validate → re-review. Zero blockers → proceed to stage 5. Three loops with remaining blockers → stops for human decision.
 
 **Artifact:** `.myflow/artifacts/validation/` + `.myflow/artifacts/reviews/`
 
@@ -147,8 +153,8 @@ Verify the work. Gate the commit.
 | I want to... | Invoke |
 |---|---|
 | Verify implementation | `/skill:validate <plan>` |
+| Review changes (mandatory gate) | `/skill:code-review [scope]` |
 | Verify external deps manually | `manual-verification` |
-| Review changes | `/skill:code-review [scope]` |
 | Process review feedback | `receiving-code-review` |
 | Update plan from review | `/skill:revise <plan-path>` |
 
@@ -277,8 +283,8 @@ Committed repo artifacts are configurable per repo through the personal repo sto
 | Execute the plan | `/skill:implement <plan> [Phase N]` |
 | Run TDD | `test-driven-development` |
 | Verify implementation | `/skill:validate <plan>` |
+| Review changes (mandatory gate) | `/skill:code-review [scope]` |
 | Verify external deps manually | `manual-verification` |
-| Review changes | `/skill:code-review [scope]` |
 | Process review feedback | `receiving-code-review` |
 | Update plan from review | `/skill:revise <plan-path>` |
 | Commit changes | `/skill:commit` |

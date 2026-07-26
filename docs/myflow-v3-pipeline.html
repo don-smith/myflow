@@ -47,16 +47,26 @@
   <!-- Stage 1 -->
   <div style="border-left: 3px solid #818cf8; padding-left: 12px; margin-bottom: 0;">
     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #a5b4fc;">1. Discover &amp; Align</h3>
+      <h3 style="margin: 0; color: #a5b4fc;">1. Scope</h3>
       <span class="label" style="background: #312e81; color: #a5b4fc;">shaping</span>
     </div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">
-      <code style="background: #312e81; color: #c7d2fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">start</code>
+    <div style="margin-top: 8px;">
+      <span class="label" style="background: #3730a3; color: #a5b4fc; font-size: 10px;">primary</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
+        <code style="background: #312e81; color: #c7d2fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">scope</code>
+        <code style="background: #312e81; color: #c7d2fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">research</code>
+      </div>
+    </div>
+    <div style="margin-top: 6px;">
+      <span class="label" style="background: #3730a3; color: #a5b4fc; font-size: 10px;">supporting</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
+        <code style="background: #312e81; color: #c7d2fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">discover</code>
+      </div>
     </div>
     <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-      <strong>Typical flow:</strong> start → optional escalation to brainstorming / discover / explore / research<br>
-      <strong>Artifact:</strong> <code>.myflow/artifacts/alignment/</code><br>
-      <strong>Checkpoint:</strong> capturing-learnings
+      <strong>Typical flow:</strong> <code>scope</code> → alignment artifact → <code>research</code> → research artifact. Use <code>discover</code> when work is still fuzzy after scoping.<br>
+      <strong>Artifacts:</strong> <code>.myflow/artifacts/alignment/</code> + <code>.myflow/artifacts/research/</code><br>
+      <strong>Checkpoint:</strong> capturing-learnings after each artifact is accepted
     </div>
   </div>
 
@@ -65,19 +75,18 @@
   <!-- Stage 2 -->
   <div style="border-left: 3px solid #a78bfa; padding-left: 12px; margin-bottom: 0;">
     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #c4b5fd;">2. Research &amp; Design</h3>
+      <h3 style="margin: 0; color: #c4b5fd;">2. Plan</h3>
       <span class="label" style="background: #4c1d95; color: #c4b5fd;">deciding</span>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">
-      <code style="background: #4c1d95; color: #ddd6fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">research</code>
       <code style="background: #4c1d95; color: #ddd6fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">design</code>
       <code style="background: #4c1d95; color: #ddd6fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">architecture-review</code>
       <code style="background: #4c1d95; color: #ddd6fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">plan</code>
     </div>
     <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-      <strong>Path:</strong> <code>research</code> → <code>design</code> → <code>plan</code> (with <code>architecture-review</code> feeding design when needed)<br>
-      <strong>Artifact:</strong> <code>.myflow/artifacts/plans/</code> (canonical — implement consumes this)<br>
-      <strong>Checkpoint:</strong> capturing-learnings<br>
+      <strong>Path:</strong> <code>design</code> → <code>plan</code> (with <code>architecture-review</code> feeding design when a structural audit is needed)<br>
+      <strong>Artifacts:</strong> <code>.myflow/artifacts/designs/</code> + <code>.myflow/artifacts/plans/</code> (canonical — implement consumes this)<br>
+      <strong>Checkpoint:</strong> capturing-learnings after plan is accepted<br>
       <span style="color: #f59e0b;">●</span> epiphany-tabling active
     </div>
   </div>
@@ -90,12 +99,20 @@
       <h3 style="margin: 0; color: #6ee7b7;">3. Implement</h3>
       <span class="label" style="background: #064e3b; color: #6ee7b7;">building</span>
     </div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">
-      <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">implement</code>
-      <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">test-driven-development</code>
-      <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">implementation-coder</code>
-      <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">dispatching-parallel-agents</code>
-      <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">verification-before-completion</code>
+    <div style="margin-top: 8px;">
+      <span class="label" style="background: #065f46; color: #6ee7b7; font-size: 10px;">primary</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
+        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">implement</code>
+      </div>
+    </div>
+    <div style="margin-top: 6px;">
+      <span class="label" style="background: #065f46; color: #6ee7b7; font-size: 10px;">supporting tactics (inside implement)</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
+        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">test-driven-development</code>
+        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">implementation-coder</code>
+        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">dispatching-parallel-agents</code>
+        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">verification-before-completion</code>
+      </div>
     </div>
     <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
       <strong>Primary:</strong> <code>implement</code> executes the plan phase by phase<br>
@@ -110,19 +127,20 @@
   <!-- Stage 4 -->
   <div style="border-left: 3px solid #f59e0b; padding-left: 12px; margin-bottom: 0;">
     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #fbbf24;">4. Validate &amp; Review</h3>
+      <h3 style="margin: 0; color: #fbbf24;">4. Review</h3>
       <span class="label" style="background: #78350f; color: #fbbf24;">verifying</span>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">
       <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">validate</code>
+      <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">manual-verification</code>
       <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">code-review</code>
       <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">receiving-code-review</code>
       <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">revise</code>
     </div>
     <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-      <strong>Artifact:</strong> Validation report + Review (<code>.myflow/artifacts/validation/</code> + <code>.myflow/artifacts/reviews/</code>)<br>
+      <strong>Artifact:</strong> Validation report + Manual Verification + Review (<code>.myflow/artifacts/validation/</code> + <code>.myflow/artifacts/reviews/</code>)<br>
       <strong>Gate:</strong> <code>code-review</code> loops until zero blockers (max 3 passes). Covers quality, security, and dependencies.<br>
-      <strong>Checkpoint:</strong> capturing-learnings
+      <strong>Checkpoint:</strong> capturing-learnings after validate + review pass
     </div>
   </div>
 
@@ -131,7 +149,7 @@
   <!-- Stage 5 -->
   <div style="border-left: 3px solid #f472b6; padding-left: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #f9a8d4;">5. Land &amp; Learn</h3>
+      <h3 style="margin: 0; color: #f9a8d4;">5. Close</h3>
       <span class="label" style="background: #831843; color: #f9a8d4;">closing</span>
     </div>
 
@@ -152,13 +170,14 @@
     </div>
 
     <div style="margin-top: 8px;">
-      <span class="label" style="background: #4a1942; color: #f9a8d4; font-size: 10px;">group 3 · update &amp; close</span>
+      <span class="label" style="background: #4a1942; color: #f9a8d4; font-size: 10px;">group 3 · update &amp; integrate</span>
       <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">AGENTS.md</code>
+        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">doc / knowledge-graph review</code>
+        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">AGENTS.md updates</code>
         <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">memory reconcile</code>
         <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">status review</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">resolve tabled.md</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">finishing-a-development-branch</code>
+        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">resolve tabled items</code>
+        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">integrate</code>
       </div>
     </div>
 
@@ -174,15 +193,27 @@
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
     <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #818cf8;">
       <span class="label">epiphany-tabling</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Active during <strong>stages 2–4</strong>. Anything not trivially in-scope → <code>docs/tabled.md</code>. Resolve in stage 5 group 3.</p>
+      <p style="font-size: 12px; margin: 4px 0 0 0;">Active during <strong>stages 2–4</strong>. Anything not trivially in-scope → personal repo tabled file. Resolve in stage 5 group 3.</p>
     </div>
     <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #a78bfa;">
       <span class="label">capturing-learnings</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Checkpoint after <strong>stages 1, 2, 4, 5</strong>. Promote twice-seen patterns to skills/memory/runbooks.</p>
+      <p style="font-size: 12px; margin: 4px 0 0 0;">Checkpoint after <strong>stages 1, 2, 4, 5</strong>. Once is a moment; twice is a pattern. Promote twice-seen patterns to skills/memory/runbooks.</p>
     </div>
     <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #34d399;">
+      <span class="label">verification-before-completion</span>
+      <p style="font-size: 12px; margin: 4px 0 0 0;">Before any completion claim — run the verification command fresh, read output, cite evidence. No shortcuts.</p>
+    </div>
+    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #f59e0b;">
+      <span class="label">stage-boundary restarts</span>
+      <p style="font-size: 12px; margin: 4px 0 0 0;">Fresh sessions expected at <strong>each stage boundary</strong>. Artifacts are the primary handoff mechanism. Resume from artifact path + recommended next-stage command.</p>
+    </div>
+    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #f472b6;">
       <span class="label">create / resume handoff</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Available at <strong>any stage</strong>. Save state mid-pipeline, resume in fresh session.</p>
+      <p style="font-size: 12px; margin: 4px 0 0 0;">Backup for <strong>mid-stage pauses</strong>. Artifacts are the primary handoff. Use create/resume only when context is high and you must stop mid-stage.</p>
+    </div>
+    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #6366f1;">
+      <span class="label">telemetry &amp; replay checkpoints</span>
+      <p style="font-size: 12px; margin: 4px 0 0 0;">Every stage artifact carries a <strong>Context Checkpoint</strong> (in-progress state) and a <strong>Rehydration Manifest</strong> (finalized handoff). Artifacts are self-contained.</p>
     </div>
   </div>
 </div>

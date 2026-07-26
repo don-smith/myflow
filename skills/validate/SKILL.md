@@ -130,7 +130,7 @@ Follow-up footer:
 
 💬 Follow-up: if findings are localized, fix them and re-run `/skill:validate`. If findings imply plan-level changes, escalate to `/skill:revise <plan-path>` first.
 
-**Next step:** `/skill:commit` — group the validated changes into atomic commits (skip if `verdict: fail` — fix the gaps first, then re-run `/skill:validate`).
+**Next step:** `/skill:code-review` — audit the implementation for quality, security, and dependencies. Code review is a mandatory Stage 4 gate — do not commit until it passes with zero blockers. If the feature touches external services or human-interactive surfaces, also run `manual-verification` before close. (If `verdict: fail`, fix the gaps first, then re-run `/skill:validate`.)
 
 > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
 
@@ -170,11 +170,12 @@ Always verify:
 
 ## Relationship to Other Skills
 
-Recommended workflow:
-1. `/skill:implement` - Execute the implementation
+Recommended workflow (Stage 4 — Review):
+1. `/skill:implement` - Execute the implementation (Stage 3)
 2. `/skill:validate` - Verify implementation correctness
-3. `/skill:manual-verification` — If the feature touches external services or human-interactive surfaces, exercise them against live dependencies before proceeding
-4. `/skill:commit` - Create atomic commits for the validated changes
+3. `/skill:code-review` — Audit the implementation for quality, security, and dependencies. Loop until zero blockers (max 3 passes).
+4. `manual-verification` — If the feature touches external services or human-interactive surfaces, exercise them against live dependencies before proceeding
+5. `/skill:close` — Stage 5 closeout (commit, document, reflect, integrate)
 
 Validate runs against the working tree (staged or committed), so running it before commit avoids amend churn when fixing a `verdict: fail`.
 
