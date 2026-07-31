@@ -216,6 +216,8 @@ export interface MessageEndEvent extends TelemetryEventBase {
 	model?: string;
 	provider?: string;
 	stopReason?: string;
+	/** Assistant output captured only when `llmPayload` is `full` or summarized when it is `summary`. */
+	content?: unknown;
 	usage?: LlmUsage;
 }
 

@@ -50,8 +50,8 @@ export function setCurrentSessionId(s: string): void {
  * never received a terminal EventBus event (the pi-subagents manager aborts
  * running agents during shutdown but those abort callbacks race the teardown
  * of our subscriptions). `orphan-flush.ts` synthesizes `subagent_failed` for
- * each survivor so MLflow always shows a terminal trace instead of orphan
- * "started" spans.
+ * each survivor so Langfuse always shows a terminal observation instead of
+ * orphan "started" spans.
  *
  * Keyed by `${sessionId}\0${agentId}` so two sub-agents that happen to share
  * an `agentId` across sessions don't collide on the inner map.

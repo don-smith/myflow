@@ -2,10 +2,9 @@
  * telemetry — standalone observability SDK + public API barrel.
  *
  * Dispatches Pi lifecycle and sub-agent EventBus events to all configured
- * telemetry providers (MLflow, console) via a bounded async dispatcher. The Pi
- * extension `default` entry lives in the thin `./extension.ts` (not here), so
- * loading the extension doesn't evaluate this barrel's `MlflowProvider`
- * re-export. Standalone usage: import named exports without the Pi runtime.
+ * telemetry providers (Langfuse, console) via a bounded async dispatcher. The
+ * Pi extension `default` entry lives in the thin `./extension.ts` (not here).
+ * Standalone usage: import named exports without the Pi runtime.
  */
 
 export {
@@ -14,9 +13,9 @@ export {
 	isEventEnabled,
 	type LlmPayloadMode,
 	loadTelemetryConfig,
-	type MlflowConfig,
+	type LangfuseConfig,
 	type ProvidersConfig,
-	resolveMlflowConfig,
+	resolveLangfuseConfig,
 	saveTelemetryConfig,
 	type TelemetryConfig,
 } from "./config.js";
@@ -29,16 +28,18 @@ export {
 } from "./dispatcher.js";
 export { emitMyFlowCheckpoint } from "./checkpoint.js";
 export type { MyFlowCheckpointData } from "./checkpoint.js";
+export { analyzeAllSessions, analyzeSession } from "./eval/reducer.js";
+export { runAllDetectors } from "./eval/detectors.js";
+export { scoreFrictionFindings } from "./eval/langfuse.js";
+export type { FrictionFinding, FrictionSeverity, FrictionType, SessionSummary } from "./eval/types.js";
 export { teardownTelemetry } from "./instrumentation/index.js";
 export {
 	BUILT_IN_PROVIDERS,
 	CONSOLE_PROVIDER_META,
 	ConsoleProvider,
-	MLFLOW_PROVIDER_META,
+	LANGFUSE_PROVIDER_META,
+	LangfuseProvider,
 } from "./providers/index.js";
-// Pulled directly from the @mlflow/core-backed module to keep it in the embedder
-// API. Paid only by embedders — this barrel is not the extension entry.
-export { MlflowProvider } from "./providers/mlflow/index.js";
 export type {
 	AgentEndEvent,
 	AgentStartEvent,

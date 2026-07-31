@@ -161,7 +161,7 @@ export const SUBAGENT_HANDLERS: readonly SubAgentHandlerSpec[] = [
 export function handleSubAgentBusEvent(h: SubAgentHandlerSpec, data: unknown): void {
 	// L4-07: drop events that arrive before `session_start` populates currentSessionId.
 	// Without this guard the event would ship with `sessionId: ""` and propagate
-	// into MLflow span attributes as a phantom session.
+	// into Langfuse trace attributes as a phantom session.
 	if (!currentSessionId) {
 		console.warn(`[telemetry] dropping ${h.channel} event with no active session`);
 		return;

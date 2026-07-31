@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TelemetryEvent } from "./types/events.js";
 import type { TelemetryProvider } from "./types/provider.js";
 
@@ -30,6 +30,10 @@ function makeProvider(overrides: Partial<TelemetryProvider> & { name?: string } 
 }
 
 describe("dispatcher", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	beforeEach(() => {
 		// Default: all events enabled, no providers configured
 		vi.mocked(loadTelemetryConfig).mockReturnValue({

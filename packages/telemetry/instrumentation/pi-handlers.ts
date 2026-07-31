@@ -17,7 +17,7 @@ import type {
 	TurnStartEvent,
 } from "../types/events.js";
 import { finalizeTelemetrySession } from "./finalize.js";
-import { detectSubAgentType, parentSessionIdFromCtx, summarizeLlmPayload } from "./payload-summary.js";
+import { detectSubAgentType, parentSessionIdFromCtx, summarizeLlmPayload, summarizeMessageContent } from "./payload-summary.js";
 import {
 	currentSubAgentType,
 	llmPayloadMode,
@@ -252,6 +252,14 @@ export const PI_HANDLERS: readonly PiHandlerSpec[] = [
 				model: m.role === "assistant" ? m.model : undefined,
 				provider: m.role === "assistant" ? (m.provider as string) : undefined,
 				stopReason: m.role === "assistant" ? m.stopReason : undefined,
+				content:
+					m.role !== "assistant"
+						? undefined
+						: llmPayloadMode === "full"
+							? m.content
+							: llmPayloadMode === "summary"
+								? summarizeMessageContent(m.content)
+								: undefined,
 				usage,
 				timestamp: Date.now(),
 			} satisfies MessageEndEvent;

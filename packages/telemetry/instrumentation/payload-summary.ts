@@ -27,6 +27,18 @@ export function parentSessionIdFromCtx(ctx: ExtensionContext): string | undefine
  * Reduce a provider-shaped request body down to a small inspectable summary.
  * Duck-typed: covers Anthropic-messages, OpenAI-responses, and similar shapes.
  */
+export function summarizeMessageContent(content: unknown): Record<string, unknown> {
+	if (typeof content === "string") return { type: "text", characters: content.length };
+	if (Array.isArray(content)) {
+		return {
+			type: "blocks",
+			blockCount: content.length,
+			characters: JSON.stringify(content).length,
+		};
+	}
+	return { type: typeof content };
+}
+
 export function summarizeLlmPayload(payload: unknown): Record<string, unknown> {
 	if (!payload || typeof payload !== "object") return { type: typeof payload };
 	const p = payload as Record<string, unknown>;

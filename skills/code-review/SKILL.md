@@ -7,11 +7,11 @@ shell-timeout: 10
 
 # Code Review
 
-Review changes across **Quality**, **Security**, **Dependencies** lenses with optional advisor adjudication. Valid scopes: `commit` | `staged` | `working` | hash | `A..B` | PR branch. **Empty scope defaults to feature-branch-vs-default-branch first-parent review** (default branch auto-detected; see Step 1).
+Review changes across **Quality**, **Security**, **Dependencies** lenses with optional advisor adjudication. Valid scopes: `all` | `commit` | `staged` | `working` | `modified` | hash | `A..B` | PR branch. **Empty scope defaults to a complete current-branch review: committed changes since the default-branch base plus staged, unstaged, and untracked non-ignored files** (default branch auto-detected; see Step 1).
 
 ## Input
 
-`$ARGUMENTS` — scope: `commit` | `staged` | `working` | a commit hash | `A..B` range | PR branch name. Empty defaults to feature-branch-vs-default-branch (first-parent).
+`$ARGUMENTS` — scope: `all` | `commit` | `staged` | `working` | `modified` | a commit hash | `A..B` range | PR branch name. `all` (and an empty scope) reviews every change belonging to the current branch: committed, staged, unstaged, and untracked non-ignored files.
 
 ## Metadata
 
@@ -21,7 +21,7 @@ echo
 node "${SKILL_DIR}/../_shared/git-context.mjs"
 ```
 
-Scope resolution (default branch, range, ChangedFiles) is LLM-invoked at Step 1.1 via the bundled `_helpers/review-range.mjs` — it depends on `$ARGUMENTS` and on conversational clarification, which render-time substitution cannot capture.
+Scope resolution (default branch, range, ChangedFiles) is LLM-invoked at Step 1.1 via the bundled `_helpers/review-range.mjs` — it depends on `$ARGUMENTS` and on conversational clarification, which render-time substitution cannot capture. **Never describe a branch review as complete when its selected scope excludes untracked files; use `all`.**
 
 ## Flow
 
@@ -35,7 +35,7 @@ Every Wave-2 agent prompt contains EXACTLY: (a) `Known Context:` followed by the
 
 ### Step 1: Resolve Scope and Assemble the Diff
 
-1. **Resolve scope via the bundled helper.** Determine the scope spec from the value the user supplied (visible in `## Input` above as the substituted argument). If empty, use the literal string `auto`; if ambiguous (prose, mixed list, unrecognised branch name), clarify via `ask_user_question` — options: (A) "review current branch vs default branch (first-parent)" → `auto`, (B) "review every tracked change vs HEAD (staged + unstaged)" → `modified`, (C) "review unstaged changes only" → `working`, (D) "restate scope" → free-text — then re-invoke. Then run:
+1. **Resolve scope via the bundled helper.** Determine the scope spec from the value the user supplied (visible in `## Input` above as the substituted argument). If empty, use the literal string `all`. Treat requests such as “all changes in this branch”, “review the branch”, or “everything before commit” as `all`, not `modified`. If ambiguous (prose, mixed list, unrecognised branch name), clarify via `ask_user_question` — options: (A) "review all current-branch changes, including untracked (Recommended)" → `all`, (B) "review every tracked change vs HEAD" → `modified`, (C) "review unstaged tracked changes only" → `working`, (D) "restate scope" → free-text — then re-invoke. Then run:
 
    ```bash
    node "${SKILL_DIR}/_helpers/review-range.mjs" "<scope-spec>"
@@ -47,8 +47,8 @@ Every Wave-2 agent prompt contains EXACTLY: (a) `Known Context:` followed by the
 
    | Argument shape | Pass to helper |
    |---|---|
-   | empty (no argument provided) | `auto` |
-   | literal `commit` / `staged` / `working` / `modified` | same word verbatim |
+   | empty (no argument provided) | `all` |
+   | literal `all` / `commit` / `staged` / `working` / `modified` | same word verbatim |
    | hex commit hash (4-40 chars, e.g. `abc1234`) | the hash verbatim |
    | `<A>..<B>` (e.g. `HEAD~5..HEAD`, `main..feature`) | the range verbatim |
    | comma- or whitespace-separated hashes (`h1,h2,h3` or `h1 h2 h3`) | the list verbatim |
@@ -56,9 +56,10 @@ Every Wave-2 agent prompt contains EXACTLY: (a) `Known Context:` followed by the
    | anything else (prose, mixed list, unresolvable ref) | clarify via `ask_user_question`, then re-invoke |
 
 2. **Confirm strategy** from the helper output. The mapping into the rest of the skill:
-   - `strategy: first-parent` (`auto` / PR branch / commit list) — use `<range>` AND `<fp_flag>` (which is `--first-parent`) in the subsequent git commands. `<base>` is the parent-of-first-feature-commit (helper computes via `merge-base`), so the range already includes OLDEST's own changes — do NOT add `^` anywhere.
+   - `strategy: branch-all` (`all` / empty / `auto`) — use `<range>` AND `<fp_flag>` (which is `--first-parent`) for committed branch history, then append tracked working-tree and untracked patches as specified below. `<base>` is the merge-base with the default branch, so the range already includes the oldest feature commit — do NOT add `^` anywhere.
+   - `strategy: first-parent` (explicit PR branch / commit list) — use `<range>` AND `<fp_flag>` (which is `--first-parent`) in the subsequent git commands. `<base>` is the parent-of-first-feature-commit (helper computes via `merge-base`), so the range already includes OLDEST's own changes — do NOT add `^` anywhere.
    - `strategy: explicit-range` (single hash / `A..B`) — use `<range>` without `<fp_flag>` (it's empty for this strategy). `<base>` is OLDEST^ (so the range includes OLDEST itself, matching the original "user-inclusive endpoint" intent).
-   - `strategy: working-tree` (`commit` / `staged` / `working`) — no `<range>`; use the working-tree commands listed in the next bullet.
+   - `strategy: working-tree` (`commit` / `staged` / `working` / `modified`) — no `<range>`; use the working-tree commands listed in the next bullet.
 
    `--first-parent` is orthogonal to `--no-merges`: the former prunes second-parent subtrees from reachability, the latter drops merge commits themselves from the log. Both flags are independently controllable below.
 
@@ -67,6 +68,7 @@ Every Wave-2 agent prompt contains EXACTLY: (a) `Known Context:` followed by the
    - `git log "<range>" <fp_flag> --stat --reverse` → per-commit size summary
    - `git log "<range>" <fp_flag> --patch --reverse --no-merges -U30 > <patch_path>` → union patches with **30 lines of surrounding context per hunk** (function-level context inline)
    - `git log "<range>" --reverse --format="%H %s%n%n%b%n---"` → commit-message context
+   - **Complete branch** (`strategy: branch-all`): assemble a single union patch, preserving all source forms: `git log "<range>" <fp_flag> --patch --reverse --no-merges -U30 > <patch_path>`; `git diff HEAD -U30 >> <patch_path>`; then append every untracked non-ignored file with `git ls-files --others --exclude-standard -z | while IFS= read -r -d '' file; do git diff --no-index -- /dev/null "$file" || true; done >> <patch_path>`. For stats, combine the equivalent `git log … --stat`, `git diff HEAD --stat`, and `git ls-files --others --exclude-standard` outputs. Commit-message context comes from `git log "<range>" --reverse --format="%H %s%n%n%b%n---"`; working-tree and untracked files have no commit message.
    - **Working-tree branch** (`strategy: working-tree`, no `<range>`): for `staged` use `git diff --cached --stat` + `git diff --cached -U30 > <patch_path>`; for `working` use `git diff --stat` + `git diff -U30 > <patch_path>` (unstaged only); for `modified` use `git diff HEAD --stat` + `git diff HEAD -U30 > <patch_path>` (every tracked change vs HEAD — staged + unstaged, no untracked); for `commit` use `git show HEAD --stat` + `git show HEAD -U30 > <patch_path>`. Commit-message context is N/A for `staged` / `working` / `modified`; for `commit` use `git show HEAD --format="%H %s%n%n%b%n---" --no-patch`. ChangedFiles still comes from the helper.
    - **Patch-size fallback**: `-U30` produces ~2–3× the size of `-U0`. If the resulting patch exceeds ~1MB, drop to `-U10` for this run; never use `-U0` — it defeats the skill's design.
 
@@ -74,7 +76,8 @@ Every Wave-2 agent prompt contains EXACTLY: (a) `Known Context:` followed by the
 
 4. **Derive scope + flags** (orchestrator-side, used in later steps):
    - `InScopeFiles` — used by the Step 6 pre-filter. `ChangedFiles` reflects *tree-reachability* (inflated on branches that back-merged the default branch — each post-merge first-parent commit inherits the merge's tree, so `--name-only` includes every file the merge resolved); `InScopeFiles` reflects *commits' own diffs* and is what the developer actually authored. Derivation:
-     - strategy=`first-parent` (`auto` / PR branch / commit-list inputs) → `InScopeFiles = ⋃ git diff-tree --no-commit-id --name-only -r <h>` over `git log "<range>" --first-parent --no-merges --pretty=%H` (each feature commit's own file delta; back-merge sidecars drop out even when the merge is on the first-parent line). For commit-list input, iterate over the user-named hashes instead of the first-parent walk to preserve non-contiguous-list intent.
+     - strategy=`branch-all` (`all` / empty / `auto`) → `InScopeFiles =` the union of (a) `git diff-tree --no-commit-id --name-only -r <h>` over `git log "<range>" --first-parent --no-merges --pretty=%H`, (b) `git diff HEAD --name-only`, and (c) `git ls-files --others --exclude-standard`. This preserves authored commit deltas while including staged, unstaged, and untracked current-branch work.
+     - strategy=`first-parent` (explicit PR branch / commit-list inputs) → `InScopeFiles = ⋃ git diff-tree --no-commit-id --name-only -r <h>` over `git log "<range>" --first-parent --no-merges --pretty=%H` (each feature commit's own file delta; back-merge sidecars drop out even when the merge is on the first-parent line). For commit-list input, iterate over the user-named hashes instead of the first-parent walk to preserve non-contiguous-list intent.
      - strategy=`explicit-range` → `InScopeFiles = ChangedFiles` (user explicitly asked for range semantics; merges in the range are part of the intent).
      - strategy=`working-tree` → `InScopeFiles = ChangedFiles` (no merge surface).
    - **Invariant**: `InScopeFiles ⊆ ChangedFiles`. On back-merged feature branches, `InScopeFiles ⊊ ChangedFiles` is the primary mechanism by which sidecar findings get dropped at Step 6.
@@ -82,7 +85,7 @@ Every Wave-2 agent prompt contains EXACTLY: (a) `Known Context:` followed by the
    - `LockstepSelfReview` = repository root contains `scripts/sync-versions.js` AND every `packages/*/package.json` shares the same `version:` AND the diff touches `packages/*/package.json`.
    - `HasGatingPredicate` = diff adds or modifies a **status/enum-comparison predicate** (`Status == X`, `Status is X or Y`, `X.Contains(Status)`, pattern-match on a discriminator) OR introduces a new value into an enum referenced by existing gating predicates. NOT merely the presence of `if (!x) return`.
    - `ReviewType` = one of `commit | pr | staged | working`.
-   - `PeerPairs` = `(new_file, peer_file)` tuples. `new_file` is in `git log "<range>" --diff-filter=A --name-only` (working-tree: `git diff --diff-filter=A --name-only [--cached]`). `peer_file` exists at HEAD (`git ls-tree HEAD`) and matches one heuristic:
+   - `PeerPairs` = `(new_file, peer_file)` tuples. `new_file` is in `git log "<range>" --diff-filter=A --name-only` (working-tree: `git diff --diff-filter=A --name-only [--cached]`; branch-all: that tracked-added set plus `git ls-files --others --exclude-standard`). `peer_file` exists at HEAD (`git ls-tree HEAD`) and matches one heuristic:
      - **Stem similarity ≥ 60%** of the longer stem (e.g. `PhysicalProductSubscription` ↔ `Subscription`).
      - **Interface/impl pair**: `I<Name>` ↔ `<Name>`, `<Name>` ↔ `<Name>.impl`, `<Name>{Abstract,Base,Protocol}` ↔ `<Name>`.
      - **Shared suffix** from `{Handler, Service, Repository, Aggregate, Reducer, Controller, Resolver, Command, Query, Job, Processor, Strategy, Policy, Event, Listener, Subscriber, Publisher, Exception, Eligibility, Ability, QueryParam, Specification, Factory, Builder}`.

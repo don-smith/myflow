@@ -10,11 +10,13 @@ const DEFAULT_MAX_QUEUE_SIZE = 100;
 // TypeBox schema — provider-enable map + optional event allowlist
 // ---------------------------------------------------------------------------
 
-const MlflowProviderConfig = Type.Object(
+const LangfuseProviderConfig = Type.Object(
 	{
-		trackingUri: Type.Optional(Type.String({ description: "MLflow tracking server URI" })),
-		experimentId: Type.Optional(Type.String({ description: "MLflow experiment ID" })),
-		trackingToken: Type.Optional(Type.String({ description: "Bearer token for MLflow auth" })),
+		publicKey: Type.Optional(Type.String({ description: "Langfuse public API key" })),
+		secretKey: Type.Optional(Type.String({ description: "Langfuse secret API key" })),
+		baseUrl: Type.Optional(Type.String({ description: "Langfuse project base URL" })),
+		environment: Type.Optional(Type.String({ description: "Langfuse tracing environment" })),
+		release: Type.Optional(Type.String({ description: "Langfuse release identifier" })),
 	},
 	{ additionalProperties: false },
 );
@@ -32,7 +34,7 @@ const LlmPayloadModeSchema = Type.Union([Type.Literal("full"), Type.Literal("sum
  */
 const ProvidersConfigSchema = Type.Object(
 	{
-		mlflow: Type.Optional(MlflowProviderConfig),
+		langfuse: Type.Optional(LangfuseProviderConfig),
 		console: Type.Optional(ConsoleProviderConfig),
 	},
 	{ additionalProperties: false },
@@ -76,7 +78,7 @@ export type LlmPayloadMode = Static<typeof LlmPayloadModeSchema>;
 // Public config types
 // ---------------------------------------------------------------------------
 
-export type MlflowConfig = Static<typeof MlflowProviderConfig>;
+export type LangfuseConfig = Static<typeof LangfuseProviderConfig>;
 export type ConsoleConfig = Static<typeof ConsoleProviderConfig>;
 
 /** Schema-derived provider-config shape. Adding a built-in provider requires editing only `ProvidersConfigSchema` above. */
@@ -91,7 +93,7 @@ export interface TelemetryConfig {
 	providers: ProvidersConfig;
 	/** `"*"` → all events enabled; `[]` → none enabled; allowlist → only listed kinds. */
 	events: "*" | TelemetryEventKind[];
-	/** Controls how much of the raw provider-request body is recorded. Defaults to `"off"`. */
+	/** Controls how much LLM request/output content is recorded. Defaults to `"off"`. */
 	llmPayload: LlmPayloadMode;
 	dispatcher: DispatcherConfig;
 }
@@ -121,12 +123,14 @@ export function saveTelemetryConfig(config: TelemetryConfig): boolean {
 	return saveJsonConfig(CONFIG_PATH, config);
 }
 
-/** Env-first, config-second resolution for MLflow credentials. */
-export function resolveMlflowConfig(providerConfig: MlflowConfig): MlflowConfig {
+/** Env-first, config-second resolution for Langfuse credentials. */
+export function resolveLangfuseConfig(providerConfig: LangfuseConfig): LangfuseConfig {
 	return {
-		trackingUri: readEnvVar("MLFLOW_TRACKING_URI") || providerConfig.trackingUri,
-		experimentId: readEnvVar("MLFLOW_EXPERIMENT_ID") || providerConfig.experimentId,
-		trackingToken: readEnvVar("MLFLOW_TRACKING_TOKEN") || providerConfig.trackingToken,
+		publicKey: readEnvVar("LANGFUSE_PUBLIC_KEY") || providerConfig.publicKey,
+		secretKey: readEnvVar("LANGFUSE_SECRET_KEY") || providerConfig.secretKey,
+		baseUrl: readEnvVar("LANGFUSE_BASE_URL") || providerConfig.baseUrl,
+		environment: readEnvVar("LANGFUSE_TRACING_ENVIRONMENT") || providerConfig.environment,
+		release: readEnvVar("LANGFUSE_RELEASE") || providerConfig.release,
 	};
 }
 

@@ -6,11 +6,12 @@
 //   node "${SKILL_DIR}/_helpers/review-range.mjs" "<scope-spec>"
 //
 // Accepted <scope-spec> values:
-//   auto                — empty-scope-default: feature branch vs default branch, first-parent
+//   auto                — empty-scope-default: complete current-branch review (committed, tracked, untracked)
 //   commit              — review the most recent commit (working-tree-style, HEAD)
 //   staged              — files staged for commit (git diff --cached)
 //   working             — files with unstaged changes only (git diff)
 //   modified            — every tracked file differing from HEAD (git diff HEAD; staged + unstaged, no untracked)
+//   all                 — every current-branch change: committed since default base, staged, unstaged, and untracked
 //   <hash>              — single commit (~7+ hex chars)
 //   <A>..<B>            — range; A is verified ancestor of B, swapped if reversed
 //   <h1>,<h2>,<h3>      — comma- or whitespace-separated commit list; helper finds endpoints
@@ -155,6 +156,11 @@ const setFirstParent = (oldest, newest) => {
 	result.fp_flag = "--first-parent";
 };
 
+const setBranchAll = (oldest, newest) => {
+	setFirstParent(oldest, newest);
+	result.strategy = "branch-all";
+};
+
 const setExplicitRange = (oldest, newest) => {
 	result.strategy = "explicit-range";
 	result.oldest = oldest;
@@ -178,12 +184,12 @@ const setWorkingTree = (oldest = "(n/a)", newest = "(n/a)") => {
 
 const isHexHash = (s) => /^[0-9a-f]{4,40}$/i.test(s);
 
-if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto")) {
+if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || lower === "all")) {
 	result.strategy = "unrecognised";
-	result.note = "default branch unresolved — pass an explicit scope or run `git remote set-head origin -a`";
-} else if (lower === "" || lower === "auto") {
+	result.note = "default branch unresolved — pass an explicit commit range or run `git remote set-head origin -a`";
+} else if (lower === "" || lower === "auto" || lower === "all") {
 	const oldest = safe(["merge-base", defaultBranch, "HEAD"]);
-	if (oldest) setFirstParent(oldest, safe(["rev-parse", "HEAD"]));
+	if (oldest) setBranchAll(oldest, safe(["rev-parse", "HEAD"]));
 	else result.note = `merge-base ${defaultBranch}..HEAD failed`;
 } else if (lower === "commit") {
 	setWorkingTree(safe(["rev-parse", "HEAD"]), safe(["rev-parse", "HEAD"]));
@@ -220,14 +226,22 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto")) {
 	setExplicitRange(hash, hash);
 } else if (refExists(scope)) {
 	const oldest = safe(["merge-base", defaultBranch, "HEAD"]);
-	if (oldest) setFirstParent(oldest, safe(["rev-parse", "HEAD"]));
+	if (oldest) setBranchAll(oldest, safe(["rev-parse", "HEAD"]));
 	else result.note = `merge-base ${defaultBranch}..HEAD failed for branch ${scope}`;
 } else {
 	result.note = `scope spec not recognised: ${scope}`;
 }
 
 // ChangedFiles per strategy.
-if (result.strategy === "first-parent") {
+if (result.strategy === "branch-all") {
+	// A complete branch review is a union: committed first-parent changes,
+	// tracked working-tree changes, and untracked non-ignored files. Do not use
+	// `git diff HEAD` alone: it intentionally omits untracked files.
+	const committed = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
+	const tracked = safe(["diff", "HEAD", "--name-only"]);
+	const untracked = safe(["ls-files", "--others", "--exclude-standard"]);
+	result.changedFiles = formatChangedFiles(dedupChangedFiles(`${committed}\n${tracked}\n${untracked}`));
+} else if (result.strategy === "first-parent") {
 	const raw = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
 	result.changedFiles = formatChangedFiles(dedupChangedFiles(raw));
 } else if (result.strategy === "explicit-range") {

@@ -1,6 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isEventEnabled, validateEventAllowlist } from "./config.js";
+import { isEventEnabled, resolveLangfuseConfig, validateEventAllowlist } from "./config.js";
 import type { TelemetryEventKind } from "./types/events.js";
+
+describe("resolveLangfuseConfig", () => {
+	beforeEach(() => {
+		delete process.env.LANGFUSE_PUBLIC_KEY;
+		delete process.env.LANGFUSE_SECRET_KEY;
+		delete process.env.LANGFUSE_BASE_URL;
+	});
+
+	it("prefers environment credentials over file configuration", () => {
+		process.env.LANGFUSE_PUBLIC_KEY = "pk-env";
+		process.env.LANGFUSE_SECRET_KEY = "sk-env";
+		process.env.LANGFUSE_BASE_URL = "https://us.cloud.langfuse.com";
+
+		expect(
+			resolveLangfuseConfig({
+				publicKey: "pk-file",
+				secretKey: "sk-file",
+				baseUrl: "https://cloud.langfuse.com",
+			}),
+		).toMatchObject({ publicKey: "pk-env", secretKey: "sk-env", baseUrl: "https://us.cloud.langfuse.com" });
+	});
+});
 
 describe("validateEventAllowlist", () => {
 	beforeEach(() => {

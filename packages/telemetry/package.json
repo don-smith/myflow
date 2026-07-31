@@ -2,13 +2,13 @@
 	"name": "@myflow/telemetry",
 	"version": "1.19.1",
 	"private": true,
-	"description": "Pi extension. MLflow observability for Pi Agent — auto-instruments lifecycle events and sub-agent activity.",
+	"description": "Pi extension. Langfuse observability and evaluation for Pi Agent — auto-instruments lifecycle events and scores workflow friction.",
 	"keywords": [
 		"pi-package",
 		"pi-extension",
 		"rpiv",
 		"telemetry",
-		"mlflow",
+		"langfuse",
 		"observability",
 		"tracing"
 	],
@@ -47,21 +47,11 @@
 		"instrumentation/subagent-handlers.ts",
 		"providers/index.ts",
 		"providers/console.ts",
-		"providers/mlflow/index.ts",
-		"providers/mlflow/meta.ts",
-		"providers/mlflow/attribute-events.ts",
-		"providers/mlflow/keys.ts",
-		"providers/mlflow/llm-spans.ts",
-		"providers/mlflow/pi-subagents-tool-bridge.ts",
-		"providers/mlflow/session-shutdown.ts",
-		"providers/mlflow/span-registry.ts",
-		"providers/mlflow/subagent-spans.ts",
-		"providers/mlflow/tool-spans.ts",
-		"providers/mlflow/trace-session-shim.ts",
-		"providers/mlflow/turn-spans.ts",
+		"providers/langfuse/index.ts",
 		"checkpoint.ts",
 		"eval/detectors.ts",
 		"eval/close-integration.ts",
+		"eval/langfuse.ts",
 		"eval/reducer.ts",
 		"eval/types.ts",
 		"instrumentation/session-summary.ts",
@@ -79,8 +69,14 @@
 		"typebox": "*"
 	},
 	"dependencies": {
+		"@langfuse/otel": "^5.9.1",
+		"@langfuse/tracing": "^5.9.1",
 		"@myflow/config": "^1.19.1",
-		"@mlflow/core": "~0.2.0"
+		"@opentelemetry/api": "^1.9.0",
+		"@opentelemetry/core": "^2.10.0",
+		"@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+		"@opentelemetry/sdk-node": "^0.221.0",
+		"@opentelemetry/sdk-trace-base": "^2.10.0"
 	},
 	"engines": {
 		"node": ">=20"

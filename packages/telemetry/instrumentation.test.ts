@@ -41,7 +41,7 @@ import { initInstrumentation, teardownTelemetry } from "./instrumentation/index.
 describe("instrumentation", () => {
 	beforeEach(() => {
 		vi.mocked(config.loadTelemetryConfig).mockReturnValue({
-			providers: { mlflow: {} },
+			providers: { langfuse: {} },
 			events: "*",
 			llmPayload: "off",
 			dispatcher: { maxQueueSize: 100 },
