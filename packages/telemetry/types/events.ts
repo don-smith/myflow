@@ -29,10 +29,18 @@ export type TelemetryEvent =
 // Shared shapes
 // ---------------------------------------------------------------------------
 
+export interface TelemetrySessionContext {
+	readonly repository: string;
+	readonly branch: string;
+	readonly commit: string;
+}
+
 /** Fields present on every telemetry event. */
 export interface TelemetryEventBase {
 	sessionId: string;
 	timestamp: number;
+	/** Git identity captured at session start; absent for direct or non-Git producers. */
+	context?: TelemetrySessionContext;
 }
 
 /**

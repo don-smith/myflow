@@ -1,6 +1,6 @@
 import { dispatchTelemetryEvent } from "../dispatcher.js";
 import type { SubAgentFailedEvent } from "../types/events.js";
-import { inflightSubAgents } from "./state.js";
+import { inflightSubAgents, withSessionContext } from "./state.js";
 
 /**
  * Synthesize `subagent_failed` events for any in-flight sub-agent at shutdown.
@@ -12,15 +12,17 @@ export function flushOrphanSubAgents(): void {
 	if (inflightSubAgents.size === 0) return;
 	const now = Date.now();
 	for (const info of inflightSubAgents.values()) {
-		dispatchTelemetryEvent({
-			kind: "subagent_failed",
-			sessionId: info.sessionId,
-			agentId: info.agentId,
-			status: "aborted",
-			error: "session_shutdown",
-			durationMs: now - info.startedAtMs,
-			timestamp: now,
-		} satisfies SubAgentFailedEvent);
+		dispatchTelemetryEvent(
+			withSessionContext({
+				kind: "subagent_failed",
+				sessionId: info.sessionId,
+				agentId: info.agentId,
+				status: "aborted",
+				error: "session_shutdown",
+				durationMs: now - info.startedAtMs,
+				timestamp: now,
+			} satisfies SubAgentFailedEvent),
+		);
 	}
 	inflightSubAgents.clear();
 }

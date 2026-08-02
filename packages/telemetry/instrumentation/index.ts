@@ -3,7 +3,7 @@ import { loadTelemetryConfig } from "../config.js";
 import { dispatchTelemetryEvent, registerTelemetryProvider } from "../dispatcher.js";
 import { registerConfiguredProviders } from "../providers/index.js";
 import { PI_HANDLERS } from "./pi-handlers.js";
-import { eventBusUnsubscribers, setLlmPayloadMode } from "./state.js";
+import { eventBusUnsubscribers, setLlmPayloadMode, withSessionContext } from "./state.js";
 import { handleSubAgentBusEvent, SUBAGENT_HANDLERS } from "./subagent-handlers.js";
 import { SessionSummaryProvider } from "./session-summary.js";
 
@@ -28,7 +28,7 @@ export function initInstrumentation(pi: ExtensionAPI): void {
 	registerTelemetryProvider(new SessionSummaryProvider());
 	for (const h of PI_HANDLERS) {
 		pi.on(h.piEvent as any, async (event: any, ctx: ExtensionContext) => {
-			dispatchTelemetryEvent(h.build(event, ctx));
+			dispatchTelemetryEvent(withSessionContext(await h.build(event, ctx, pi)));
 			if (h.postDispatch) await h.postDispatch(event, ctx);
 		});
 	}

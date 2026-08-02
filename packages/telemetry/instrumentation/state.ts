@@ -1,5 +1,6 @@
 import type { LlmPayloadMode } from "../config.js";
 import { resetTelemetryDispatcher } from "../dispatcher.js";
+import type { TelemetryEvent, TelemetrySessionContext } from "../types/events.js";
 
 /**
  * Module-level mutable state for instrumentation. Shared across `pi-handlers.ts`
@@ -44,6 +45,28 @@ export function setCurrentSessionId(s: string): void {
 	currentSessionId = s;
 }
 
+/** Git identity captured once at session start for session-owned event producers. */
+export let currentGitContext: TelemetrySessionContext | undefined;
+const gitContextBySession = new Map<string, TelemetrySessionContext | undefined>();
+
+/** Mark a session's Git lookup as started; returns false when already resolved or resolving. */
+export function beginGitContextResolution(sessionId: string): boolean {
+	if (gitContextBySession.has(sessionId)) return false;
+	gitContextBySession.set(sessionId, undefined);
+	currentGitContext = undefined;
+	return true;
+}
+
+export function setCurrentGitContext(context: TelemetrySessionContext | undefined, sessionId = currentSessionId): void {
+	currentGitContext = context;
+	if (sessionId) gitContextBySession.set(sessionId, context);
+}
+
+export function withSessionContext(event: TelemetryEvent): TelemetryEvent {
+	const context = gitContextBySession.get(event.sessionId);
+	return context ? { ...event, context } : event;
+}
+
 /**
  * In-flight sub-agents — populated on `subagents:created`/`started`, drained
  * on `subagents:completed`/`failed`. Anything left here at `session_shutdown`
@@ -78,6 +101,8 @@ export function teardownTelemetry(): void {
 	llmPayloadMode = "off";
 	currentSubAgentType = undefined;
 	currentSessionId = "";
+	currentGitContext = undefined;
+	gitContextBySession.clear();
 	for (const unsub of eventBusUnsubscribers) {
 		try {
 			unsub();

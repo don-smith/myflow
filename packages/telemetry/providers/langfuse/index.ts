@@ -1,3 +1,4 @@
+import { LangfuseClient } from "@langfuse/client";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { propagateAttributes, startObservation } from "@langfuse/tracing";
 import type { NodeSDK } from "@opentelemetry/sdk-node";
@@ -34,6 +35,8 @@ export const LANGFUSE_PROVIDER_META: TelemetryProviderMeta = {
 };
 
 interface ObservationLike {
+	readonly id: string;
+	readonly traceId: string;
 	readonly type?: string;
 	readonly name?: string;
 	readonly children?: ObservationLike[];
@@ -59,6 +62,43 @@ interface PendingRequest {
 }
 
 const asObservation = (observation: unknown): ObservationLike => observation as ObservationLike;
+
+const MAX_LANGFUSE_METADATA_VALUE_LENGTH = 200;
+type RootEvent = Pick<TelemetryEvent, "sessionId" | "context">;
+type RootMetadata = Record<string, string>;
+
+interface RootAttributes {
+	propagated: { sessionId: string; metadata: RootMetadata; tags?: string[] };
+	observation: { input: { sessionId: string }; metadata: RootMetadata };
+}
+
+function metadataValue(value: string): string {
+	return value.length <= MAX_LANGFUSE_METADATA_VALUE_LENGTH
+		? value
+		: `${value.slice(0, MAX_LANGFUSE_METADATA_VALUE_LENGTH - 1)}…`;
+}
+
+function rootAttributes(event: RootEvent, additional: RootMetadata = {}): RootAttributes {
+	const metadata: RootMetadata = {
+		piSessionId: metadataValue(event.sessionId),
+		...(event.context
+			? {
+				repository: metadataValue(event.context.repository),
+				branch: metadataValue(event.context.branch),
+				commit: metadataValue(event.context.commit),
+			}
+			: {}),
+		...Object.fromEntries(Object.entries(additional).map(([key, value]) => [key, metadataValue(value)])),
+	};
+	return {
+		propagated: {
+			sessionId: event.sessionId,
+			metadata,
+			...(event.context ? { tags: [`repo:${event.context.repository}`, `branch:${event.context.branch}`] } : {}),
+		},
+		observation: { input: { sessionId: event.sessionId }, metadata },
+	};
+}
 
 function parentFor(trace: SessionTrace): ObservationLike {
 	return trace.currentTurn ?? trace.root;
@@ -98,6 +138,8 @@ export class LangfuseProvider implements TelemetryProvider {
 	private initAttempted = false;
 	private sdk?: NodeSDK;
 	private processor?: LangfuseSpanProcessor;
+	private client?: LangfuseClient;
+	private environment?: string;
 	private readonly failedKinds = new Set<TelemetryEvent["kind"]>();
 	private readonly evalSummaries = new Map<string, SessionSummary>();
 
@@ -125,9 +167,8 @@ export class LangfuseProvider implements TelemetryProvider {
 	}
 
 	async flush(): Promise<void> {
-		if (!this.processor) return;
 		try {
-			await this.processor.forceFlush();
+			await Promise.all([this.processor?.forceFlush(), this.client?.flush()]);
 		} catch (error) {
 			console.warn(`[telemetry] langfuse flush error: ${error instanceof Error ? error.message : String(error)}`);
 		}
@@ -138,17 +179,32 @@ export class LangfuseProvider implements TelemetryProvider {
 		this.sessions.clear();
 		this.evalSummaries.clear();
 		this.failedKinds.clear();
-		if (!this.sdk) return;
+		if (!this.sdk && !this.client) return;
 		try {
 			// The dispatcher flushes before shutdown, so flush once more after
-			// ending observations here to avoid losing the final root spans.
-			await this.processor?.forceFlush();
-			await this.sdk.shutdown();
+			// ending observations here to avoid losing the final root spans and scores.
+			const failures: unknown[] = [];
+			const attempt = async (operation: () => Promise<void> | undefined): Promise<void> => {
+				try {
+					await operation();
+				} catch (error) {
+					failures.push(error);
+				}
+			};
+			await attempt(() => this.processor?.forceFlush());
+			await attempt(() => this.client?.shutdown());
+			await attempt(() => this.sdk?.shutdown());
+			const failed = failures[0];
+			if (failed !== undefined) {
+				console.warn(`[telemetry] langfuse shutdown error: ${failed instanceof Error ? failed.message : String(failed)}`);
+			}
 		} catch (error) {
 			console.warn(`[telemetry] langfuse shutdown error: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
 			this.sdk = undefined;
 			this.processor = undefined;
+			this.client = undefined;
+			this.environment = undefined;
 			this.initialized = false;
 			this.initAttempted = false;
 		}
@@ -214,31 +270,21 @@ export class LangfuseProvider implements TelemetryProvider {
 		}
 	}
 
-	private onAgentStart(event: AgentStartEvent): void {
-		if (this.sessions.has(event.sessionId)) return;
-		const root = asObservation(
-			propagateAttributes(
-				{
-					sessionId: event.sessionId,
-					metadata: {
-						...(event.parentSessionId ? { parentSessionId: event.parentSessionId } : {}),
-						...(event.selfAgentType ? { agentType: event.selfAgentType } : {}),
-					},
-				},
-				() =>
-					startObservation(
-						"agent-run",
-						{
-							input: { sessionId: event.sessionId },
-							metadata: {
-								...(event.parentSessionId ? { parentSessionId: event.parentSessionId } : {}),
-								...(event.selfAgentType ? { agentType: event.selfAgentType } : {}),
-							},
-						},
-						{ asType: "agent" },
-					),
+	private createRoot(event: RootEvent, additional: RootMetadata = {}): ObservationLike {
+		const attributes = rootAttributes(event, additional);
+		return asObservation(
+			propagateAttributes(attributes.propagated, () =>
+				startObservation("agent-run", attributes.observation, { asType: "agent" }),
 			),
 		);
+	}
+
+	private onAgentStart(event: AgentStartEvent): void {
+		if (this.sessions.has(event.sessionId)) return;
+		const root = this.createRoot(event, {
+			...(event.parentSessionId ? { parentSessionId: event.parentSessionId } : {}),
+			...(event.selfAgentType ? { agentType: event.selfAgentType } : {}),
+		});
 		this.sessions.set(event.sessionId, {
 			root,
 			tools: new Map(),
@@ -252,15 +298,18 @@ export class LangfuseProvider implements TelemetryProvider {
 		const trace = this.sessions.get(event.sessionId);
 		if (!trace) return;
 		const summary = this.evalSummaries.get(event.sessionId);
-		if (summary) scoreFrictionFindings(trace.root, runAllDetectors(summary));
-		trace.root.update({ output: { messageCount: event.messageCount } });
-		this.endSession(trace);
-		this.sessions.delete(event.sessionId);
-		this.evalSummaries.delete(event.sessionId);
+		try {
+			if (summary && this.client) scoreFrictionFindings(this.client, trace.root, runAllDetectors(summary), this.environment);
+		} finally {
+			trace.root.update({ output: { messageCount: event.messageCount } });
+			this.endSession(trace);
+			this.sessions.delete(event.sessionId);
+			this.evalSummaries.delete(event.sessionId);
+		}
 	}
 
 	private onTurnStart(event: TurnStartEvent): void {
-		const trace = this.getOrCreateTrace(event.sessionId);
+		const trace = this.getOrCreateTrace(event);
 		if (trace.currentTurn) trace.currentTurn.end();
 		trace.currentTurn = asObservation(
 			trace.root.startObservation(
@@ -287,7 +336,7 @@ export class LangfuseProvider implements TelemetryProvider {
 	}
 
 	private onToolStart(event: ToolExecutionStartEvent): void {
-		const trace = this.getOrCreateTrace(event.sessionId);
+		const trace = this.getOrCreateTrace(event);
 		trace.tools.set(
 			event.toolCallId,
 			asObservation(
@@ -314,7 +363,7 @@ export class LangfuseProvider implements TelemetryProvider {
 	}
 
 	private onLlmRequestStart(event: LlmRequestStartEvent): void {
-		this.getOrCreateTrace(event.sessionId).pendingRequests.set(event.requestSeq, {
+		this.getOrCreateTrace(event).pendingRequests.set(event.requestSeq, {
 			payload: event.payload,
 			summarized: event.summarized,
 		});
@@ -330,7 +379,7 @@ export class LangfuseProvider implements TelemetryProvider {
 
 	private onMessageEnd(event: MessageEndEvent): void {
 		if (event.role !== "assistant") return;
-		const trace = this.getOrCreateTrace(event.sessionId);
+		const trace = this.getOrCreateTrace(event);
 		const latestRequestEntry = [...trace.pendingRequests.entries()].sort(([a], [b]) => b - a)[0];
 		const latestRequest = latestRequestEntry?.[1];
 		if (latestRequestEntry) trace.pendingRequests.delete(latestRequestEntry[0]);
@@ -360,14 +409,17 @@ export class LangfuseProvider implements TelemetryProvider {
 		const trace = this.sessions.get(event.sessionId);
 		if (!trace) return;
 		const summary = this.evalSummaries.get(event.sessionId);
-		if (summary) scoreFrictionFindings(trace.root, runAllDetectors(summary));
-		this.endSession(trace);
-		this.sessions.delete(event.sessionId);
-		this.evalSummaries.delete(event.sessionId);
+		try {
+			if (summary && this.client) scoreFrictionFindings(this.client, trace.root, runAllDetectors(summary), this.environment);
+		} finally {
+			this.endSession(trace);
+			this.sessions.delete(event.sessionId);
+			this.evalSummaries.delete(event.sessionId);
+		}
 	}
 
 	private onSubAgentCreated(event: SubAgentCreatedEvent): void {
-		const trace = this.getOrCreateTrace(event.sessionId);
+		const trace = this.getOrCreateTrace(event);
 		trace.subagentDetails.set(event.agentId, {
 			agentType: event.agentType,
 			description: event.description,
@@ -376,7 +428,7 @@ export class LangfuseProvider implements TelemetryProvider {
 	}
 
 	private onSubAgentStarted(event: SubAgentStartedEvent): void {
-		const trace = this.getOrCreateTrace(event.sessionId);
+		const trace = this.getOrCreateTrace(event);
 		const details = trace.subagentDetails.get(event.agentId);
 		const observation = parentFor(trace).startObservation(
 			event.agentType,
@@ -439,22 +491,17 @@ export class LangfuseProvider implements TelemetryProvider {
 		trace.root.update({ metadata: { lastEvent: event.kind, lastEventAt: event.timestamp } });
 	}
 
-	private getOrCreateTrace(sessionId: string): SessionTrace {
-		const existing = this.sessions.get(sessionId);
+	private getOrCreateTrace(event: RootEvent): SessionTrace {
+		const existing = this.sessions.get(event.sessionId);
 		if (existing) return existing;
-		const root = asObservation(
-			propagateAttributes({ sessionId }, () =>
-				startObservation("agent-run", { input: { sessionId } }, { asType: "agent" }),
-			),
-		);
 		const trace = {
-			root,
+			root: this.createRoot(event),
 			tools: new Map<string, ObservationLike>(),
 			subagents: new Map<string, ObservationLike>(),
 			subagentDetails: new Map<string, { agentType: string; description?: string; isBackground?: boolean }>(),
 			pendingRequests: new Map<number, PendingRequest>(),
 		};
-		this.sessions.set(sessionId, trace);
+		this.sessions.set(event.sessionId, trace);
 		return trace;
 	}
 
@@ -518,6 +565,7 @@ export class LangfuseProvider implements TelemetryProvider {
 			return;
 		}
 		try {
+			this.environment = resolved.environment;
 			const processor = new LangfuseSpanProcessor({
 				publicKey: resolved.publicKey,
 				secretKey: resolved.secretKey,
@@ -527,6 +575,11 @@ export class LangfuseProvider implements TelemetryProvider {
 				mask: ({ data }: { data: string }) => redact(data),
 			});
 			this.processor = processor;
+			this.client = new LangfuseClient({
+				publicKey: resolved.publicKey,
+				secretKey: resolved.secretKey,
+				...(resolved.baseUrl ? { baseUrl: resolved.baseUrl } : {}),
+			});
 			this.sdk = new NodeSDKConstructor({ spanProcessors: [processor] });
 			this.sdk.start();
 			this.initialized = true;

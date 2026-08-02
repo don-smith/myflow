@@ -38,6 +38,7 @@
 		"config.ts",
 		"dispatcher.ts",
 		"instrumentation/index.ts",
+		"instrumentation/git-context.ts",
 		"instrumentation/finalize.ts",
 		"instrumentation/orphan-flush.ts",
 		"instrumentation/payload-summary.ts",
@@ -69,6 +70,7 @@
 		"typebox": "*"
 	},
 	"dependencies": {
+		"@langfuse/client": "^5.9.1",
 		"@langfuse/otel": "^5.9.1",
 		"@langfuse/tracing": "^5.9.1",
 		"@myflow/config": "^1.19.1",

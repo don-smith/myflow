@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
 	AgentEndEvent,
 	AgentStartEvent,
@@ -17,11 +17,14 @@ import type {
 	TurnStartEvent,
 } from "../types/events.js";
 import { finalizeTelemetrySession } from "./finalize.js";
+import { resolveTelemetryGitContext } from "./git-context.js";
 import { detectSubAgentType, parentSessionIdFromCtx, summarizeLlmPayload, summarizeMessageContent } from "./payload-summary.js";
 import {
+	beginGitContextResolution,
 	currentSubAgentType,
 	llmPayloadMode,
 	requestSeqBySession,
+	setCurrentGitContext,
 	setCurrentSessionId,
 	setCurrentSubAgentTypeIfUnset,
 } from "./state.js";
@@ -37,7 +40,7 @@ import {
  */
 export interface PiHandlerSpec {
 	piEvent: string;
-	build: (event: any, ctx: ExtensionContext) => TelemetryEvent;
+	build: (event: any, ctx: ExtensionContext, pi: ExtensionAPI) => TelemetryEvent | Promise<TelemetryEvent>;
 	postDispatch?: (event: any, ctx: ExtensionContext) => Promise<void>;
 }
 
@@ -46,9 +49,12 @@ const sid = (ctx: ExtensionContext): string => ctx.sessionManager.getSessionId()
 export const PI_HANDLERS: readonly PiHandlerSpec[] = [
 	{
 		piEvent: "session_start",
-		build: (event, ctx) => {
+		build: async (event, ctx, pi) => {
 			const id = sid(ctx);
 			setCurrentSessionId(id);
+			if (beginGitContextResolution(id)) {
+				setCurrentGitContext(await resolveTelemetryGitContext(pi), id);
+			}
 			return {
 				kind: "session_start",
 				sessionId: id,

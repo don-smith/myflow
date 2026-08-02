@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import { dispatchTelemetryEvent } from "./dispatcher.js";
-import { currentSessionId } from "./instrumentation/state.js";
+import { currentSessionId, withSessionContext } from "./instrumentation/state.js";
 
 /**
  * Data payload for `emitMyFlowCheckpoint`. All fields except `stage` are
@@ -35,10 +35,12 @@ export interface MyFlowCheckpointData {
  */
 export function emitMyFlowCheckpoint(data: MyFlowCheckpointData): void {
 	if (!currentSessionId) return;
-	dispatchTelemetryEvent({
-		kind: "myflow_checkpoint",
-		sessionId: currentSessionId,
-		timestamp: Date.now(),
-		...data,
-	});
+	dispatchTelemetryEvent(
+		withSessionContext({
+			kind: "myflow_checkpoint",
+			sessionId: currentSessionId,
+			timestamp: Date.now(),
+			...data,
+		}),
+	);
 }

@@ -14,6 +14,14 @@ vi.mock("./providers/index.js", () => ({
 	registerConfiguredProviders: vi.fn(),
 }));
 
+vi.mock("./instrumentation/git-context.js", () => ({
+	resolveTelemetryGitContext: vi.fn(async () => ({
+		repository: "github.com/acme/widgets",
+		branch: "feature/telemetry",
+		commit: "abc1234",
+	})),
+}));
+
 vi.mock("./dispatcher.js", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("./dispatcher.js")>();
 	return {
@@ -36,7 +44,9 @@ vi.mocked(config.loadTelemetryConfig).mockReturnValue({
 });
 
 import { dispatchTelemetryEvent } from "./dispatcher.js";
+import { resolveTelemetryGitContext } from "./instrumentation/git-context.js";
 import { initInstrumentation, teardownTelemetry } from "./instrumentation/index.js";
+import { currentGitContext } from "./instrumentation/state.js";
 
 describe("instrumentation", () => {
 	beforeEach(() => {
@@ -112,6 +122,78 @@ describe("instrumentation", () => {
 		const handler = captured.events.get("session_start")?.[0];
 		await handler!({ reason: "new" }, ctx);
 		expect(dispatchTelemetryEvent).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "test-session" }));
+	});
+
+	it("resolves Git identity before session_start dispatch and clears it at teardown", async () => {
+		const { pi, captured } = createMockPi();
+		initInstrumentation(pi);
+
+		await captured.events.get("session_start")?.[0]?.({ reason: "startup" }, createMockCtx());
+
+		expect(dispatchTelemetryEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "session_start",
+				context: {
+					repository: "github.com/acme/widgets",
+					branch: "feature/telemetry",
+					commit: "abc1234",
+				},
+			}),
+		);
+		expect(currentGitContext).toBeDefined();
+		teardownTelemetry();
+		expect(currentGitContext).toBeUndefined();
+	});
+
+	it("resolves Git identity only once for a session", async () => {
+		const { pi, captured } = createMockPi();
+		initInstrumentation(pi);
+		const handler = captured.events.get("session_start")?.[0];
+
+		await handler!({ reason: "startup" }, createMockCtx());
+		await handler!({ reason: "reload" }, createMockCtx());
+
+		expect(resolveTelemetryGitContext).toHaveBeenCalledOnce();
+		expect(dispatchTelemetryEvent).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				kind: "session_start",
+				context: {
+					repository: "github.com/acme/widgets",
+					branch: "feature/telemetry",
+					commit: "abc1234",
+				},
+			}),
+		);
+	});
+
+	it("subagent_created handler dispatches the active session context", async () => {
+		const { pi, captured } = createMockPi();
+		const busHandlers = new Map<string, (data: unknown) => void>();
+		vi.mocked(pi.events.on).mockImplementation((channel: string, handler: (data: unknown) => void) => {
+			busHandlers.set(channel, handler);
+			return () => {};
+		});
+		initInstrumentation(pi);
+
+		await captured.events.get("session_start")?.[0]?.({ reason: "startup" }, createMockCtx());
+		busHandlers.get("subagents:created")?.({
+			id: "agent-1",
+			type: "researcher",
+			description: "look up X",
+			isBackground: false,
+		});
+
+		expect(dispatchTelemetryEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "subagent_created",
+				agentId: "agent-1",
+				context: {
+					repository: "github.com/acme/widgets",
+					branch: "feature/telemetry",
+					commit: "abc1234",
+				},
+			}),
+		);
 	});
 
 	it("tool_execution_start handler uses args field (not input)", async () => {

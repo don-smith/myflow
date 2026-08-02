@@ -24,7 +24,7 @@ import {
 	type SubAgentSteeredPayload,
 	SubAgentSteeredPayloadSchema,
 } from "./schemas.js";
-import { currentSessionId, inflightKey, inflightSubAgents } from "./state.js";
+import { currentSessionId, inflightKey, inflightSubAgents, withSessionContext } from "./state.js";
 
 /**
  * One row per sub-agent EventBus channel subscribed via `pi.events.on(...)`.
@@ -193,5 +193,5 @@ export function handleSubAgentBusEvent(h: SubAgentHandlerSpec, data: unknown): v
 	} else if (mapped.kind === "subagent_completed" || mapped.kind === "subagent_failed") {
 		inflightSubAgents.delete(inflightKey(mapped.sessionId, mapped.agentId));
 	}
-	dispatchTelemetryEvent(mapped);
+	dispatchTelemetryEvent(withSessionContext(mapped));
 }

@@ -60,6 +60,7 @@ export type {
 	SubAgentSteeredEvent,
 	TelemetryEvent,
 	TelemetryEventKind,
+	TelemetrySessionContext,
 	ToolExecutionEndEvent,
 	ToolExecutionStartEvent,
 	TurnEndEvent,

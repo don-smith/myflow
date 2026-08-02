@@ -123,8 +123,7 @@ Preview content is rendered as markdown in a monospace box. Multi-line text with
 						width: "100%",
 						maxHeight: "100%",
 						// Leave the built-in Pi footer row visible while the bottom-anchored
-						// questionnaire overlay is active. Without this bottom margin, a tall
-						// questionnaire can composite over the footer's cwd/branch/model/context data.
+						// questionnaire overlay is active.
 						margin: { left: 0, right: 0, bottom: 1 },
 					},
 				},
