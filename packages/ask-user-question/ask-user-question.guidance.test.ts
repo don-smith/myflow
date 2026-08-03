@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { createMockPi } from "@myflow/test-utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_PROMPT_GUIDELINES, DEFAULT_PROMPT_SNIPPET, registerAskUserQuestionTool } from "./ask-user-question.js";
+import { MAX_HEADER_LENGTH, MAX_LABEL_LENGTH } from "./tool/types.js";
 
 const TOOL_NAME = "ask_user_question";
 const CONFIG_PATH = join(process.env.HOME!, ".myflow", "config", "ask-user-question", "config.json");
@@ -18,6 +19,13 @@ beforeEach(() => {
 });
 
 describe("registerAskUserQuestionTool — guidance overrides", () => {
+	it("includes hard character limits in the default model guidance", () => {
+		const guidance = DEFAULT_PROMPT_GUIDELINES.join(" ");
+
+		expect(guidance).toContain(`header must be concise and at most ${MAX_HEADER_LENGTH} characters`);
+		expect(guidance).toContain(`option requires a concise label (1-5 words) and at most ${MAX_LABEL_LENGTH} characters`);
+	});
+
 	it("uses built-in defaults when no config file exists", () => {
 		const { pi, captured } = createMockPi();
 		registerAskUserQuestionTool(pi);

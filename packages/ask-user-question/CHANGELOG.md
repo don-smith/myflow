@@ -7,6 +7,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Default `ask_user_question` model guidance now explicitly calls out the hard 16-character `header` and 60-character option-label limits.
+
 ## [1.19.1] - 2026-06-10
 
 ## [1.19.0] - 2026-06-09
