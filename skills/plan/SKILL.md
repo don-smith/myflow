@@ -259,18 +259,18 @@ Review the finalized plan's verification-intent coverage. Walk every ## Verifica
 
 #### 4.2. Persist the merged review table to the artifact
 
-Each agent returns a markdown table with columns `plan-loc | codebase-loc | severity | dimension | finding | recommendation`. Merge both tables into one section, prepending a `source` column (`code` for artifact-code-reviewer rows, `coverage` for artifact-coverage-reviewer rows) and appending a `resolution` column (initially blank, filled progressively at Step 5):
+Each agent returns a markdown table with columns `plan-loc | codebase-loc | severity | dimension | finding | recommendation`. Merge both tables into one section, prepending a `source` column (`code` for artifact-code-reviewer rows, `coverage` for artifact-coverage-reviewer rows), adding a `classification` column (set to `ordering-only` or `material` at Step 5), and appending a `resolution` column (initially blank, filled progressively at Step 5):
 
 ```markdown
 ## Plan Review (Step 4)
 
 _Independent post-finalization review by artifact-code-reviewer and artifact-coverage-reviewer subagents. Findings triaged at Step 5._
 
-| source   | plan-loc          | codebase-loc                | severity   | dimension             | finding   | recommendation   | resolution         |
-| -------- | ----------------- | --------------------------- | ---------- | --------------------- | --------- | ---------------- | ------------------ |
-| code     | {plan-loc}        | {codebase-loc}              | {severity} | {dimension}           | {finding} | {recommendation} | (filled at Step 5) |
-| coverage | {plan-loc}        | <n/a>                       | {severity} | verification-coverage | {finding} | {recommendation} | (filled at Step 5) |
-| ...      |                   |                             |            |                       |           |                  |                    |
+| source   | plan-loc          | codebase-loc                | severity   | classification | dimension             | finding   | recommendation   | resolution         |
+| -------- | ----------------- | --------------------------- | ---------- | -------------- | --------------------- | --------- | ---------------- | ------------------ |
+| code     | {plan-loc}        | {codebase-loc}              | {severity} | (set Step 5)   | {dimension}           | {finding} | {recommendation} | (set Step 5)       |
+| coverage | {plan-loc}        | <n/a>                       | {severity} | (set Step 5)   | verification-coverage | {finding} | {recommendation} | (set Step 5)       |
+| ...      |                   |                             |            |                |                       |           |                  |                    |
 ```
 
 Sort merged rows by severity first (blocker → concern → suggestion), then by source (`code` before `coverage` for stable ordering within a severity). Within a `(severity, source)` bucket, preserve each agent's own emitted order — do not re-sort across source spaces (the two agents key on different artifact loci: `Phase N §M` for code, `## Verification Notes §K` for coverage).
@@ -279,13 +279,15 @@ If both agents emit zero rows, still emit the section with a single line: `_No f
 
 #### 4.3. Tally findings for Step 5's prompt
 
-Count merged rows by severity. Store the counts in main context for Step 5's developer prompt:
+Do not decide the classification from severity alone. In Step 5, inspect each finding and classify it as `ordering-only` or `material` before presenting it. Count only material rows for the developer prompt:
 
 ```
-{B} blockers, {C} concerns, {S} suggestions
+{B} material blockers, {C} material concerns, {S} material suggestions; {O} ordering-only findings
 ```
 
-Do NOT auto-apply any finding. The orchestrator never makes the apply / defer / dismiss judgment alone — that lives with the developer at Step 5. The reviewers' role is to surface; the developer's role is to triage.
+A finding is `ordering-only` only when the failure is caused solely by cross-phase dependency order and the complete fix is to move already-specified work (including its existing files and Success Criteria) to an earlier or later existing phase. It must not change architecture, scope, API shape, runtime behavior, verification intent, or phase order/numbering. Everything else is `material`.
+
+Material findings are never auto-applied; the developer decides `applied` / `deferred` / `dismissed` at Step 5. Ordering-only findings are the explicit exception: mark them `ordering-only`, do not count them as blockers, and auto-apply them without `ask_user_question` as specified below.
 
 #### 4.4. Failure handling
 
@@ -296,41 +298,53 @@ Per-agent: if one reviewer errors out (subprocess crash, malformed output, timeo
 - Record any failure in `## Developer Context`: `Step 4 {code|coverage} review unavailable; proceeded to developer review without {agent-name} findings.`
 - Proceed to Step 5 regardless.
 
-The 8-column header is retained when only one source returns; only rows from the failing agent are absent. Step 5 triage iterates whatever rows are present.
+The review-table header is retained when only one source returns; only rows from the failing agent are absent. Step 5 classification and triage iterate whatever rows are present.
 
 ### Step 5: Review & Iterate
 
-1. **Triage Step 4 reviewer findings first** (skip if Step 4 returned no findings):
+1. **Classify findings before developer triage** (skip if Step 4 returned no findings):
 
-   Present the Plan Review table from Step 4 to the developer with severity-grouped framing:
+   Inspect every reviewer row, including rows labeled `blocker`, before showing it to the developer. If a row satisfies the exact `ordering-only` predicate from Step 4.3, handle it automatically:
+
+   - Set `classification` to `ordering-only` and `resolution` to `auto-applied: phase ordering — {one-line summary}`.
+   - Do not present it through `ask_user_question`, do not count it as a blocker, and do not relabel the reviewer's severity merely to avoid the prompt.
+   - Update the **design artifact**, not just the generated plan: move the complete existing Architecture entry, its `Files` assignment, and its matching Success Criteria verbatim into the earlier/later existing `## Slice N` that makes the dependency valid. Preserve slice numbering and order; do not invent, split, merge, or reword work.
+   - Update any affected Ordering Constraints and record the automatic correction in the design's existing developer/history context.
+   - Dispatch the design skill's `slice-verifier` against the updated design and require a clean result for affected-slice atomicity, cross-slice symbol references, terminal-slice checks, shared-file ownership, and criteria alignment. If the fix is not unambiguous, verification fails, or the verifier is unavailable, stop treating the row as `ordering-only` and classify it as `material`.
+   - Regenerate the plan from the updated design and rerun both Step 4 reviewers. Treat the regenerated plan and its fresh findings as authoritative; record the prior plan path as superseded in the regenerated plan's Developer Context and do not ask about stale rows. Allow at most one **automatic ordering-only** regeneration cycle per invocation; developer-directed regeneration for a material design change follows its normal design verifier and is not silently folded into this automatic loop. If the same or any new ordering finding remains after the automatic regeneration, classify it as `material` and send it to developer triage rather than looping.
+
+   Apply independent ordering-only moves together only when their combined destination and dependency order are unambiguous. Otherwise classify the dependent set as `material` and triage it normally. For an ambiguous material ordering finding, an `applied` choice is incomplete until the developer names the destination and the orchestrator verifies it; never silently choose between candidate phases.
+
+   After all safe ordering-only corrections are applied, present only the remaining material rows with severity-grouped framing:
 
    ```
-   Plan-reviewer findings: {B} blockers, {C} concerns, {S} suggestions
+   Plan-reviewer findings requiring developer triage: {B} material blockers, {C} material concerns, {S} material suggestions; {O} ordering-only findings auto-applied
 
-   Triage each row before the freeform review below:
+   Triage each material row before the freeform review below:
    - applied — change made; I'll Edit per the recommendation target when it is a plan-transcription issue (Phase code fence for code findings, or copied Success Criteria only when plan failed to copy the design verbatim) and fill the row's resolution as `applied: {one-line summary}`
    - deferred — noted but not fixing now; resolution cites why (e.g., "out of scope for this plan", "follow-up commit")
    - dismissed — not a real issue; resolution explains why the reviewer was wrong (e.g., "X is intentional because Y")
    ```
 
-   Use `ask_user_question` with options "applied / deferred / dismissed":
-   - **applied**: Edit per the recommendation target only when the defect is in plan transcription — if the recommendation names a `## Phase N` code fence, Edit that fence; if it names a copied `### Success Criteria:` bullet that differs from design, restore the design text. If the finding requires new criteria or changed phase boundaries, route it back to `/skill:design` instead of patching plan-local content. Fill `resolution`.
+   Use `ask_user_question` only for material rows, with options "applied / deferred / dismissed":
+   - **applied**: Edit per the recommendation target only when the defect is in plan transcription — if the recommendation names a `## Phase N` code fence, Edit that fence; if it names a copied `### Success Criteria:` bullet that differs from design, restore the design text. If the finding requires new criteria or changed phase boundaries, route it back to `/skill:design`; the design skill's normal slice-verifier and plan re-entry are required, and this plan must not flip to `ready` until the regenerated plan and both reviewers pass again. After any plan-local Edit to a code fence or copied criteria, rerun both Step 4 reviewers before accepting the artifact as ready; fresh findings replace stale rows. Fill `resolution`.
    - **deferred** / **dismissed**: fill `resolution` with the reason.
 
-   **Code finding caveat**: when a code finding's root cause is in the design's Architecture (not just plan transcription), the patch belongs upstream. Either (a) Edit the design artifact and re-run `/skill:plan`, or (b) apply the fix to the plan's Phase code fence and annotate the resolution with `applied (plan-local; design follow-up: <design path>)`. Option (a) is cleaner; option (b) is acceptable for tactical fixes.
+   **Code finding caveat**: when a material code finding's root cause is in the design's Architecture (not just plan transcription), the patch belongs upstream. Either (a) Edit the design artifact and re-run `/skill:plan`, or (b) apply the fix to the plan's Phase code fence and annotate the resolution with `applied (plan-local; design follow-up: <design path>)`. Option (a) is cleaner; option (b) is acceptable for tactical fixes.
 
-   **Order and batching**: blockers sequentially (resolution may invalidate later rows). Concerns and suggestions: batch up to 4 independent rows per `ask_user_question` call. Independent = different files / different intents AND neither recommendation references the other's location; otherwise sequential.
+   **Order and batching**: material blockers sequentially (resolution may invalidate later rows). Material concerns and suggestions: batch up to 4 independent rows per `ask_user_question` call. Independent = different files / different intents AND neither recommendation references the other's location; otherwise sequential.
 
-2. **Rebuild `phases:` then flip status to ready**: once every row has a `resolution` (or the table is empty per Step 4's no-findings / failure-fallback path):
+2. **Rebuild `phases:` then flip status to ready**: after the final regenerated plan has passed Step 4 and every material row has a `resolution` (or the table is empty per Step 4's no-findings / failure-fallback path):
    - **Rebuild the `phases:` frontmatter array (and `phase_count`) from the `## Phase N:` headings** — one `{ n, title }` entry per section, in body order. This is a consistency check after transcription edits; phase boundaries must still match the design's `## Slices` 1:1.
+   - Compare every regenerated `## Phase N` against its matching design `### Slice N`: `Files`, Architecture/code blocks, and Success Criteria must match the updated design's assignments verbatim. If any differ, keep `status: in-review` and correct/regenerate before proceeding.
    - Edit frontmatter `status: in-review` → `status: ready`. Artifact is now implement-ready.
 
-3. **Present the plan location** (after triage is complete):
+3. **Present the plan location** (after the final review pass and triage are complete):
    ```
    Implementation plan written to:
    `.myflow/artifacts/plans/{filename}.md`
 
-   {N} phases, {M} total file changes. {T} reviewer findings triaged at Step 5 ({A} applied, {D} deferred, {DD} dismissed). If either reviewer hit Step 4.4's per-agent failure-fallback, render this line as `Step 4 {code|coverage|both} review unavailable — proceeded with available findings.`
+   {N} phases, {M} total file changes. {T} material reviewer findings triaged at Step 5 ({A} applied, {D} deferred, {DD} dismissed); {O} ordering-only findings auto-applied. If either reviewer hit Step 4.4's per-agent failure-fallback, render this line as `Step 4 {code|coverage|both} review unavailable — proceeded with available findings.`
 
    Please review:
    - Are the phases properly scoped for worktree execution?
@@ -350,7 +364,7 @@ The 8-column header is retained when only one source returns; only rows from the
 
 - **Edit in-place.** Use the Edit tool to update the plan artifact directly. Phase numbering stays stable when possible — renumber only when a phase is split or merged.
 - **Bump frontmatter.** Update `last_updated` + `last_updated_by`; set `last_updated_note: "<one-line summary>"`.
-- **Boundary changes route upstream.** Do not split, merge, or reorder phases in plan; phase boundaries come from design's `## Slices` 1:1. If boundaries or Success Criteria need substantive changes, update the design artifact and re-run `/skill:plan`. Plan-local edits are limited to transcription fixes and review-table resolutions.
+- **Boundary changes route upstream.** Do not split, merge, or reorder phases in plan; phase boundaries come from design's `## Slices` 1:1. If boundaries or Success Criteria need substantive changes, update the design artifact and re-run `/skill:plan`. The sole automatic exception is an `ordering-only` repair: moving already-specified work and its verbatim criteria between existing slices to satisfy dependency order. Plan-local edits are limited to transcription fixes and review-table resolutions.
 - **When to re-invoke instead.** For surgical edits driven by review findings, prefer `/skill:revise <plan-path>`. Re-run `/skill:plan` only when the underlying design changed materially. The previous block's `Next step:` stays valid for the existing plan.
 
 ## Guidelines
@@ -358,15 +372,15 @@ The 8-column header is retained when only one source returns; only rows from the
 1. **Trust the Design**:
    - Design decisions are fixed — do not re-evaluate architectural choices
    - Success Criteria are also fixed — pass them through verbatim from design's `## Slices`; do not re-author, re-derive, or "improve" them. Slice-verifier already validated them against the slice's code at design 6.2
-   - Phase boundaries are fixed — inherit 1:1 from design's `## Slices`; do not recompose
-   - If something in the design seems wrong, flag it to the developer; do not silently patch in plan
-   - The design is the source of truth for what to build. The design skill handles all architectural decomposition; plan owns sequencing and review.
+   - Phase boundaries are fixed — inherit 1:1 from design's `## Slices`; do not recompose, except for the narrowly defined `ordering-only` repair in Step 5, which relocates existing work without changing slice count, order, or intent
+   - If something in the design seems materially wrong, flag it to the developer; do not silently patch it in plan. Safe phase-order-only corrections are not material design changes and are auto-applied upstream as defined in Step 5.
+   - The design is the source of truth for what to build. The design skill handles architectural decomposition; plan owns sequencing, safe dependency-order repair, and review.
 
 2. **Pass-Through, Not Author**:
    - Plan transforms a design artifact into phased shape; it does not invent content
    - Code blocks in `## Phase N` come from the design's `## Architecture` entries
    - Success Criteria come from the design's `## Slices` `### Slice N` subsections, unchanged
-   - The only place plan exercises judgment is Step 5 triage of reviewer findings — and even there, design-root-cause findings should route back to `/skill:design`
+   - The only place plan exercises judgment is Step 5 classification and triage of reviewer findings. Safe phase-order-only findings are auto-applied; material design-root-cause findings route back to `/skill:design`
 
 3. **Be Practical**:
    - Focus on incremental, testable changes
@@ -424,6 +438,7 @@ If the design's criteria don't match this shape, the defect lives upstream — r
 |---|---|
 | Step 4 post-finalization code review (mandatory) | artifact-code-reviewer |
 | Step 4 post-finalization coverage review (mandatory) | artifact-coverage-reviewer |
+| Step 5 ordering-only design repair (conditional) | slice-verifier |
 
 Both reviewers dispatch in parallel against the final artifact (code + Success Criteria + phasing all visible). This is the single quality gate for the entire `design → plan` pipeline — design owns no post-finalization review.
 
@@ -433,10 +448,10 @@ Both reviewers dispatch in parallel against the final artifact (code + Success C
 - Always read the design artifact FULLY before inheriting phase boundaries
 - The plan template must be compatible with implement — preserve the phase/success criteria structure
 - If the design artifact has unresolved questions OR is missing its `## Slices` section, STOP — send the developer back to design
-- **Slice ≡ phase, 1:1**: NEVER recompose slice boundaries into different phase boundaries; NEVER reauthor Success Criteria (they pass through from design's `## Slices`); the design's slice-verifier already guaranteed per-slice atomicity and criteria/code alignment, and recomposing here would discard that guarantee
+- **Slice ≡ phase, 1:1**: inherit each slice as its phase and never reauthor Success Criteria. A narrowly scoped `ordering-only` repair may relocate existing work and matching criteria between existing slices, preserving slice count/order and rechecking atomicity and cross-slice alignment; this is not permission to recompose, split, merge, reorder, or invent work
 - Plan is the single post-finalization quality gate for the `design → plan` pipeline: code + Success Criteria + phasing are all visible in one artifact for joint review by artifact-code-reviewer + artifact-coverage-reviewer
 - ALWAYS dispatch artifact-code-reviewer AND artifact-coverage-reviewer in parallel at Step 4 after Step 3 finalize, BEFORE the developer review at Step 5
-- NEVER auto-apply a Step 4 reviewer finding; triage is the developer's call at Step 5
-- ALWAYS hold `status: in-review` from Step 4.0 through Step 5; flip to `ready` only after every row has a `resolution` (or the table is empty)
+- NEVER auto-apply a material Step 4 reviewer finding. The sole exception is a finding proven `ordering-only` by the Step 4.3 predicate; auto-apply that correction upstream in the design, regenerate the plan, and rerun both reviewers before developer triage
+- ALWAYS hold `status: in-review` from Step 4.0 through the final Step 5 review pass; flip to `ready` only after every material row has a `resolution` and all auto-applied ordering-only corrections have been regenerated and re-reviewed
 - Code in the plan comes from the design artifact's Architecture section — do not invent new code
 - **Frontmatter consistency**: Always include frontmatter, use snake_case for multi-word fields, keep tags relevant
