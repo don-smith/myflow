@@ -23,7 +23,12 @@ const LangfuseProviderConfig = Type.Object(
 
 const ConsoleProviderConfig = Type.Object({}, { additionalProperties: false });
 
-const LlmPayloadModeSchema = Type.Union([Type.Literal("full"), Type.Literal("summary"), Type.Literal("off")]);
+const LlmPayloadModeSchema = Type.Union([
+	Type.Literal("full"),
+	Type.Literal("prompts"),
+	Type.Literal("summary"),
+	Type.Literal("off"),
+]);
 
 /**
  * Provider keys are enumerated rather than open-ended so a typo (`mflow:`)
@@ -93,7 +98,7 @@ export interface TelemetryConfig {
 	providers: ProvidersConfig;
 	/** `"*"` → all events enabled; `[]` → none enabled; allowlist → only listed kinds. */
 	events: "*" | TelemetryEventKind[];
-	/** Controls how much LLM request/output content is recorded. Defaults to `"off"`. */
+	/** Controls how much LLM request/output content is recorded. `"prompts"` captures only user requests. Defaults to `"off"`. */
 	llmPayload: LlmPayloadMode;
 	dispatcher: DispatcherConfig;
 }

@@ -97,7 +97,7 @@ export const PI_HANDLERS: readonly PiHandlerSpec[] = [
 			return {
 				kind: "before_agent_start",
 				sessionId: sid(ctx),
-				prompt: event.prompt,
+				...((llmPayloadMode === "prompts" || llmPayloadMode === "full") ? { prompt: event.prompt } : {}),
 				timestamp: Date.now(),
 			} satisfies BeforeAgentStartEvent;
 		},

@@ -6,6 +6,7 @@ import { NodeSDK as NodeSDKConstructor } from "@opentelemetry/sdk-node";
 import type {
 	AgentEndEvent,
 	AgentStartEvent,
+	BeforeAgentStartEvent,
 	LlmRequestEndEvent,
 	LlmRequestStartEvent,
 	MessageEndEvent,
@@ -47,6 +48,7 @@ interface ObservationLike {
 
 interface SessionTrace {
 	root: ObservationLike;
+	promptCaptured: boolean;
 	currentTurn?: ObservationLike;
 	tools: Map<string, ObservationLike>;
 	subagents: Map<string, ObservationLike>;
@@ -212,6 +214,9 @@ export class LangfuseProvider implements TelemetryProvider {
 
 	private dispatch(event: TelemetryEvent): void {
 		switch (event.kind) {
+			case "before_agent_start":
+				this.onBeforeAgentStart(event);
+				return;
 			case "agent_start":
 				this.onAgentStart(event);
 				return;
@@ -261,7 +266,6 @@ export class LangfuseProvider implements TelemetryProvider {
 				this.onSubAgentSteered(event);
 				return;
 			case "session_compact":
-			case "before_agent_start":
 			case "model_select":
 			case "myflow_checkpoint":
 			case "session_start":
@@ -279,14 +283,31 @@ export class LangfuseProvider implements TelemetryProvider {
 		);
 	}
 
+	private onBeforeAgentStart(event: BeforeAgentStartEvent): void {
+		if (!event.prompt) return;
+		const trace = this.getOrCreateTrace(event);
+		trace.promptCaptured = true;
+		trace.root.update({ input: { prompt: event.prompt } });
+	}
+
 	private onAgentStart(event: AgentStartEvent): void {
-		if (this.sessions.has(event.sessionId)) return;
+		const existing = this.sessions.get(event.sessionId);
+		if (existing) {
+			existing.root.update({
+				metadata: {
+					...(event.parentSessionId ? { parentSessionId: event.parentSessionId } : {}),
+					...(event.selfAgentType ? { agentType: event.selfAgentType } : {}),
+				},
+			});
+			return;
+		}
 		const root = this.createRoot(event, {
 			...(event.parentSessionId ? { parentSessionId: event.parentSessionId } : {}),
 			...(event.selfAgentType ? { agentType: event.selfAgentType } : {}),
 		});
 		this.sessions.set(event.sessionId, {
 			root,
+			promptCaptured: false,
 			tools: new Map(),
 			subagents: new Map(),
 			subagentDetails: new Map(),
@@ -401,7 +422,10 @@ export class LangfuseProvider implements TelemetryProvider {
 		);
 		const output = event.content ?? { role: event.role, stopReason: event.stopReason };
 		generation.update({ output });
-		trace.root.update({ input: latestRequest?.payload ?? { sessionId: event.sessionId }, output });
+		trace.root.update({
+			...(trace.promptCaptured ? {} : { input: latestRequest?.payload ?? { sessionId: event.sessionId } }),
+			output,
+		});
 		generation.end();
 	}
 
@@ -496,6 +520,7 @@ export class LangfuseProvider implements TelemetryProvider {
 		if (existing) return existing;
 		const trace = {
 			root: this.createRoot(event),
+			promptCaptured: false,
 			tools: new Map<string, ObservationLike>(),
 			subagents: new Map<string, ObservationLike>(),
 			subagentDetails: new Map<string, { agentType: string; description?: string; isBackground?: boolean }>(),

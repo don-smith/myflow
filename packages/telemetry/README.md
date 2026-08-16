@@ -46,7 +46,20 @@ Environment variables take precedence over configuration-file values. If either 
 - Sub-agent sessions are represented as agent observations in their own process and carry parent-session metadata when native cross-process context is unavailable.
 - Session shutdown closes orphaned observations, drains the dispatcher, flushes Langfuse, and shuts down OpenTelemetry.
 
-Payload capture defaults to `off`. Use `summary` for structural request/output metadata or `full` only when the prompts and responses are safe to send. The Langfuse span processor also redacts common bearer tokens, API keys, secrets, and token values before export.
+Payload capture defaults to `off`. Use `summary` for structural request/output metadata, `prompts` to capture only the user's request on the root observation, or `full` only when provider payloads and assistant responses are safe to send. The Langfuse span processor also redacts common bearer tokens, API keys, secrets, and token values before export.
+
+## Work reports
+
+With `llmPayload: "prompts"`, generate a read-only, cross-repository Markdown report from the Langfuse v4 Observations API:
+
+```bash
+LANGFUSE_PUBLIC_KEY=pk-lf-... \
+LANGFUSE_SECRET_KEY=sk-lf-... \
+LANGFUSE_BASE_URL=http://localhost:13000 \
+bun run work-report --from 2026-08-01T00:00:00Z
+```
+
+Use `--json` for normalized data, `--repository <identity>` to filter, and `--local-pi-sessions "$HOME/.pi/agent/sessions"` to explicitly recover missing historical prompts from retained local Pi JSONL files. Use the explicit `--publish` option to write idempotent `myflow.work.*` and `myflow.flow.*` scores back to Langfuse. Report generation never writes scores by itself. Work-type labels and synopsis bullets are deterministic first-pass heuristics; flow values are observable signals to calibrate against human ratings, not claims about subjective flow.
 
 Langfuse is the primary telemetry and evaluation backend. At run completion, built-in deterministic friction evaluators publish `myflow.friction-free` and `myflow.friction.*` scores on the root observation. Langfuse datasets, LLM-as-a-judge evaluators, experiments, and CI gates can then extend these operational checks with quality regression checks. A best-effort local session summary remains available for offline Close workflows when credentials are unavailable.
 

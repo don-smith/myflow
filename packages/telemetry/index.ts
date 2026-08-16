@@ -32,6 +32,15 @@ export { analyzeAllSessions, analyzeSession } from "./eval/reducer.js";
 export { runAllDetectors } from "./eval/detectors.js";
 export { scoreFrictionFindings } from "./eval/langfuse.js";
 export type { FrictionFinding, FrictionSeverity, FrictionType, SessionSummary } from "./eval/types.js";
+export { createLangfuseWorkReport, formatWorkReport, publishWorkReportScores } from "./work-analysis.js";
+export type {
+	LangfuseWorkReportOptions,
+	PublishWorkReportOptions,
+	WorkFlowSignals,
+	WorkItem,
+	WorkReport,
+	WorkType,
+} from "./work-analysis.js";
 export { teardownTelemetry } from "./instrumentation/index.js";
 export {
 	BUILT_IN_PROVIDERS,

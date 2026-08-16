@@ -189,6 +189,33 @@ describe("LangfuseProvider", () => {
 		expect(root?.ended).toBe(true);
 	});
 
+	it("keeps a captured user request as the root input instead of overwriting it with the provider payload", async () => {
+		const provider = new LangfuseProvider({ publicKey: "pk-test", secretKey: "sk-test" });
+
+		await provider.trackEvent({ kind: "before_agent_start", ...baseEvent, context: gitContext, prompt: "Fix the failing test" });
+		await provider.trackEvent({ kind: "agent_start", ...baseEvent, context: gitContext });
+		await provider.trackEvent({
+			kind: "llm_request_start",
+			...baseEvent,
+			requestSeq: 1,
+			payload: { model: "gpt-5", messages: [{ role: "user", content: "Fix the failing test" }] },
+		});
+		await provider.trackEvent({
+			kind: "message_end",
+			...baseEvent,
+			role: "assistant",
+			model: "gpt-5",
+			provider: "openai",
+			stopReason: "stop",
+			usage: { input: 10, output: 5, totalTokens: 15 },
+		});
+
+		const root = observations.find((observation) => observation.type === "agent");
+		expect(root?.updates).toContainEqual({ input: { prompt: "Fix the failing test" } });
+		expect(root?.updates).toContainEqual({ output: { role: "assistant", stopReason: "stop" } });
+		expect(root?.updates).not.toContainEqual(expect.objectContaining({ input: expect.objectContaining({ model: "gpt-5" }) }));
+	});
+
 	it("nests background sub-agent execution under the active turn", async () => {
 		const provider = new LangfuseProvider({ publicKey: "pk-test", secretKey: "sk-test" });
 		await provider.trackEvent({ kind: "agent_start", ...baseEvent });

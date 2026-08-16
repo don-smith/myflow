@@ -196,6 +196,47 @@ describe("instrumentation", () => {
 		);
 	});
 
+	it("captures only the user request in prompts payload mode", async () => {
+		vi.mocked(config.loadTelemetryConfig).mockReturnValue({
+			providers: { langfuse: {} },
+			events: "*",
+			llmPayload: "prompts",
+			dispatcher: { maxQueueSize: 100 },
+		});
+		const { pi, captured } = createMockPi();
+		initInstrumentation(pi);
+
+		await captured.events.get("before_agent_start")?.[0]?.(
+			{ prompt: "Fix the failing test", systemPrompt: "private system instructions" },
+			createMockCtx(),
+		);
+
+		expect(dispatchTelemetryEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "before_agent_start", prompt: "Fix the failing test" }),
+		);
+		expect(JSON.stringify(vi.mocked(dispatchTelemetryEvent).mock.calls.at(-1))).not.toContain("private system instructions");
+	});
+
+	it("omits the user request in summary payload mode", async () => {
+		vi.mocked(config.loadTelemetryConfig).mockReturnValue({
+			providers: { langfuse: {} },
+			events: "*",
+			llmPayload: "summary",
+			dispatcher: { maxQueueSize: 100 },
+		});
+		const { pi, captured } = createMockPi();
+		initInstrumentation(pi);
+
+		await captured.events.get("before_agent_start")?.[0]?.(
+			{ prompt: "Do not export this", systemPrompt: "private system instructions" },
+			createMockCtx(),
+		);
+
+		expect(dispatchTelemetryEvent).toHaveBeenCalledWith(
+			expect.not.objectContaining({ prompt: expect.anything() }),
+		);
+	});
+
 	it("tool_execution_start handler uses args field (not input)", async () => {
 		const { pi, captured } = createMockPi();
 		initInstrumentation(pi);

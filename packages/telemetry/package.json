@@ -28,7 +28,8 @@
 		"access": "public"
 	},
 	"scripts": {
-		"test": "vitest run"
+		"test": "vitest run",
+		"work-report": "bun ./work-report.ts"
 	},
 	"files": [
 		"index.ts",
@@ -55,6 +56,8 @@
 		"eval/langfuse.ts",
 		"eval/reducer.ts",
 		"eval/types.ts",
+		"work-analysis.ts",
+		"work-report.ts",
 		"instrumentation/session-summary.ts",
 		"README.md",
 		"CHANGELOG.md",
