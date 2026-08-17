@@ -1,185 +1,33 @@
 ---
 name: validate
-description: Verify that an implementation plan was correctly executed by running each phase's success criteria against the working tree and producing a validation report. Use after the implement skill completes, when the user asks to "validate the plan", wants a post-implementation audit, or needs to confirm a feature is fully shipped per its plan.
-argument-hint: "[plan-path]"
-allowed-tools: Read, Bash(git *), Bash(make *), Glob, Grep, Agent
+description: Use after Implement to verify an accepted MyFlow plan, collect review evidence, and produce a workstream-aware Verify report.
+argument-hint: "<accepted-plan-path>"
 shell-timeout: 10
 ---
 
 # Validate
 
-You are tasked with validating that an implementation plan was correctly executed, verifying all success criteria and identifying any deviations or issues.
+Verify execution against the supplied accepted plan. This is Stage 4; it consumes evidence and reports defects, not code changes.
 
-## Input
+## Rehydrate and inputs
 
-`$ARGUMENTS` — optional path to a plan in `.myflow/artifacts/plans/`. If omitted, branch on the recent-plans list in the Metadata block.
+1. Require a plan path, or locate the authoritative plan from the current `workstream.md`; do not search legacy flat artifact directories.
+2. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected map when found.
+3. Read the plan, `workstream.md`, implementation checkpoint/phase commits, linked design evidence, and current Git state. Record the resolved map path.
+4. Derive the report path as `<workstream-root>/<workstream-id>/verify/<timestamp>_<topic>.md` (normally `.myflow/workstreams/<workstream-id>/verify/`).
 
-## Metadata
+## Verify
 
-```!
-node "${SKILL_DIR}/../_shared/now.mjs"
-echo
-node "${SKILL_DIR}/../_shared/git-context.mjs"
-echo
-echo "### recent (read only in case of empty user input)"
-echo "recent plans:"
-node "${SKILL_DIR}/../_shared/list-recent.mjs" .myflow/artifacts/plans 10
-```
+- Use the plan's verification map and run its phase-defined automated commands as written.
+- Inspect each completed phase against its outcome, commit/checkpoint evidence, deviations, and acceptance-criterion seam.
+- Invoke `code-review` with the implementation commit range and the plan as its spec input. Preserve separate Standards and Spec results. If standards or a usable spec are unavailable, report that fact rather than inventing a setup dependency.
+- Prepare a manual-verification brief only when the plan names human-facing, external, or otherwise non-automatable checks. Mark it `not required` otherwise.
+- Write one complete report using `templates/validation.md`: verdict, criterion coverage, automated evidence, review evidence, deviations, manual-verification brief, explicit exclusions, and owner-correct next action.
 
-## Steps
+## Corrective loops
 
-### Step 1: Input Handling and Context Discovery
+An implementation defect returns to Implement. An incorrect or unexecutable plan returns to Plan. A changed architectural decision returns to Design. A changed outcome/acceptance criterion returns to Scope. Record the correction owner and re-run downstream verification after it is corrected.
 
-When invoked:
+## Completion
 
-1. **Determine context** — fresh or existing conversation?
-   - If existing: review what was implemented in this session, then proceed to Step 2.
-   - If fresh: continue with the substeps below.
-
-2. **Locate the plan**:
-   - If plan path provided, use it.
-   - Otherwise, branch on the `recent plans:` listing in the Metadata block:
-     - **Empty** — no plans under `.myflow/artifacts/plans/`; ask the user for a path in prose.
-     - **Exactly one entry** — confirm with `ask_user_question`: "Validate this plan?" with options "Validate `<filename>` (Recommended)" and "Pick a different path".
-     - **Two or more entries** — present the top 4 filenames as `ask_user_question` options (a free-text "Other" row is appended automatically).
-
-3. **Read the implementation plan** completely
-
-4. **Identify what should have changed**:
-   - List all files that should be modified
-   - Note all success criteria (automated and manual)
-   - Read the plan's `## Verification Map`; check each acceptance criterion has evidence at the named seam/test location or is explicitly listed as not tested with a reason
-   - Identify key functionality to verify
-
-5. **Gather implementation evidence**:
-
-   **If `in_repo:` in the Metadata block is `no`:**
-   - Skip git-based evidence gathering (git log, git diff).
-   - Validate via file inspection, the plan's `#### Automated Verification:` commands, and the plan checklist.
-   - Note in report: "Git history unavailable — validation based on file inspection only".
-
-   Otherwise:
-   - `git log --oneline -n 20` — recent commits for implementation context.
-   - `git diff <base>..HEAD` — where `<base>` covers the implementation commits (determine from `git log` above). Scope to specific paths if the diff is large.
-   - The plan's own `#### Automated Verification:` commands — read them out of the plan and run them as-written. Do NOT hardcode `make` or any project-specific build tool here; the plan encodes the right commands per project (e.g. `npm run check`, `npm test`, `cargo test`, `pytest`).
-
-6. **Spawn parallel research agents** to verify implementation:
-
-   Spawn the agents below in parallel using the Agent tool. Wait for ALL agents to complete before proceeding.
-
-   **Analyzer agent:**
-   - subagent_type: `codebase-analyzer`
-   - Prompt: "Analyze {component} and verify it implements {plan requirement} correctly."
-
-   **Pattern finder agent:**
-   - subagent_type: `codebase-pattern-finder`
-   - Prompt: "Find patterns similar to {new code} and check if conventions are followed."
-
-### Step 2: Systematic Validation
-
-Before checking phases, use the Verification Map as the high-level coverage view. It does not replace running the phase criteria: it tells you what the tests are intended to prove and where to look.
-
-For each phase in the plan:
-
-1. **Check completion status**:
-   - Look for checkmarks in the plan (- [x])
-   - Verify the actual code matches claimed completion
-
-2. **Run automated verification**:
-   - Execute each command from "Automated Verification"
-   - Document pass/fail status
-   - If failures, investigate root cause
-
-3. **Assess manual criteria**:
-   - List what needs manual testing
-   - Provide clear steps for user verification
-
-4. **Think deeply about edge cases**:
-   - Were error conditions handled?
-   - Are there missing validations?
-   - Could the implementation break existing functionality?
-
-### Step 3: Write the Validation Report
-
-1. **Determine metadata** (from the Metadata block at the top of this skill):
-   - Filename: `.myflow/artifacts/validation/<slug>_<plan-topic-kebab>.md` — `<slug>` is the second tab-separated field on line 1 of the Metadata block above; `<plan-topic-kebab>` is the plan's `topic:` frontmatter value lowercased and hyphen-joined.
-   - `repository:` ← `repo:` label; `branch:` / `commit:` ← matching labels.
-   - `date:` ← `<iso>` (first tab-separated field on line 1 of the Metadata block above, offset verbatim).
-   - `author:` ← matching label (fallback: `unknown`).
-   - `parent:` ← the plan path resolved in Step 1.
-   - `tags:` ← `[validation, ...]` plus any tags carried from the plan's frontmatter.
-   - `topic:` ← `"Validation of <plan topic>"`.
-
-2. **Determine verdict** (`status` is always `ready` — written once):
-   - `verdict: pass` — every phase marked `- [x]` in the plan is verified against the code, every automated command passes, no Deviations from Plan and no Potential Issues require action.
-   - `verdict: fail` — any phase fails verification, any automated command fails, or Deviations / Potential Issues list items that require action.
-
-3. **Write the artifact** using the Write tool (no Edit — this skill writes once per run). Read `templates/validation.md`, fill every `{placeholder}` with the values determined above and the observations gathered in Step 2, apply the section-omission rules in the template (omit `#### Pattern Conformance:` and `#### Potential Issues:` entirely when empty; keep all other sections and emit `None — …` literals when empty), and Write the result to the target path. The template includes `## Context Checkpoint` — update it progressively during validation. Fill `## Rehydration Manifest` at finalization.
-
-**What is NOT emitted to the artifact**: per-agent dispatch logs, raw `git log` output, intermediate reasoning. The Findings subsections capture verified outcomes only — the agent trace stays in the skill run, not the artifact.
-
-### Step 4: Present Summary
-
-```
-Validation written to:
-`.myflow/artifacts/validation/{filename}.md`
-
-Verdict: {pass | fail}
-```
-
-Follow-up footer:
-
----
-
-💬 Follow-up: if findings are localized, fix them and re-run `/skill:validate`. If findings imply plan-level changes, escalate to `/skill:revise <plan-path>` first.
-
-**Next step:** `/skill:code-review` — audit the implementation for quality, security, and dependencies. Code review is a mandatory Stage 4 gate — do not commit until it passes with zero blockers. If the feature touches external services or human-interactive surfaces, also run `manual-verification` before close. (If `verdict: fail`, fix the gaps first, then re-run `/skill:validate`.)
-
-> 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
-
-## Handle Follow-ups
-
-- **Validate does not edit code or plans.** It produces a report. Fixes happen in implement; plan revisions happen in revise.
-- **Localized gaps.** If findings are small and localized, fix them in-place and re-run `/skill:validate` for a fresh report.
-- **Plan-level gaps.** If findings imply the plan itself is wrong (missing phases, wrong approach, untestable success criteria), escalate to `/skill:revise <plan-path>` first, then re-implement, then re-validate.
-- **No append mode.** Each validation run produces a fresh report — there is no `## Follow-up` append. The previous block's `Next step:` stays valid only when `verdict: pass`.
-
-## Working with Existing Context
-
-If you were part of the implementation:
-- Review the conversation history
-- Check your todo list for what was completed
-- Focus validation on work done in this session
-- Be honest about any shortcuts or incomplete items
-
-## Important Guidelines
-
-1. **Be thorough but practical** - Focus on what matters
-2. **Run all automated checks** - Don't skip verification commands
-3. **Document everything** - Both successes and issues
-4. **Think critically** - Question if the implementation truly solves the problem
-5. **Consider maintenance** - Will this be maintainable long-term?
-
-## Validation Checklist
-
-Always verify:
-- [ ] All phases marked complete are actually done
-- [ ] Automated tests pass
-- [ ] Code follows existing patterns
-- [ ] No regressions introduced
-- [ ] Error handling is robust
-- [ ] Documentation updated if needed
-- [ ] Manual test steps are clear
-
-## Relationship to Other Skills
-
-Recommended workflow (Stage 4 — Review):
-1. `/skill:implement` - Execute the implementation (Stage 3)
-2. `/skill:validate` - Verify implementation correctness
-3. `/skill:code-review` — Audit the implementation for quality, security, and dependencies. Loop until zero blockers (max 3 passes).
-4. `manual-verification` — If the feature touches external services or human-interactive surfaces, exercise them against live dependencies before proceeding
-5. `/skill:close` — Stage 5 closeout (commit, document, reflect, integrate)
-
-Validate runs against the working tree (staged or committed), so running it before commit avoids amend churn when fixing a `verdict: fail`.
-
-Remember: Good validation catches issues before they reach production. Be constructive but thorough in identifying gaps or improvements.
+Update `workstream.md` with the report path and verdict. A passing report hands off to `close`; a failing report names the owning corrective stage. Do not require deleted helpers, retired validation skills, an issue tracker, or unavailable agents.

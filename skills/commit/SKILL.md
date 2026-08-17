@@ -37,7 +37,7 @@ When `implement` invokes this skill immediately after a completed plan phase, th
 - stop and surface the discrepancy if a changed file cannot be assigned to the phase, a required check failed, or a secret is suspected; and
 - infer a repository-style commit subject from the completed phase and its delivered behavior.
 
-Show the resulting commit hash and subject in the implementation checkpoint. Manual-verification criteria remain for Stage 4 and do not block the phase commit.
+Show the resulting commit hash and subject, resolver-selected map path, automated evidence, deviations, outstanding manual verification, and next phase/Verify action in the implementation checkpoint. Manual-verification criteria remain for Stage 4 and do not block the phase commit.
 
 For direct user invocations and Close's final closeout commit, retain the normal confirmation process below.
 

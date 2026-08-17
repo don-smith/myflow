@@ -1,103 +1,64 @@
 ---
-template_version: 1
-date: {Current date and time with timezone in ISO format}
-author: {`author:` from Metadata block}
-commit: {Current commit hash}
-branch: {Current branch name}
-repository: {Repository name}
-topic: "Validation of {plan topic}"
+kind: myflow-validation
+workstream: {workstream-id}
+stage: Verify
 status: ready
-verdict: {pass | fail}
-parent: "{plan path}"
-tags: [validation, {inherit relevant tags from the plan's frontmatter}]
-last_updated: {Same ISO timestamp as date: above}
+created_at: {iso_timestamp}
+updated_at: {iso_timestamp}
+repository_map: {resolved repository-map path from resolve-repository-map.mjs}
+plan: {accepted plan path}
+implementation_checkpoint: {checkpoint path or plan state}
 ---
 
-## Validation Report: {Plan topic}
+# Validation: {workstream title}
 
-### Implementation Status
+## Verdict
 
-- ✓ Phase 1: {name} — {Fully implemented | Partially implemented (see Findings) | Not implemented}
-- ✓ Phase 2: {name} — {…}
-- ⚠️ Phase 3: {name} — {Partial — see Findings}
+`{pass | fail | blocked}` — {one-sentence basis}
 
-### Automated Verification Results
+## Criterion Coverage
 
-- ✓ {1-line label}: `{command from plan}` — {brief outcome, e.g., "368 files, no errors"}
-- ✓ {1-line label}: `{command from plan}` — {brief outcome}
-- ✗ {1-line label}: `{command from plan}` — {failure summary}
-- ✓ No regressions detected
+| Acceptance criterion | Evidence / seam | Result |
+|---|---|---|
+| {criterion} | {command, inspection, or explicit exclusion} | {pass | fail | pending} |
 
-### Code Review Findings
+## Automated Evidence
 
-#### Matches Plan:
+- `{command}` — {result}
 
-- {file:line — what matches plan specification}
-- {…}
+## Review Evidence
 
-#### Deviations from Plan:
+- Review range: `{base}...{head}`
+- Standards: `{pass | findings | unavailable}` — {evidence}
+- Spec: `{pass | findings | unavailable}` — {evidence}
 
-- {file:line — what diverged and why (improvement vs gap)}
-- {or:} None. Implementation is a faithful realization of the plan.
+## Deviations and Defects
 
-#### Pattern Conformance:
+- {None, or deviation/defect and its owner}
 
-_Optional subsection — include when codebase-pattern-finder surfaced observations worth recording. Omit the whole `#### Pattern Conformance:` block when there is nothing to say._
+## Manual Verification Brief
 
-- ✓ {Imports / test structure / naming / mock patterns / etc.} follow established codebase conventions
-- Minor observation: {non-blocking variation worth flagging — explicitly tag as "acceptable variation, not a deviation"}
+- `{not required | required}`
+- {Developer steps and expected observation, or why no human check applies}
 
-#### Potential Issues:
+## Explicit Exclusions
 
-_Optional subsection — include when risks not covered by the plan surface (missing indexes, rollback gaps, perf concerns). Omit the whole `#### Potential Issues:` block when there are none._
+- {exclusion and rationale, or None}
 
-- {file:line — risk not covered by the plan}
+## Owner-Correct Next Action
 
-### Manual Testing Required:
-
-{Bulleted checklist when manual criteria exist:}
-
-1. {area}:
-   - [ ] {verifiable step}
-   - [ ] {verifiable step}
-
-{Or, when the plan has no manual criteria:}
-
-None — {one-line reason, e.g., "the plan explicitly requires no functional changes, only documentation and tests."}
-
-### Recommendations:
-
-- {Actionable bullet — e.g., "Address linting warnings before merge"}
-- {…}
-- {Or, when `verdict: pass`:} Ready to commit — implementation is complete and validated.
+`{ /skill:close | /skill:implement <plan> | /skill:plan <input> | /skill:design <input> | /skill:scope <input> }`
 
 ## Context Checkpoint
 
-status: ready
-
-### Completed
-- {Phases verified and their verdicts}
-- {Automated checks run}
-
-### Working Set
-- Files inspected: {key paths}
-- Plans validated against: {plan path}
-
-### Next Action
-- {e.g. "Proceed to Land"}
-
----
+- Status: `{ready | blocked}`
+- Stage: `Verify`
+- Completed: {checks and review evidence}
+- Resolved map: `{path}`
+- Next action: {owner-correct handoff}
 
 ## Rehydration Manifest
 
-### Artifacts to Read
-- `.myflow/artifacts/validation/{timestamp}_{topic}.md` — full
-
-### Source Files to Read
-- {Key files from plan phases that were validated}
-
-### Key Decisions
-- {Verdict}: {summary}
-
-### Next Command
-`/skill:close`
+1. Run `resolve-repository-map.mjs discover` and read the selected map when found.
+2. Read this report, the accepted plan, `workstream.md`, and implementation checkpoint.
+3. Check `git status --short` before taking the recorded next action.
