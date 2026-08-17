@@ -5,6 +5,11 @@ import { displayLabel } from "./state/i18n-bridge.js";
 import { sentinelsToAppend } from "./state/row-intent.js";
 import { buildQuestionnaireResponse, buildToolResult } from "./tool/response-envelope.js";
 import {
+	BRIDGE_INPUT_TITLE,
+	BridgeProtocolError,
+	decodeQuestionnaireResult,
+	encodeQuestionnaireRequest,
+	isBridgeAvailable,
 	MAX_HEADER_LENGTH,
 	MAX_LABEL_LENGTH,
 	MAX_OPTIONS,
@@ -14,7 +19,7 @@ import {
 	type QuestionnaireResult,
 	type QuestionParams,
 	QuestionParamsSchema,
-} from "./tool/types.js";
+} from "./protocol.js";
 import { validateQuestionnaire } from "./tool/validate-questionnaire.js";
 import type { WrappingSelectItem } from "./view/components/wrapping-select.js";
 
@@ -35,6 +40,11 @@ function emitAskUserPromptEvent(pi: ExtensionAPI, params: QuestionParams): void 
 }
 
 const ERROR_NO_UI = "Error: UI not available (running in non-interactive mode)";
+const ERROR_BRIDGE_UNAVAILABLE = "Error: Questionnaire bridge is unavailable for this RPC client";
+
+function bridgeFailure(message: string, error: "bridge_unavailable" | "bridge_protocol_error") {
+	return buildToolResult(message, { answers: [], cancelled: true, error });
+}
 
 export function buildItemsForQuestion(question: QuestionData): WrappingSelectItem[] {
 	const items: WrappingSelectItem[] = question.options.map((o) => ({
@@ -100,6 +110,21 @@ Preview content is rendered as markdown in a monospace box. Multi-line text with
 
 			// Emit event for external listeners (e.g., notification plugins)
 			emitAskUserPromptEvent(pi, typed);
+
+			if (isBridgeAvailable()) {
+				try {
+					const rawResult = await ctx.ui.input(BRIDGE_INPUT_TITLE, encodeQuestionnaireRequest(typed));
+					if (rawResult === undefined) return buildQuestionnaireResponse({ answers: [], cancelled: true }, typed);
+					return buildQuestionnaireResponse(decodeQuestionnaireResult(rawResult, typed), typed);
+				} catch (error) {
+					const message = error instanceof BridgeProtocolError ? error.message : "Questionnaire bridge failed.";
+					return bridgeFailure(`Error: ${message}`, "bridge_protocol_error");
+				}
+			}
+
+			// An RPC host must negotiate the bridge before it can receive the private
+			// input marker. TUI keeps its established rich local renderer.
+			if (ctx.mode === "rpc") return bridgeFailure(ERROR_BRIDGE_UNAVAILABLE, "bridge_unavailable");
 
 			const itemsByTab: WrappingSelectItem[][] = typed.questions.map((q) => buildItemsForQuestion(q));
 

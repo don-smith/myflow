@@ -79,6 +79,12 @@ ask_user_question({
 
 Reserved option labels (rejected at validation): `"Other"`, plus the runtime sentinels (`"Type something."`, `"Chat about this"`, `"Next →"`).
 
+### Bridge protocol
+
+`@myflow/ask-user-question/protocol` is the dependency-light cross-process contract used by the Resonance Pi ACP bridge. It exports the fixed kind/version, TypeBox request/result schemas, byte-bounded JSON codecs, and `BridgeProtocolError`. It imports no TUI or view modules.
+
+The extension uses its normal `ctx.ui.custom()` renderer in Pi TUI mode. A compatible ACP adapter explicitly enables the bridge with `MYFLOW_QUESTIONNAIRE_BRIDGE_VERSION=1`; only then does the extension issue the reserved Pi `input` carrier. In RPC mode without that negotiated capability, the tool returns `bridge_unavailable`; malformed, wrong-version, or invalid bridge data returns `bridge_protocol_error`. Neither path falls back to primitive dialogs.
+
 Returns:
 
 ```ts

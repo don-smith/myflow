@@ -7,7 +7,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Public `@myflow/ask-user-question/protocol` export with versioned, byte-bounded questionnaire request/result codecs and bridge failure vocabulary for ACP consumers.
+
 ### Changed
+- `ask_user_question` now selects the negotiated Pi ACP input carrier only when its exact bridge capability is present; Pi TUI behavior remains unchanged and incompatible RPC clients fail visibly.
 - Default `ask_user_question` model guidance now explicitly calls out the hard 16-character `header` and 60-character option-label limits.
 
 ## [1.19.1] - 2026-06-10

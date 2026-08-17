@@ -1,4 +1,4 @@
-import type { QuestionData } from "../tool/types.js";
+import { SENTINEL_LABELS, type QuestionData } from "../protocol.js";
 import type { WrappingSelectItem } from "../view/components/wrapping-select.js";
 
 /**
@@ -82,7 +82,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
 		autoAppendOnMultiSelect: false,
 	},
 	other: {
-		label: "Type something.",
+		label: SENTINEL_LABELS.other,
 		reserved: true,
 		livesInMainList: true,
 		numbered: true,
@@ -93,7 +93,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
 		autoAppendOnMultiSelect: false,
 	},
 	chat: {
-		label: "Chat about this",
+		label: SENTINEL_LABELS.chat,
 		reserved: true,
 		livesInMainList: false,
 		numbered: true,
@@ -104,7 +104,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
 		autoAppendOnMultiSelect: false,
 	},
 	next: {
-		label: "Next",
+		label: SENTINEL_LABELS.next,
 		reserved: true,
 		livesInMainList: true,
 		numbered: false,

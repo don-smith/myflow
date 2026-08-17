@@ -1,6 +1,6 @@
 {
 	"name": "@myflow/ask-user-question",
-	"version": "1.19.1",
+	"version": "1.20.0",
 	"description": "Pi extension. A structured questionnaire the model can put to you when it would otherwise guess, with typed options instead of free-form replies.",
 	"keywords": [
 		"pi-package",
@@ -10,7 +10,8 @@
 	"type": "module",
 	"exports": {
 		".": "./index.ts",
-		"./events": "./events.ts"
+		"./events": "./events.ts",
+		"./protocol": "./protocol.ts"
 	},
 	"license": "MIT",
 	"author": "juicesharp",
@@ -36,6 +37,7 @@
 		"index.ts",
 		"LICENSE",
 		"locales/",
+		"protocol.ts",
 		"README.md",
 		"state/build-questionnaire.ts",
 		"state/i18n-bridge.ts",
