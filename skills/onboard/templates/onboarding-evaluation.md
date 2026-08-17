@@ -3,7 +3,7 @@ kind: myflow-onboarding-evaluation
 status: pending # pending | complete
 repository: {repository}
 onboarding_report: {report_path}
-repository_map: .myflow/repository-map.md
+repository_map: {resolved repository-map path from resolve-repository-map.mjs}
 trace_or_session_ref: {trace_id_or_not_configured}
 evaluated_at: {blank_until_complete}
 evaluator: {blank_until_complete}
@@ -11,7 +11,7 @@ evaluator: {blank_until_complete}
 
 # MyFlow onboarding evaluation
 
-Complete this after reviewing the map or using it for a real Scope or Plan task. Scores support comparison across repository types; the evidence and free-text feedback explain them.
+Complete this after reviewing the resolved repository-map path or using it for a real Scope or Plan task. Scores support comparison across repository types; the evidence and free-text feedback explain them.
 
 ## Scorecard
 

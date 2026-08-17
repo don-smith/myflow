@@ -5,7 +5,7 @@ stage: Scope
 status: ready # in-progress | ready | blocked | complete | superseded
 created_at: {iso_timestamp}
 updated_at: {iso_timestamp}
-repository_map: .myflow/repository-map.md
+repository_map: {resolved repository-map path from resolve-repository-map.mjs}
 upstream: []
 related_artifacts:
   - "{workstream-manifest-path}"
@@ -105,7 +105,7 @@ Rationale: {why this is the next safe action}
 
 ### Read First
 
-1. `.myflow/repository-map.md` — if present
+1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected map when `found`
 2. `{workstream-manifest path}` — full
 3. `{this alignment path}` — full
 4. `{selected specialist evidence, if any}`

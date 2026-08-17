@@ -7,7 +7,7 @@ last_reviewed_by: {author_or_agent}
 
 # MyFlow repository map
 
-This is a compact index of repository-specific workflow knowledge. Linked sources govern when they conflict with this summary.
+This is a compact index of repository-specific workflow knowledge. Linked sources govern when they conflict with this summary. Record the **resolved repository-map path** selected by `resolve-repository-map.mjs`; a repository-local map may be authoritative, otherwise this personal global map is developer state.
 
 ## Operating instructions
 
@@ -49,7 +49,8 @@ This is a compact index of repository-specific workflow knowledge. Linked source
 
 ## MyFlow artifacts
 
-- Repository map: `.myflow/repository-map.md` (tracked: `{yes | no | pending decision}`)
+- Resolved repository-map path: `{absolute path selected by resolve-repository-map.mjs}`
+- Repository map storage: `{repository-local | personal global origin identity | personal global common-Git-dir identity | explicit override}`
 - Workstream artifact root: `{path | default .myflow/workstreams}`
 - Workstream ID convention: `{branch-derived slug | ticket ID | other | unknown}`
 - Branch/worktree policy: `{policy, including whether Scope may offer an isolated worktree | unknown}`

@@ -32,7 +32,7 @@
 
 ### Read First
 
-1. `.myflow/repository-map.md` — if present
+1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected `repository-map.md` when `found`
 2. `{current authoritative artifact}` — full
 3. `{upstream or specialist artifacts needed for the next action}`
 

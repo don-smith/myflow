@@ -4,7 +4,19 @@
 
 This contract defines the small, durable interface between MyFlow stages. It keeps a fresh session able to continue a workstream without conversation history while permitting proportionate process for small work.
 
-Repository policy always wins. Before a skill assumes an artifact location, command, documentation rule, or delivery policy, it reads `.myflow/repository-map.md` when it exists and follows the mapped authoritative source.
+Repository policy always wins. Before a skill assumes an artifact location, command, documentation rule, or delivery policy, it resolves the repository map and follows the mapped authoritative source.
+
+## Repository-map resolver
+
+Use the shipped resolver from the Git root before reading or writing repository policy:
+
+```text
+node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>
+```
+
+It emits only JSON metadata (`found`, `source`, `mapPath`, and a normalized identity); it never reads map contents, prints the original remote URL, or sends telemetry. An explicit map override (`--map <path>`) is the exception path and wins over all normal discovery. Without an override, lookup order is: an existing repository-local `.myflow/repository-map.md`; an existing personal global map for normalized `origin` (`~/.myflow/repositories/<host>/<owner>/<repo>/repository-map.md`); then, only when `origin` is absent, an existing personal global map keyed by the SHA-256 of the absolute common Git directory at `~/.myflow/repositories/local/<sha256-common-git-dir>/repository-map.md`.
+
+A missing result is explicit, not an invitation to invent policy. `onboard` uses `target` to obtain the preferred writable global target. A malformed origin and a non-Git directory return machine-readable diagnostics; do not fall back silently from a malformed origin. Existing repository-local maps remain supported and authoritative; no legacy map or flat artifact is bulk-migrated. Only personal maps and their onboarding records are global. Active workstream artifacts remain local to the current worktree.
 
 ## Principles
 
@@ -20,8 +32,8 @@ MyFlow separates repository-level knowledge from workstream evidence. A **workst
 
 | Purpose | Default location | Durability |
 |---|---|---|
-| Repository map | `.myflow/repository-map.md` | Tracked repository knowledge |
-| Onboarding run / evaluation | `.myflow/onboarding/runs/`, `.myflow/onboarding/evaluations/` | Repository-level discovery history and feedback |
+| Repository map | Resolver-selected local `.myflow/repository-map.md` or personal global `~/.myflow/repositories/<identity>/repository-map.md` | Local policy wins; global policy is personal knowledge |
+| Onboarding run / evaluation | Beside the selected global map: `onboarding/runs/`, `onboarding/evaluations/`; local maps follow mapped policy | Repository-level discovery history and feedback |
 | Workstream manifest | `.myflow/workstreams/<workstream-id>/workstream.md` | Workstream index and current stage |
 | Scope alignment | `.myflow/workstreams/<workstream-id>/scope/` | Workstream record |
 | Specialist research | `.myflow/workstreams/<workstream-id>/research/` | Supporting evidence, when used |
@@ -100,7 +112,7 @@ The user and Scope decide the depth in situ. A stage may increase depth when evi
 
 1. **Establish the workstream before durable Scope output.** Scope proposes the workstream ID from the topic and asks only when it cannot safely infer one. It records the chosen ID in `workstream.md`. When repository policy permits, Scope offers an isolated branch/worktree before finalizing the alignment artifact; otherwise it records the trunk/current-checkout path.
 2. **Complete the producing stage first.** Mark its artifact `ready` only when its required decision/evidence is present. Mark it `blocked` when a material unresolved question prevents safe continuation.
-3. **Rehydrate at the boundary.** A fresh session reads the repository map, `workstream.md`, the authoritative upstream artifact, linked specialist evidence needed for the next stage, and the current Git state.
+3. **Rehydrate at the boundary.** A fresh session runs `resolve-repository-map.mjs discover`, reads its selected map when `found`, then reads `workstream.md`, the authoritative upstream artifact, linked specialist evidence needed for the next stage, and the current Git state.
 4. **Use an implementation checkpoint between phases.** Each green plan phase is committed. The checkpoint records its commit hash, automated evidence, outstanding manual verification, and next phase.
 5. **Use handoffs only mid-stage.** A handoff names the current stage and artifact, summarizes the live working set, and never becomes a competing specification.
 6. **Route corrections to their owner.** An implementation defect returns to Implement; an unexecutable or incorrect plan returns to Plan; a changed architectural decision returns to Design; a changed outcome or acceptance criterion returns to Scope. Re-run downstream verification after correction.
@@ -114,7 +126,7 @@ For the lightweight durable path, use `skills/myflow/templates/lightweight-plan.
 
 This contract is the target for retained skills. The next alignment work should make each canonical stage orchestrator:
 
-1. read the repository map before assuming local policy;
+1. run `resolve-repository-map.mjs discover` and read its selected map before assuming local policy;
 2. consume the stated upstream artifact and emit its stated output;
 3. follow the common checkpoint/rehydration and correction-loop rules; and
 4. remove references to retired skills, deleted scripts, and nonexistent mandatory gates.

@@ -5,7 +5,7 @@ repository: {repository}
 run_at: {iso_timestamp}
 run_by: {author_or_agent}
 mode: initial # initial | refresh | missing-requirement
-repository_map: .myflow/repository-map.md
+repository_map: {resolved repository-map path from resolve-repository-map.mjs}
 evaluation_record: {evaluation_path}
 telemetry_trace_id: {trace_id_or_not_configured}
 ---
@@ -14,7 +14,7 @@ telemetry_trace_id: {trace_id_or_not_configured}
 
 ## Purpose and scope
 
-{Why this run was started and which repository/worktree was inspected. This is discovery only, not an architecture review.}
+{Why this run was started and which repository/worktree was inspected. Include the resolved repository-map path. This is discovery only, not an architecture review.}
 
 ## Evidence inspected
 
@@ -54,6 +54,6 @@ telemetry_trace_id: {trace_id_or_not_configured}
 
 ## Rehydration
 
-1. Read `.myflow/repository-map.md`.
+1. Run `resolve-repository-map.mjs discover` and read the resolved repository-map path when found.
 2. Read this report when its unknowns or capability gaps matter.
 3. Refresh onboarding when a mapped source changes or downstream work exposes a gap.

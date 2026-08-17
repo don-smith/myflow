@@ -21,7 +21,7 @@ For non-trivial work, Scope creates or updates:
   scope/<timestamp>_<topic>.md
 ```
 
-The default workstream root is `.myflow/workstreams`; `.myflow/repository-map.md` may provide a repository-specific root and branch/worktree policy.
+The default workstream root is `.myflow/workstreams`; the resolver-selected repository map may provide a repository-specific root and branch/worktree policy.
 
 A truly trivial, uninterrupted change may remain in conversation. It is not resumable. If it expands or pauses, create a lightweight plan before continuing.
 
@@ -31,7 +31,7 @@ A truly trivial, uninterrupted change may remain in conversation. It is not resu
 
 ## 1. Read repository context
 
-1. Start at the Git root. Read `.myflow/repository-map.md` if it exists, then follow its mapped operating instructions and artifact policy. If it is absent or stale for needed work, recommend `onboard`; do not invent repository policy.
+1. Start at the Git root. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, record the resolved map path, and read it when `found`. Follow its mapped operating instructions and artifact policy. If it is missing or stale for needed work, recommend `onboard`; do not invent repository policy.
 2. Read user-provided tickets, notes, or named files fully. Do not dispatch broad codebase agents by default.
 3. Ask for a short description when no usable input is provided.
 
@@ -138,7 +138,7 @@ Report:
 - the selected specialist or exact Plan command; and
 - whether a fresh session in the target worktree is recommended.
 
-At a normal stage boundary, a fresh session reads `.myflow/repository-map.md`, `workstream.md`, and the authoritative alignment artifact. Use `create-handoff` only for an interruption inside Scope.
+At a normal stage boundary, a fresh session runs `resolve-repository-map.mjs discover`, reads the resolved map when found, then reads `workstream.md` and the authoritative alignment artifact. Store the resolved map path in the manifest and artifact frontmatter. Use `create-handoff` only for an interruption inside Scope.
 
 ## Guardrails
 

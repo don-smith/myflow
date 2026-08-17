@@ -1,115 +1,70 @@
 ---
 name: onboard
-description: Use when introducing MyFlow to a repository, refreshing its repository-specific workflow knowledge, or when a MyFlow skill lacks a required repository path or convention.
+description: Use when introducing MyFlow to a repository, refreshing repository workflow knowledge, or when a MyFlow skill lacks a required repository path or convention.
 argument-hint: "[initial | refresh | missing requirement]"
 ---
 
 # Onboard
 
-Create or refresh the repository's MyFlow knowledge at one predictable location:
+Create or refresh compact repository knowledge through the shipped resolver, never an assumed local path:
 
 ```text
-.myflow/repository-map.md
+node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>
+node skills/myflow/scripts/resolve-repository-map.mjs target --cwd <git-root>
 ```
 
-The map is a small, tracked index of **authoritative sources**, operational conventions, and explicit unknowns. It is not a copied handbook, architecture review, or generic configuration schema. Other MyFlow skills read it before guessing a repository path or policy.
+`discover` selects an explicit override, an existing repository-local map, or an existing personal global map. `target` names the preferred writable **personal global** map for an origin-backed repository or a no-origin common-Git-directory identity. The resolver emits metadata only; read map contents only after it selects a path.
 
 ## Outcomes
 
-An onboarding run writes or updates:
+An onboarding run writes or updates the resolved repository map and, for a personal global map, evidence-led records beside it:
 
-- the durable repository map;
-- an evidence-led run report under `.myflow/onboarding/runs/`; and
-- a pending evaluation record under `.myflow/onboarding/evaluations/`.
+```text
+<map-parent>/onboarding/runs/<timestamp>_<initial|refresh>.md
+<map-parent>/onboarding/evaluations/<timestamp>_<initial|refresh>.md
+```
 
-The map records current repository facts. The report records this discovery run. The evaluation record captures later human feedback and downstream evidence; never put either history in the map.
+A repository-local map remains authoritative and compatible. Follow its tracking/retention policy for its run and evaluation records. Do not globalize active workstream artifacts.
 
 ## Flow
 
-1. Locate existing map → 2. Inspect before asking → 3. Confirm material unknowns → 4. Write map and report → 5. Prepare evaluation → 6. State readiness and next action
+1. Resolve/preserve the map → 2. Inspect before asking → 3. Confirm material unknowns → 4. Write map/report → 5. Prepare evaluation → 6. State readiness
 
-### 1. Locate and preserve existing knowledge
+### 1. Resolve and preserve existing knowledge
 
-Start at the Git root. Read `.myflow/repository-map.md` if it exists, then read every agent-instruction file it names that applies to the current path. Preserve confirmed entries; correct only entries disproved by evidence or the developer.
+Start at the Git root and run `discover`. Record its selected path in all frontmatter. If `found`, read that map and every named applicable instruction file. Preserve confirmed entries; correct only evidence-disproved entries.
 
-If `.myflow/` is ignored, propose replacing that broad rule (not appending beneath it) with the narrow exception needed to track the map while retaining ignored worktree artifacts:
-
-```gitignore
-.myflow/*
-!.myflow/
-!.myflow/repository-map.md
-```
-
-Ask before changing ignore policy. If the repository cannot track MyFlow metadata, record the approved alternate location in the run report and tell the developer that automatic discovery by other skills will require an explicit path until a team convention exists.
+If no map exists, run `target`. Use its `mapPath` as the preferred writable location; create its parent only after discovery and developer decisions are complete. Do not create a tracked local map merely because `.myflow/` is available. The explicit `--map <path>` option is only for approved exceptional locations. A non-Git or malformed-origin diagnostic is actionable: ask for a valid repository or an explicit override; do not invent a fallback.
 
 ### 2. Inspect before asking
 
-Inspect repository evidence before asking questions. Start with applicable instruction files, root manifests and task runners, CI configuration, documentation roots, existing status/changelog/backlog/runbook locations, ADR and glossary candidates, repository-local skills/agents/templates, and Git branch/integration conventions. Record each relevant source and what it establishes.
-
-Do not claim an architecture review, complete domain model, or complete understanding of the codebase from this pass. Those are optional specialist activities. If a later architecture review is needed, it consumes this map and writes its own assessment artifact.
+Inspect applicable instruction files, manifests/task runners, CI, documentation, status/changelog/runbook locations, ADR/glossary candidates, local skills/templates, and Git delivery conventions. Record each source and what it establishes. This is discovery, not an architecture review; recommend `architecture-review` only when evidence warrants it.
 
 ### 3. Ask only material unresolved questions
 
-Present the evidence-backed draft and ask focused questions only where an answer changes how MyFlow operates. Resolve, defer, or mark as unknown:
+Ask only where an answer changes operation: required checks/manual verification; documentation and delivery policy; glossary/ADR sources; artifact retention; local capabilities; approvals and sensitive-data constraints. **Unknown** is valid. Do not invent commands, policies, or paths.
 
-- required automated checks and manual verification;
-- documentation, runbook, status, changelog, backlog, branch, commit, and integration policy;
-- the authoritative glossary/context-map and ADR sources, including multiple contexts when applicable;
-- artifact location and tracking policy; and
-- local skills, agents, workflows, templates, tooling, and secrets/approval constraints MyFlow must respect.
+### 4. Write the map and report
 
-**Unknown is a valid value.** Do not invent a command, policy, glossary, or path merely to complete a section. A small or new repository may be `provisional` yet ready for low-risk Scope work. Explain which unknowns must be resolved before higher-risk work.
+Read `templates/repository-map.md` and `templates/onboarding-report.md`. Fill them from evidence. The map points to authoritative sources rather than copying policy; those sources win on conflict. Use a punctuation-safe ISO timestamp and record the **resolved repository-map path** in the map, report, and evaluation frontmatter.
 
-### 4. Write the map and run report
-
-Read `templates/repository-map.md` and `templates/onboarding-report.md` relative to this skill before writing. Fill them from confirmed evidence and developer decisions.
-
-The map must point to authoritative sources and summarize only their operational implication. If an instruction file, CI definition, or team policy conflicts with the map, the source governs; update the map.
-
-Use an ISO timestamp with punctuation safe for filenames. Write the report to:
-
-```text
-.myflow/onboarding/runs/<timestamp>_<initial|refresh>.md
-```
-
-Include a **MyFlow capability gaps** section for facts, policies, or repository conditions that no current skill handles well. This is improvement input, not an invitation to expand the current onboarding run.
+Include **MyFlow capability gaps** in the report for needs no current skill handles. Do not expand this run to solve them.
 
 ### 5. Prepare evaluation and telemetry handoff
 
-Read `templates/onboarding-evaluation.md`. Write a pending evaluation record to:
-
-```text
-.myflow/onboarding/evaluations/<timestamp>_<initial|refresh>.md
-```
-
-Link the map, report, and evaluation record to one another. Add a Langfuse trace or session reference only when telemetry is configured and permitted by repository policy. Do not send source code, credentials, tokens, personal data, or sensitive repository identifiers to telemetry without explicit approval. Telemetry is optional; the local evaluation record is required.
+Read `templates/onboarding-evaluation.md`; write its pending record beside the report and link all three records. Telemetry is optional. Never send source, credentials, tokens, personal data, sensitive repository identifiers, or the original remote URL without explicit approval.
 
 ### 6. Present readiness
 
-Report:
-
-- map, report, and evaluation paths;
-- confirmed sources and material unknowns;
-- readiness: `ready`, `provisional`, or `blocked`;
-- the next safe action; and
-- whether a specialist is recommended, such as `architecture-review` or `domain-modeling`.
-
-Do not make an architecture assessment or rich telemetry setup a prerequisite for ordinary work. `blocked` is only for a missing prerequisite that prevents safe operation, such as no applicable instructions or validation policy when the intended work requires them.
+Report the resolved map, report, and evaluation paths; confirmed sources/material unknowns; `ready`, `provisional`, or `blocked` status; next safe action; and any specialist recommendation. A missing map alone does not block ordinary low-risk Scope work once onboarding has written its target.
 
 ## Consumer contract
 
-A MyFlow skill that needs repository-specific information must:
-
-1. read `.myflow/repository-map.md` first when present;
-2. follow the mapped authoritative source rather than a conventional filename;
-3. perform targeted discovery only for a missing or stale entry; and
-4. record the gap for `onboard` to refresh rather than silently creating a competing convention.
+A skill needing repository-specific information must run `resolve-repository-map.mjs discover`, read its selected map when `found`, follow mapped sources, and record a missing/stale gap for `onboard`. Do not hard-code `.myflow/repository-map.md` as the only supported source.
 
 ## Guardrails
 
-- Do not replace repository policy with MyFlow defaults.
-- Do not copy long policies into the map.
-- Do not require a rigid schema or every optional section.
-- Do not create a domain glossary, ADR directory, changelog, or architecture artifact merely because a template has a place for it.
-- Do not treat a map as fresh forever; refresh it after material repository-process changes or when downstream work exposes a gap.
-- Do not report success solely because files were found. The map must be usable by a fresh session.
+- Do not replace repository policy with MyFlow defaults or bulk-migrate legacy local maps/flat artifacts.
+- Do not read map contents in the resolver or emit remote credentials/URLs.
+- Do not require a rigid schema, a glossary, ADR directory, changelog, architecture assessment, or telemetry setup.
+- Do not report success solely because files exist: a fresh session must be able to resolve and use the map.

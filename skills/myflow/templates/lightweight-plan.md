@@ -5,7 +5,7 @@ stage: Plan
 status: ready # in-progress | ready | blocked | complete | superseded
 created_at: {iso_timestamp}
 updated_at: {iso_timestamp}
-repository_map: .myflow/repository-map.md
+repository_map: {resolved repository-map path from resolve-repository-map.mjs}
 upstream:
   - "{alignment artifact path, if any}"
 related_artifacts: []
@@ -84,7 +84,7 @@ Begin implementation in a fresh session.
 
 ### Read First
 
-1. `.myflow/repository-map.md` — if present
+1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected map when `found`
 2. `{this plan path}` — full
 3. `{alignment and specialist artifacts needed for implementation}`
 

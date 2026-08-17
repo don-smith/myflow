@@ -13,7 +13,7 @@ Plan is collaborative. Do not edit product source code.
 
 ## Input and preconditions
 
-1. Read `.myflow/repository-map.md` when present, then read `workstream.md` and the supplied alignment or design artifact fully.
+1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, read its selected map when `found`, and record the resolved path. Then read `workstream.md` and the supplied alignment or design artifact fully.
 2. Follow the artifact's workstream ID and resolve the workstream root from the map (default `.myflow/workstreams`).
 3. Read all linked specialist artifacts whose findings affect decisions, phase boundaries, or verification.
 4. Stop and return to Scope when intent, acceptance criteria, non-goals, or risk classification changed. Stop and return to Design when a material architectural choice remains unresolved.
@@ -75,5 +75,5 @@ Planning review checks that the plan faithfully realizes Scope/design decisions,
 - Do not require a standalone Design for a lightweight workstream.
 - Do not accept a plan without a design disposition or verification map.
 - Do not make product source edits or run implementation as part of Plan.
-- Do not assume artifact paths, commands, manual verification, or integration policy; read the repository map.
+- Do not assume artifact paths, commands, manual verification, or integration policy; read the resolver-selected repository map.
 - Do not leave manual verification implicit. Keep it visible for Verify even when it does not block a phase commit.

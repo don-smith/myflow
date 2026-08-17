@@ -33,7 +33,7 @@ Onboard repository (when needed)
 
 ### Artifact and worktree decisions
 
-- `onboard` creates or refreshes the tracked `.myflow/repository-map.md`; it is repository-level rather than workstream-level.
+- `onboard` uses `skills/myflow/scripts/resolve-repository-map.mjs`: an existing repository-local `.myflow/repository-map.md` wins; otherwise it creates or refreshes a personal global map keyed by normalized `origin` or a common-Git-directory hash. Maps/onboarding records are repository-level; workstream artifacts remain local.
 - A **workstream** is one bounded piece of work from Scope through Close. Its filesystem-safe **workstream ID** is established before the first durable workstream artifact is written. A branch name may derive from it, but is optional.
 - Workstream artifacts live together at `.myflow/workstreams/<workstream-id>/` by default. This keeps each workstream's progress visible and prevents old artifacts from being mistaken for the current task.
 - Scope offers an isolated branch/worktree after it can name the workstream and before the durable alignment artifact is finalized. In trunk-based repositories, it records the same workstream ID and continues in the current checkout.
@@ -73,7 +73,7 @@ Onboard repository (when needed)
 
 | Area | Target contract | Status / next action |
 |---|---|---|
-| Onboarding | Repository map, run report, evaluation record; no assumed filenames | **Aligned initial version.** Validate in real repositories and refine from evaluation evidence. |
+| Onboarding | Resolver-selected repository map, run report, evaluation record; no assumed local-only filename | **Phase 1 aligned.** Validate global and local compatibility in real repositories. |
 | Scope | Code-light, right-sized alignment; establish workstream ID; select specialists rather than force research; offer worktree/trunk path | **Aligned initial version.** Pilot and refine its worktree and depth decisions. |
 | Research / discover | Optional Scope specialists with discoverable evidence and explicit return to Scope/Plan | **Research aligned initial version.** `discover` still needs its interface review. |
 | Design / Plan | Design disposition always; lightweight plan path; full design only when structural; plan is executable authority | **Aligned initial version.** Pilot the lightweight and structural paths; refine templates from evidence. |
@@ -86,8 +86,8 @@ Onboard repository (when needed)
 
 ## Ordered work
 
-1. **Workstream artifact layout and workflow-record consolidation** — establish the workstream ID/layout, then maintain this document as the sole coordination record. **Initial implementation complete.**
-2. **Scope → optional specialist → design disposition → Plan slice** — revise the named skills and templates so their actual interfaces implement the contract. **Initial implementation complete.** This was documentation and skill-instruction work, not a pilot in another repository.
+1. **Repository-map resolver and canonical discovery migration** — a tested resolver selects local/origin/common-Git-dir/override maps; canonical early-stage skills and templates record resolved paths. **Complete.**
+2. **Workstream artifact layout and Scope → Plan slice** — establish the workstream ID/layout and retain the aligned optional-specialist/design-disposition/Plan interface. **Initial implementation complete.** This was documentation and skill-instruction work, not a pilot in another repository.
 3. **Pilot the first slice** — use it for a small and a medium real workstream; capture friction through onboarding evaluations, retros, and tabled items.
 4. **Implement → Verify slice** — repair `validate`, clarify validation/code-review/manual-verification boundaries, and adopt workstream checkpoints.
 5. **Close slice** — make closeout independently resumable and proportionate, with final delivery evidence in the workstream.

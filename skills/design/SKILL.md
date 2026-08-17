@@ -13,7 +13,7 @@ A design artifact records the chosen solution shape and its consequences. It doe
 
 ## Input and preconditions
 
-1. Read `.myflow/repository-map.md` when present, then read the workstream's `workstream.md` and the supplied alignment/research artifact fully.
+1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, read its selected map when `found`, and record the resolved path. Then read the workstream's `workstream.md` and the supplied alignment/research artifact fully.
 2. Confirm the artifact's workstream ID and resolve the workstream root from the map (default `.myflow/workstreams`).
 3. If Scope selected `lightweight` work and no material architectural question remains, do not manufacture a design artifact. State the locked/localized design disposition for Plan and continue with `/skill:plan <alignment-path>`.
 4. If the input lacks a workstream, acceptance criteria, or a question that needs architecture, return to Scope rather than guessing.
@@ -56,6 +56,6 @@ If a decision changes the Scope outcome or acceptance criteria, return to Scope.
 
 - Do not create a standalone design merely because Design was invoked.
 - Do not write product source code, copy-paste implementation blocks, or turn Design into Implement.
-- Do not assume conventional documentation, ADR, glossary, or artifact paths; consume the repository map.
+- Do not assume conventional documentation, ADR, glossary, or artifact paths; consume the resolver-selected repository map.
 - Do not claim an architecture review from a shallow scan. Use the specialist when a broad audit is warranted.
 - A blocked design remains blocked; do not send it to Plan with unresolved material choices.

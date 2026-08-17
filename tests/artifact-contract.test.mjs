@@ -17,7 +17,12 @@ test("artifact contract defines common stage handoffs and right-sized planning",
     "Route corrections to their owner",
     "workstream ID",
     ".myflow/workstreams/<workstream-id>/",
-    ".myflow/repository-map.md",
+    "repository-map resolver",
+    "resolve-repository-map.mjs",
+    "existing repository-local",
+    "common Git directory",
+    "explicit map override",
+    "personal global",
   ]) {
     assert.match(contract, new RegExp(requirement, "i"));
   }
@@ -32,7 +37,10 @@ test("shared templates support resumable stage state and lightweight plans", asy
 
   assert.match(checkpoint, /## Context Checkpoint/);
   assert.match(checkpoint, /## Rehydration Manifest/);
+  assert.match(checkpoint, /resolve-repository-map\.mjs/);
   assert.match(checkpoint, /repository-map\.md/);
+  assert.match(plan, /resolve-repository-map\.mjs/);
+  assert.match(workstream, /resolve-repository-map\.mjs/);
   assert.match(plan, /## Design Disposition/);
   assert.match(plan, /## Verification Map/);
   assert.match(plan, /Commit Strategy/);
@@ -46,6 +54,7 @@ test("scope establishes a workstream and selects rather than forces specialists"
     read("skills/scope/templates/alignment.md"),
   ]);
 
+  assert.match(scope, /resolve-repository-map\.mjs/);
   assert.match(scope, /workstream ID/);
   assert.match(scope, /Do not force a branch or worktree/);
   assert.match(scope, /Select specialists by evidence/);
@@ -67,6 +76,8 @@ test("research, design, and plan implement the optional-specialist and planning 
 
   assert.match(research, /optional specialist/i);
   assert.match(research, /workstreams/);
+  assert.match(design, /resolve-repository-map\.mjs/);
+  assert.match(plan, /resolve-repository-map\.mjs/);
   assert.match(design, /not mandatory for a lightweight plan/i);
   assert.match(design, /Do not write product source code/);
   assert.match(plan, /Accepts an alignment artifact/);

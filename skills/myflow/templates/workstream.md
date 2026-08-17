@@ -6,7 +6,7 @@ status: active # active | blocked | complete | superseded
 current_stage: Scope # Scope | Plan | Implement | Verify | Close
 created_at: {iso_timestamp}
 updated_at: {iso_timestamp}
-repository_map: .myflow/repository-map.md
+repository_map: {resolved repository-map path from resolve-repository-map.mjs}
 branch: "{branch name | trunk/current checkout}"
 worktree: "{path | current checkout}"
 ---
@@ -41,7 +41,7 @@ worktree: "{path | current checkout}"
 
 ## Rehydration
 
-1. Read `.myflow/repository-map.md` when present.
+1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected map when `found`.
 2. Read the authoritative current artifact above.
 3. Check `git status --short`.
 4. Continue with the recorded next action.

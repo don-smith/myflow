@@ -107,7 +107,7 @@ The grilling family is intentionally layered:
 
 ## Onboarding
 
-Before using MyFlow seriously in a repository, run `onboard`. It creates or refreshes the tracked `.myflow/repository-map.md`: a lightweight index of applicable instructions, domain and ADR sources, validation commands, documentation and delivery policy, artifact conventions, local capabilities, and explicit unknowns. Skills consume the map before guessing conventional paths.
+Before using MyFlow seriously in a repository, run `onboard`. It uses `skills/myflow/scripts/resolve-repository-map.mjs` to select an existing repository-local map or personal global map, then creates or refreshes the appropriate repository-policy index. Skills run the resolver before guessing conventional paths; only maps/onboarding records are global, while active workstream artifacts remain local.
 
 `onboard` also writes a run report and pending evaluation record. It is discovery, not an architecture assessment: it inspects first, asks only material unresolved questions, and can leave a repository `provisional` when unknowns do not prevent safe low-risk work.
 
@@ -121,7 +121,7 @@ Optional onboarding specialists remain separate:
 
 ## Artifact and session rules
 
-[The artifact and stage-boundary contract](../../docs/artifact-and-stage-boundary-contract.md) defines canonical paths, the common artifact interface, planning depths, and corrective loops. Repository-specific policy in `.myflow/repository-map.md` overrides its defaults.
+[The artifact and stage-boundary contract](../../docs/artifact-and-stage-boundary-contract.md) defines canonical paths, resolver lookup, the common artifact interface, planning depths, and corrective loops. The resolver-selected repository map overrides its defaults.
 
 Stage artifacts are the primary handoff mechanism. Each should make the current state and next action discoverable without conversation history. At minimum, record:
 
