@@ -89,6 +89,6 @@
 		}
 	},
 	"dependencies": {
-		"@myflow/config": "^1.19.1"
+		"@myflow/config": "file:../config"
 	}
 }
