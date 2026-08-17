@@ -1,193 +1,36 @@
 ---
 name: close
-description: Use at the end of a major piece of work after review passes — bring the cycle to a clean close through commit, documentation, reflection, and integration
+description: Use after a passing MyFlow Verify report to make proportionate closeout decisions, preserve continuity, and decide delivery with the developer.
+argument-hint: "[validation-report-path | workstream path]"
 ---
 
 # Close
 
-## Overview
+Close consumes Verify evidence; it does not repeat validation or force ceremonial work. Implementation phase commits already exist. Close alone may create a separate final closeout commit.
 
-Bring the current piece of work to a clean close. Implementation phases are already committed; document what shipped, reflect on the cycle, capture lessons, reconcile memory, create the final closeout commit, and integrate the branch.
+## Rehydrate
 
-Close is **stage 5 of the 5-stage myflow pipeline** (after Review). It no longer contains code review or architectural review — those live in stages 2 and 4. This skill focuses on closeout: commit, document, reflect, update, and integrate.
+1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read the selected map when found.
+2. Read `workstream.md`, the validation report, accepted plan, and current Git state. A failing/blocked report returns to its owner rather than entering Close.
+3. Determine the closeout path: `<workstream-root>/<workstream-id>/close/<timestamp>_<topic>.md` (normally `.myflow/workstreams/<workstream-id>/close/`).
 
-## When to Use
+## Determine proportionate actions
 
-- After stage 4 (Review) passes — validation report clean, code-review at zero blockers
-- When implementation is verified, reviewed, and ready to ship
-- At any significant milestone where the project state has materially changed and you want to close cleanly
+With the developer, select only actions supported by Verify evidence or mapped repository policy:
 
-This is a **cycle boundary** — the moment between "we finished that" and "what's next."
+- documentation/status update when product behavior or mapped policy requires it;
+- learning capture, retrospective, or tabled follow-up only when an observation warrants it;
+- changelog/release preparation only when delivery policy requires it;
+- a closeout summary whenever close decisions, manual evidence, or follow-ups need to remain resumable.
 
-## When NOT to Use
+Do not force a retro, memory edit, status rewrite, AGENTS edit, empty tabled file, branch operation, or integration action. Preserve unresolved follow-ups with a destination (new Scope, mapped backlog, learning artifact, or conscious drop).
 
-- Mid-work checkpoints (that's normal commit discipline)
-- Bug fixes or small refactors that don't change the project's shape
-- Session endings where the work isn't at a natural completion point (just commit and note what's unfinished)
-- When code review or architectural review is still needed (those happen in stages 2 and 4)
+## Closeout and delivery
 
-## The Process
+Write/update the closeout summary with Verify verdict, what shipped, applicable documentation/learning actions, outstanding manual evidence, final commit state, integration decision, and every follow-up destination. Update `workstream.md` with the summary and next action.
 
-Close has 8 steps in 3 groups. **Each step is a mandatory conversation — the agent must not advance without explicit human approval.** Surface findings or work for the step, present them via `ask_user_question`, and wait for the human to say "Proceed" before advancing. Never execute multiple steps in a single agent turn. Each step ends with a **⛔ GATE** checkpoint that blocks forward progress until answered.
+If closeout changes exist, use `commit` for one distinct final closeout commit after developer approval. Phase commits are never folded into it. Ask the developer whether to push, merge, create a PR, keep the branch, or defer delivery; follow mapped policy when it exists. Do not infer an integration policy.
 
-During execution, maintain a Context Checkpoint to track which group/step is current, what's been completed, and what's next. When Close completes, the repository's documentation, retrospectives where used, and memory serve as the Rehydration Manifest — they tell future sessions what shipped and why.
+## Completion and correction
 
-### Group 1 — Document & Reflect
-
-Record what shipped, then reflect on how the cycle went. The implementation phases are already committed; Close's final commit happens after every closeout update is complete.
-
-#### 1. Documentation Review
-
-Inspect the repository's existing documentation conventions and update, add, or remove documentation as appropriate. Do not assume a particular document type or path: follow the repository's own policy. The goal is to leave documentation accurate, discoverable, and free of superseded guidance.
-
-**⛔ GATE**: After documentation is reviewed, use `ask_user_question` to present a summary and ask: "Step 1 complete — proceed to Step 2 (Retro)?" Options: "Proceed" / "Revise docs".
-
-#### 2. Retro
-
-Reflect on the cycle. What went well, what was hard, patterns to capture, anti-patterns to nudge against. Produce a retro in the personal repo retros directory (`node "${SKILL_DIR}/../_shared/repo-store.mjs" state retros`). **Start by reading the previous retro in that directory** — this threads the continual-improvement loop forward across cycles on this machine. Retro closes off the cycle's work — process improvement, not scope. Promote repo-relevant lessons to committed artifacts when warranted.
-
-**⛔ GATE**: After the retro is written, use `ask_user_question` to present key findings and ask: "Step 2 complete — proceed to Step 3 (Capturing Learnings)?" Options: "Proceed" / "Revise retro".
-
-### Group 2 — Learn & Improve
-
-Process observations and improve the repository documentation that the cycle exposed.
-
-#### 3. Capturing Learnings
-
-Run `capturing-learnings` — review tabled observations and apply the promotion rule: **once is a moment; twice is a pattern.** Promote twice-seen patterns to skills, runbooks, or memory entries.
-
-**⛔ GATE**: After learnings are captured, use `ask_user_question` to present promotion decisions and ask: "Step 3 complete — proceed to Step 4 (Doc Review)?" Options: "Proceed" / "Revise learnings".
-
-#### 4. Doc / Knowledge-Graph Review
-
-Sweep over docs touched by this cycle. Add or refresh README files in the significant folders we worked in, per the incremental "build by touched folder" pattern. Look for stale, contradictory, or low-signal docs and prune. Keep signal-to-noise high.
-
-**⛔ GATE**: After docs are reviewed, use `ask_user_question` to present changes and ask: "Step 4 complete — proceed to Step 5 (AGENTS.md Updates)?" Options: "Proceed" / "Revise docs".
-
-### Group 3 — Update, Commit & Integrate
-
-Update shared context, commit every remaining closeout change together, then close the branch.
-
-#### 5. AGENTS.md Updates
-
-Root and repo-level. Only update what actually changed during this cycle.
-
-**⛔ GATE**: After AGENTS.md is updated, use `ask_user_question` to present changes and ask: "Step 5 complete — proceed to Step 6 (Memory Reconcile)?" Options: "Proceed" / "Revise AGENTS.md".
-
-#### 6. Memory Reconcile
-
-Review personal repo memory (`node "${SKILL_DIR}/../_shared/repo-store.mjs" state memory`) against the new state. Correct stale entries, remove redundancies, add new memories warranted by the cycle. Memory is a thin index pointing at authoritative sources, not a duplication.
-
-**⛔ GATE**: After memory is reconciled, use `ask_user_question` to present changes and ask: "Step 6 complete — proceed to Step 7 (Status Review + Tabled Resolution)?" Options: "Proceed" / "Revise memory".
-
-#### 7. Status Review + Tabled Resolution
-
-The tabled file is **ephemeral to this branch.** Entries are captured during the work, and at close they all get reconciled — none carry forward to the next branch. Resolve the paths:
-
-```bash
-node "${SKILL_DIR}/../_shared/repo-store.mjs" path status
-node "${SKILL_DIR}/../_shared/repo-store.mjs" state tabled
-```
-
-Walk the status file first — update Recently Completed with what shipped, then read the tabled file. **Resolve every tabled entry** into exactly one destination:
-
-| Destination | When |
-|---|---|
-| **Decide now** | The item is small enough to fix or decide in this session. Do it, then remove the entry. |
-| **Promote to What's Next** | The item is real work but too large for this session. Move its substance into the status file's What's Next section, then remove the tabled entry. |
-| **Promote to artifact** | The item is a pattern worth capturing — promote to a skill, runbook, or memory entry via `capturing-learnings`, then remove the tabled entry. |
-| **Conscious drop** | The item looked important in the moment but doesn't hold up now. Delete the entry without promotion. |
-
-After this step, the tabled file **must be empty.** It can retain a structural header (e.g. `# Tabled`) but must contain zero entries. A non-empty tabled file at the end of close is a bug — entries don't carry from branch to branch.
-
-Identify the next piece of work — usually the highest-priority item moved to What's Next.
-
-**⛔ GATE**: After status and tabled items are resolved, use `ask_user_question` to present the changes and ask: "Step 7 complete — proceed to Step 8 (Final Closeout Commit + Integrate)?" Options: "Proceed" / "Revise updates".
-
-#### 8. Final Closeout Commit + Integrate
-
-The implementation phases were already committed. Now use `/skill:commit [message-hint]` to create a separate final commit containing the remaining repository changes from documentation, status, learning promotions, and other closeout updates. Do not include unrelated working-tree changes. This is a normal Close checkpoint, so `commit` presents the grouping and message for human approval.
-
-**Then, integrate the branch.** If on a **feature branch**, determine the base branch and present four options:
-
-```
-Implementation complete. What would you like to do?
-
-1. Merge back to <base-branch> locally
-2. Push and create a Pull Request
-3. Keep the branch as-is (I'll handle it later)
-4. Discard this work
-```
-
-**Option 1 — Merge Locally:**
-```bash
-git checkout <base-branch>
-git pull
-git merge <feature-branch>
-# Verify tests pass
-git branch -d <feature-branch>
-```
-
-**Option 2 — Push and Create PR:**
-```bash
-git push -u origin <feature-branch>
-gh pr create --title "<title>" --body "<summary>"
-```
-
-**Option 3 — Keep As-Is:** Report: "Keeping branch <name>." Do not clean up the worktree.
-
-**Option 4 — Discard:** Require typed "discard" confirmation, then:
-```bash
-git checkout <base-branch>
-git branch -D <feature-branch>
-```
-
-**Worktree cleanup:** For options 1 and 4, remove the worktree if applicable:
-```bash
-git worktree remove <worktree-path>
-```
-
-If on **`main`**, the final closeout commit still requires the human-approved grouping above before integration decisions are made.
-
-**⛔ GATE**: After integration, use `ask_user_question` to present the final state and ask: "Close complete — close this cycle?" Options: "Close cycle" / "Return to a previous step".
-
-## Key Principles
-
-- **Every step ends with a ⛔ GATE.** The agent must use `ask_user_question` to present the step's output and get explicit "Proceed" approval before advancing. Never execute multiple steps in a single agent turn. If a step feels check-boxable, you're doing it wrong — slow down and make it a real conversation.
-- **This skill owns the sequence; child skills own the execution.** Don't duplicate instructions that live in referenced skills (`capturing-learnings`).
-- **Documents live where their scope lives.** Repo-specific durable docs go to configured repo paths. MyFlow process state lives in the personal per-repo store.
-- **Commit by phase, then close.** Implement creates one atomic commit after every green plan phase. Close creates the separate final commit only after every closeout update is complete.
-- **Set up the next agent for success.** Every step should leave the codebase navigable: tabled items resolved, status current, retro filed in the personal store, memories reconciled.
-- **Reviews happen before close.** Code review and architectural review live in stages 2 and 4 of the pipeline — do not re-review during closeout unless something changed.
-
-## Anti-patterns
-
-- **Merge before close-out.** Don't partial-merge an in-flight branch and then try to retroactively close out a subset. Close the branch as a complete piece of work.
-- **Speed-running steps.** The ⛔ GATE at each step exists to prevent this. A step is not complete until the human says "Proceed." Batching multiple steps or presenting outputs without waiting for approval voids the close process — the close-out is invalid and must be redone from the first skipped checkpoint.
-- **Leaving the tabled file non-empty after close.** Step 7 must clear every entry. The tabled file is ephemeral to the branch — entries don't carry forward. If an entry survives close, it leaks into the next cycle without context and rots.
-- **Re-reviewing code during closeout.** Code review and architectural review happen in stages 2 and 4. If new issues surface during closeout, table them — don't re-open review.
-- **Skipping the retro.** The retro is the mechanism that improves the process. Without it, the same friction repeats cycle after cycle.
-
-## Pipeline Context
-
-Close is stage 5 of the 5-stage myflow pipeline:
-
-1. **Scope** — frame the work (`scope`, then selected specialists such as `research`)
-2. **Plan** — design and sequence (`design`, `architecture-review`, `plan`, `tdd` when needed)
-3. **Implement** — build each accepted phase and commit it when its automated criteria are green (`implement`, `commit`)
-4. **Verify** — validate and review the implementation (`validate`, `code-review`, repository-specific manual verification when required)
-5. **Close** — update closeout artifacts, make the final closeout commit, and integrate (this skill)
-
-Every stage produces an artifact consumed by the next. `epiphany-tabling` runs across stages 2-4. `capturing-learnings` checks in after stages 1, 2, 4, and 5.
-
-## Related practices
-
-- `myflow` — the 5-stage pipeline map; invokes close at stage 5
-- `capturing-learnings` — step 4 promotion rule and checkpoint
-- `writing-retros` — step 3 retro format
-- `epiphany-tabling` — the in-flight practice that feeds tabled items resolved in step 7
-- `commit` — one atomic commit per green implementation phase, then the final closeout commit in step 8
-
-## See also
-
-- Pipeline visual: `docs/myflow-v3-pipeline.html`
+A complete workstream has a passing validation report, a recorded delivery decision, and no unowned follow-up. If new evidence exposes an implementation defect, return to Implement; route plan/design/outcome changes to their owning stage and retain the summary as resumable evidence.
