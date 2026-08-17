@@ -13,7 +13,7 @@ This is the single working record for decisions, remaining work, and skill align
 
 ## Confirmed workflow
 
-MyFlow has five work stages, each with one canonical orchestrator:
+MyFlow has five work stages, each with one canonical orchestrator: **Scope → Plan → Implement → Verify → Close**.
 
 ```text
 Onboard repository (when needed)
@@ -77,23 +77,20 @@ Onboard repository (when needed)
 | Scope | Code-light, right-sized alignment; establish workstream ID; select specialists rather than force research; offer worktree/trunk path | **Aligned initial version.** Pilot and refine its worktree and depth decisions. |
 | Research / discover | Optional Scope specialists with discoverable evidence and explicit return to Scope/Plan | **Research aligned initial version.** `discover` still needs its interface review. |
 | Design / Plan | Design disposition always; lightweight plan path; full design only when structural; plan is executable authority | **Aligned initial version.** Pilot the lightweight and structural paths; refine templates from evidence. |
-| Implement | Consume accepted plan; checkpoint and commit each green phase; expose manual verification | **Partially aligned.** Adapt to workstream paths and shared checkpoint contract. |
-| Verify | Validation, code review, manual-verification brief; corrective loops to owner | **Blocked / high priority.** `validate` references deleted scripts and nonexistent mandatory skills. |
-| Close | Right-sized closeout, final closeout commit, delivery status, tabled-item resolution | **Needs simplification and workstream-aware summary.** |
-| Architecture specialists | Shared vocabulary, repository-map paths, reusable artifacts, design handoff | **Needs alignment.** |
-| Telemetry and evaluation | Local evaluation records plus privacy-safe optional telemetry | **Design still needed.** Do not block normal product work. |
-| Documentation | README/public overview agrees with active workflow | **Deferred until canonical skills align.** |
+| Implement | Consume accepted plan; resolver-aware checkpoint and commit each green phase; expose manual verification | **Aligned.** |
+| Verify | Validation, code review, conditional manual-verification brief; corrective loops to owner | **Aligned.** |
+| Close | Right-sized closeout, final closeout commit, delivery status, follow-up disposition | **Aligned.** |
+| Architecture specialists and recovery/learning | Resolver-aware sources, reusable artifacts, design handoff, proportionate recovery | **Aligned initial sweep.** |
+| Telemetry and evaluation | Local evaluation records plus privacy-safe optional telemetry | **Explicitly deferred and non-blocking.** |
+| Documentation | README/public overview agrees with active workflow | **Aligned with desk scenarios.** |
 
 ## Ordered work
 
 1. **Repository-map resolver and canonical discovery migration** — a tested resolver selects local/origin/common-Git-dir/override maps; canonical early-stage skills and templates record resolved paths. **Complete.**
 2. **Workstream artifact layout and Scope → Plan slice** — establish the workstream ID/layout and retain the aligned optional-specialist/design-disposition/Plan interface. **Initial implementation complete.** This was documentation and skill-instruction work, not a pilot in another repository.
-3. **Pilot the first slice** — use it for a small and a medium real workstream; capture friction through onboarding evaluations, retros, and tabled items.
-4. **Implement → Verify slice** — repair `validate`, clarify validation/code-review/manual-verification boundaries, and adopt workstream checkpoints.
-5. **Close slice** — make closeout independently resumable and proportionate, with final delivery evidence in the workstream.
-6. **Specialist and cross-cutting alignment** — architecture, research/discover, domain modeling, handoffs, and learning skills consume the repository map and workstream context consistently.
-7. **Telemetry/evaluation design** — decide useful events, privacy policy, feedback capture, and how evidence leads to skill changes.
-8. **Public documentation and scenario testing** — update README and test the retained workflow on realistic small, medium, and large work.
+3. **Implement → Verify, Close, and retained-skill slices** — resolver-aware checkpoints, validation/review/manual evidence, proportionate closeout, and initial retained-skill sweep. **Complete.**
+4. **Public documentation and scenario testing** — README/contract/status coherence plus trivial, medium, and structural desk scenarios. **Complete.**
+5. **Next action: real end-to-end pilot** — use the workflow for one bounded product workstream, capture evaluation/retro evidence only when warranted, and tune from observed friction. Telemetry/evaluation redesign remains explicitly deferred and non-blocking.
 
 ## Operating rule
 

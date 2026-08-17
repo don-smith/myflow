@@ -33,9 +33,9 @@ Use `pi list` to inspect installed packages, `pi config` to enable or disable in
 ## First use in a repository
 
 1. Start Pi in the target repository.
-2. Run `/skill:onboard` to create or refresh `.myflow/repository-map.md`.
+2. Run `/skill:onboard`. It uses the repository-map resolver to preserve a local map or create/refresh your personal global map from Git `origin` (with a safe no-origin fallback).
 3. Start a workstream with `/skill:scope "<rough idea>"`.
-4. Follow the artifact's recommended next action. A new workstream normally lives at `.myflow/workstreams/<workstream-id>/`.
+4. Follow the artifact's recommended next action. Active workstream artifacts remain local, normally at `.myflow/workstreams/<workstream-id>/`
 
 Scope can offer an isolated branch/worktree when repository policy permits, or work in the current checkout for trunk-based repositories.
 
@@ -57,6 +57,8 @@ Onboard repository (when needed)
 
 `design` is a collaborative Plan step used for material structural decisions; it is not mandatory for lightweight work. `research`, `prototype`, architecture specialists, domain modeling, and TDD are selected only when the work needs them.
 
+A fresh session runs `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, then reads its selected map, `workstream.md`, and the authoritative stage artifact. Small work may use the lightweight path; structural work adds Design and a full plan. Verify owns review/manual evidence, and Close records only applicable delivery and follow-up decisions.
+
 The detailed workflow and alignment status are maintained in:
 
 - [Artifact and stage-boundary contract](docs/artifact-and-stage-boundary-contract.md)
@@ -67,7 +69,7 @@ The detailed workflow and alignment status are maintained in:
 The package declares these optional Pi extensions alongside its skills:
 
 - structured `ask_user_question` interaction;
-- privacy-configured telemetry/evaluation support; and
+- privacy-configured telemetry/evaluation support (non-blocking; no telemetry redesign is required for normal work); and
 - `web_search` / `web_fetch` tools with configurable providers.
 
 Their configuration lives under `~/.myflow/config/`. Telemetry must remain permitted by the repository and must not transmit sensitive source, credentials, tokens, or personal data without explicit approval.

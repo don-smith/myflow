@@ -2,7 +2,7 @@
 
 **Status:** Canonical workflow contract — retained skills are being aligned to it.
 
-This contract defines the small, durable interface between MyFlow stages. It keeps a fresh session able to continue a workstream without conversation history while permitting proportionate process for small work.
+This contract defines the small, durable interface between MyFlow stages: **Scope → Plan → Implement → Verify → Close**. It keeps a fresh session able to continue a workstream without conversation history while permitting proportionate process for small work.
 
 Repository policy always wins. Before a skill assumes an artifact location, command, documentation rule, or delivery policy, it resolves the repository map and follows the mapped authoritative source.
 
