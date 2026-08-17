@@ -13,7 +13,7 @@
  * startup."
  */
 
-import { configPath, GuidanceFieldsSchema, loadJsonConfig, saveJsonConfig } from "@myflow/config";
+import { configPath, GuidanceFieldsSchema, loadJsonConfig, saveJsonConfig } from "../../config/index.js";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
 

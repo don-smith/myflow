@@ -1,5 +1,5 @@
-import type { GuidanceFields } from "@myflow/config";
-import { configPath, loadJsonConfig, validateGuidanceFields } from "@myflow/config";
+import type { GuidanceFields } from "../config/index.js";
+import { configPath, loadJsonConfig, validateGuidanceFields } from "../config/index.js";
 
 const CONFIG_PATH = configPath("ask-user-question");
 

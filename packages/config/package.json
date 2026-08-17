@@ -1,0 +1,12 @@
+{
+  "name": "@myflow/config",
+  "version": "1.19.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "peerDependencies": {
+    "typebox": "*"
+  }
+}

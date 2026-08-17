@@ -23,7 +23,7 @@ import {
 	truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { validateGuidanceFields } from "@myflow/config";
+import { validateGuidanceFields } from "../config/index.js";
 import { Type } from "typebox";
 import { getConfigPath, readConfig, type WebToolsConfig, writeConfig } from "./providers/config.js";
 import { createSearchProvider } from "./providers/factory.js";

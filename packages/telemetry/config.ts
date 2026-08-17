@@ -1,4 +1,4 @@
-import { configPath, loadJsonConfig, readEnvVar, saveJsonConfig, validateConfig } from "@myflow/config";
+import { configPath, loadJsonConfig, readEnvVar, saveJsonConfig, validateConfig } from "../config/index.js";
 import { type Static, Type } from "typebox";
 import { TELEMETRY_EVENT_KINDS, type TelemetryEventKind } from "./types/events.js";
 

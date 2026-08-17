@@ -14,6 +14,24 @@
   "license": "MIT",
   "author": "Don Smith",
   "type": "module",
+  "files": [
+    "LICENSE",
+    "README.md",
+    "docs/artifact-and-stage-boundary-contract.md",
+    "docs/myflow-workflow-status-and-alignment.md",
+    "skills",
+    "packages/config",
+    "packages/ask-user-question",
+    "packages/telemetry",
+    "packages/web-tools",
+    "!packages/**/node_modules",
+    "!packages/**/*.test.ts",
+    "!packages/**/test",
+    "!packages/**/docs",
+    "!skills/**/*.test.*",
+    "!packages/**/CHANGELOG.md",
+    "!packages/**/vitest.config.ts"
+  ],
   "workspaces": [
     "packages/*"
   ],
@@ -30,26 +48,27 @@
       "./skills"
     ],
     "extensions": [
-      "./extensions/core",
-      "./packages/args/index.ts",
       "./packages/ask-user-question/index.ts",
-      "./packages/btw/index.ts",
-      "./packages/advisor/index.ts",
-      "./packages/i18n/index.ts",
       "./packages/telemetry/extension.ts",
-      "./packages/todo/index.ts",
-      "./packages/voice/index.ts",
       "./packages/web-tools/index.ts"
     ]
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.79.3",
-    "@earendil-works/pi-tui": "^0.79.3",
+    "@langfuse/client": "^5.9.1",
+    "@langfuse/otel": "^5.9.1",
+    "@langfuse/tracing": "^5.9.1",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/core": "^2.10.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@tintinweb/pi-subagents": "*",
-    "typebox": "*",
     "yaml": "*"
   },
   "scripts": {
