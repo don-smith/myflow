@@ -72,9 +72,9 @@ Verify the implementation against the plan and its success criteria. Run automat
 
 **Orchestrator:** `close`
 
-Leave the workstream in a clean, understandable, low-debt state. After documentation, status, learning, retrospective, and other closeout activities are complete, make a separate final closeout commit and determine integration. Resolve all tabled items before the cycle ends.
+Leave the workstream in a clean, understandable, low-debt state. With the developer, select only applicable documentation, status, learning, retrospective, changelog, and delivery actions from Verify evidence and repository policy. Record every unresolved follow-up with a destination rather than forcing it into the current closeout. If applicable closeout changes exist, make a separate final closeout commit and determine integration without inferring a policy.
 
-**Artifacts:** repository-specific closeout artifacts and updated personal workflow state.
+**Artifacts:** repository-specific closeout updates and a resumable closeout summary when decisions, manual evidence, or follow-ups need to persist.
 
 ## Cross-cutting skills
 
