@@ -72,6 +72,9 @@
 		"@earendil-works/pi-coding-agent": "*",
 		"typebox": "*"
 	},
+	"devDependencies": {
+		"@myflow/test-utils": "workspace:*"
+	},
 	"dependencies": {
 		"@langfuse/client": "^5.9.1",
 		"@langfuse/otel": "^5.9.1",

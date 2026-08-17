@@ -28,9 +28,12 @@
     },
     "packages/ask-user-question": {
       "name": "@myflow/ask-user-question",
-      "version": "1.19.1",
+      "version": "1.20.0",
       "dependencies": {
-        "@myflow/config": "^1.19.1",
+        "@myflow/config": "file:../config",
+      },
+      "devDependencies": {
+        "@myflow/test-utils": "workspace:*",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "*",
@@ -63,9 +66,23 @@
         "@opentelemetry/sdk-node": "^0.221.0",
         "@opentelemetry/sdk-trace-base": "^2.10.0",
       },
+      "devDependencies": {
+        "@myflow/test-utils": "workspace:*",
+      },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "*",
         "typebox": "*",
+      },
+    },
+    "packages/test-utils": {
+      "name": "@myflow/test-utils",
+      "version": "1.19.1",
+      "peerDependencies": {
+        "@earendil-works/pi-ai": "*",
+        "@earendil-works/pi-coding-agent": "*",
+        "@earendil-works/pi-tui": "*",
+        "typebox": "*",
+        "vitest": "*",
       },
     },
     "packages/web-tools": {
@@ -73,6 +90,9 @@
       "version": "1.19.1",
       "dependencies": {
         "@myflow/config": "^1.19.1",
+      },
+      "devDependencies": {
+        "@myflow/test-utils": "workspace:*",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "*",
@@ -193,6 +213,8 @@
     "@myflow/config": ["@myflow/config@workspace:packages/config"],
 
     "@myflow/telemetry": ["@myflow/telemetry@workspace:packages/telemetry"],
+
+    "@myflow/test-utils": ["@myflow/test-utils@workspace:packages/test-utils"],
 
     "@myflow/web-tools": ["@myflow/web-tools@workspace:packages/web-tools"],
 
@@ -627,6 +649,12 @@
     "@earendil-works/pi-coding-agent/typebox": ["typebox@1.3.7", "", {}, "sha512-meKuifc33Pccx0O6PdIzYMq3Og8zvP4TIi/a+Bw3AEMZMxOD0+RHGQvpglEe6Zdy3wZ8nqn/j95h8LUZLk/6Hg=="],
 
     "@earendil-works/pi-protocol/typebox": ["typebox@1.3.7", "", {}, "sha512-meKuifc33Pccx0O6PdIzYMq3Og8zvP4TIi/a+Bw3AEMZMxOD0+RHGQvpglEe6Zdy3wZ8nqn/j95h8LUZLk/6Hg=="],
+
+    "@myflow/ask-user-question/@myflow/config": ["@myflow/config@file:packages/config", { "peerDependencies": { "typebox": "*" } }],
+
+    "@myflow/telemetry/@myflow/config": ["@myflow/config@file:packages/config", { "peerDependencies": { "typebox": "*" } }],
+
+    "@myflow/web-tools/@myflow/config": ["@myflow/config@file:packages/config", { "peerDependencies": { "typebox": "*" } }],
 
     "p-retry/retry": ["retry@0.13.1", "", {}, "sha512-XQBQ3I8W1Cge0Seh+6gjj03LbmRFWuoszgK9ooCpwYIrhhoO80pfq4cUkU5DkknwfOfFteRwlZ56PYOGYyFWdg=="],
 

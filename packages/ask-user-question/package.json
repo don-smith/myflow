@@ -90,5 +90,8 @@
 	},
 	"dependencies": {
 		"@myflow/config": "file:../config"
+	},
+	"devDependencies": {
+		"@myflow/test-utils": "workspace:*"
 	}
 }

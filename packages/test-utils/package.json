@@ -1,0 +1,35 @@
+{
+  "name": "@myflow/test-utils",
+  "version": "1.19.1",
+  "description": "Shared internal test fixtures for MyFlow workspaces (not published)",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "juicesharp",
+  "files": [
+    "index.ts",
+    "pi.ts",
+    "session.ts",
+    "contract.ts",
+    "theme.ts",
+    "fetch.ts",
+    "exec.ts",
+    "spawn.ts",
+    "fs.ts",
+    "manifest.ts",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*",
+    "vitest": "*"
+  }
+}
