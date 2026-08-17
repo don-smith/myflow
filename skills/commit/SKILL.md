@@ -1,6 +1,6 @@
 ---
 name: commit
-Create structured atomic commits. Use when the user asks to commit, or when Implement has completed a plan phase whose automated success criteria are green.
+description: Create structured atomic commits. Use when the user asks to commit, or when Implement has completed a plan phase whose automated success criteria are green.
 argument-hint: [message]
 allowed-tools: Bash(git *), Read, Glob, Grep
 shell-timeout: 10
