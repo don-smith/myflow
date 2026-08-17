@@ -20,10 +20,10 @@ To update, `git pull` in the cloned repo and restart Pi. No npm reinstall needed
 ### Onboard a project repo
 
 ```bash
-/skill:setup-myflow
+/skill:onboard
 ```
 
-This creates/loads your personal per-repo MyFlow store, initializes gitignored worktree scratch space, and records where this repo keeps committed artifacts such as status and as-built documentation.
+This creates or refreshes the tracked `.myflow/repository-map.md`: a compact, repository-local index of applicable instructions, validation commands, documentation and delivery conventions, domain/ADR sources, local skills, and explicit unknowns. It also produces an onboarding report and evaluation record under `.myflow/artifacts/`.
 
 ## The 5-stage pipeline
 
@@ -58,7 +58,7 @@ myflow provides the full workflow:
 | Skill | Purpose |
 |---|---|
 | `myflow` | The map. Guides you through the 5-stage pipeline for any piece of work. |
-| `setup-myflow` | Onboarding: creates/loads the personal repo store and configures artifact paths. |
+| `onboard` | Onboarding: discovers repository-specific workflow knowledge and maintains `.myflow/repository-map.md`. |
 | `land` | The 9-step closeout in 3 groups: Commit & Document, Reflect & Reconcile, Update & Close. |
 | `epiphany-tabling` | Capture mid-flight realizations in the personal repo tabled file without derailing current work. |
 | `as-built-documentation` | Replace spec/plan scaffolding with a permanent record at the configured as-built path. |
@@ -70,24 +70,15 @@ myflow provides the full workflow:
 
 ## Storage model
 
-MyFlow is personal developer workflow tooling. It uses three storage scopes:
+MyFlow separates portable workflow defaults from repository-specific knowledge:
 
 | Scope | Location | Purpose |
 |---|---|---|
-| Global MyFlow install | This package / installed Pi assets | Skills, agents, extensions, templates, workflow defaults. |
-| Personal repo store | `~/.myflow/repos/<repo-id>/` | Repo-specific path map, tabled items, memory, retros. |
-| Worktree scratch | `<worktree>/.myflow/` | Gitignored workflow artifacts, guidance, and exceptional handoffs for the current branch/worktree. |
+| Global MyFlow install | This package / installed Pi assets | Skills, agents, extensions, templates, and workflow defaults. |
+| Repository map | `<repo>/.myflow/repository-map.md` | Tracked index of the repository's authoritative instructions, paths, policies, and local capabilities. |
+| Workstream artifacts | `<repo>/.myflow/artifacts/` by default | Alignment, planning, validation, onboarding reports, and evaluation records, subject to the repository's retention policy. |
 
-Committed target-repo artifacts are configurable per repo through `~/.myflow/repos/<repo-id>/config.toml`:
-
-| Logical path | Default | Purpose |
-|---|---|---|
-| `as_built` | `docs/changes` | As-built documentation: what shipped and why. |
-| `status` | `docs/status.md` | Living status: Recently Completed, What's Next. |
-| `runbooks` | `docs/runbooks` | Durable repo-relevant processes and practices. |
-| `agents` | `AGENTS.md` | Repo-level agent guidance. |
-
-MyFlow process state — tabled items, memory, retros — stays in the personal repo store so target repos do not need MyFlow-specific committed configuration or conventions docs.
+The repository map is deliberately committed so fresh sessions and collaborators can find the same repository-specific conventions. It points to repository sources; it does not replace them.
 
 ## Stage-boundary restarts
 
@@ -107,7 +98,7 @@ Run the sync monthly or after every 2–3 projects to stay informed.
 ## Typical first use
 
 1. Clone the repo: `git clone https://github.com/don-smith/myflow.git && pi install ./myflow`.
-2. Run `/skill:setup-myflow` to initialize the personal repo store and configure artifact paths.
+2. Run `/skill:onboard` to discover repository conventions and write `.myflow/repository-map.md`.
 3. Start new work with `/skill:start "rough idea"`. The Stage 1 alignment artifact will recommend the next stage.
 4. Close the cycle with `/skill:land`.
 5. After 2–3 projects, run `/skill:sync-upstream`.

@@ -38,6 +38,7 @@ The final artifact is design/plan-consumable per phase.
 2. **Validate the target exists**. Use `ls` via the Bash tool on the resolved path. If missing, ask for a corrected path.
 
 3. **Capture target context** into main context:
+   - Read `.myflow/repository-map.md` first when it exists. Follow its applicable operating instructions; use its mapped glossary, ADR, local capability, and artifact-location entries rather than assuming conventional paths. If a needed entry is missing or stale, record it for `onboard` to refresh.
    - Read the target's manifest file if one exists (`package.json`, `pom.xml`, `*.csproj`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `build.gradle[.kts]`, `mix.exs`). The manifest names public exports, dependencies, and ecosystem.
    - Read any `README.md` or architecture doc at the target root.
    - For a single file: read it FULLY (no limit/offset).
@@ -84,7 +85,7 @@ Layers mirror dependency direction. Higher layers consume lower-layer vocabulary
 
 1. **Read the template** at `${SKILL_DIR}/templates/architecture-review.md` FULLY (no limit/offset).
 
-2. **Determine metadata** from the Metadata block above: filename `.myflow/artifacts/architecture-reviews/<slug>_<topic>.md` (use `<slug>` from line 1; `<topic>` is a brief kebab-case description); `repository:` from `repo:`; `branch:` / `commit:` from matching labels; `author:` ← matching label (fallback: `unknown`); `date:` / `last_updated:` ← `<iso>` from line 1 (copy the offset verbatim).
+2. **Determine metadata** from the Metadata block above: use the repository map's workstream artifact root when present, otherwise `.myflow/artifacts`; write to `<artifact-root>/architecture-reviews/<slug>_<topic>.md` (use `<slug>` from line 1; `<topic>` is a brief kebab-case description); `repository:` from `repo:`; `branch:` / `commit:` from matching labels; `author:` ← matching label (fallback: `unknown`); `date:` / `last_updated:` ← `<iso>` from line 1 (copy the offset verbatim).
 
 3. **Write the skeleton** using the Write tool with `status: in-progress` in frontmatter. Sections:
    - **Frontmatter:** date, author, commit, branch, repository, target, target_kind, layer_count, `phases` (derived from the `### Phase N — name` headings — see Step 6), unresolved_finding_count, status, tags, last_updated, last_updated_by.

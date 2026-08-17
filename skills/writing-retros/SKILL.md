@@ -7,7 +7,7 @@ description: Use at milestone close to produce a MyFlow process retrospective �
 
 ## Overview
 
-A milestone retrospective is a **MyFlow process reflection** — not a reflection on the work that was done (that's the as-built). The retro asks: *did the MyFlow skills and practices work well? What should change?*
+A milestone retrospective is a **MyFlow process reflection** — not a replacement for repository product documentation. The retro asks: *did the MyFlow skills and practices work well? What should change?*
 
 This is one of two feedback loops for improving MyFlow over time (the other is the eval system, developed separately). Together they ensure the process continuously improves with each piece of work. Retros feed directly into MyFlow itself — patterns surfaced here become new skills, existing skills get refined, and practices adjust.
 
@@ -25,7 +25,7 @@ Write: `<resolved-retros-dir>/YYYY-MM-DD-<milestone>.md`.
 
 Retros are **frozen once accepted**. Future amendments go into a new retro, not this one — inline edits to a retro erode its value as an episodic record.
 
-Retros are MyFlow process records, not target-repo product documentation. If a retro surfaces durable repo knowledge, promote that specific knowledge into the configured runbook path, configured status file, AGENTS file, or as-built documentation.
+Retros are MyFlow process records, not target-repo product documentation. If a retro surfaces durable repo knowledge, promote that specific knowledge into the configured runbook path, configured status file, AGENTS file, or the repository's normal documentation location.
 
 ## The four sections
 
@@ -42,7 +42,7 @@ Optional lightweight sections at the end (appendix-style): headline stats, ackno
 
 1. **Gather inputs.**
    - Personal tabled file: `node "${SKILL_DIR}/../_shared/repo-store.mjs" state tabled` — every entry is a candidate for one of the four sections or for processing during retro review.
-   - The as-built (if already drafted) or the spec + plan + git log (if not).
+   - The repository documentation changes (if already drafted) or the spec + plan + git log (if not).
    - Memory writes made during the milestone.
    - Any explicit "save this for retro" notes from the user during execution.
 
@@ -54,7 +54,7 @@ Optional lightweight sections at the end (appendix-style): headline stats, ackno
 
 ## Common failure modes
 
-- **Confusing retro with as-built.** The retro reflects on the MyFlow process; the as-built documents what was built. If a section drifts into describing the work rather than the process, it belongs in the as-built, not the retro.
+- **Confusing retro with product documentation.** The retro reflects on the MyFlow process. If a section drifts into describing the work rather than the process, it belongs in the repository's documentation, not the retro.
 - **Meta-theater.** Reflection that produces more reflection rather than process improvement. If a section has no concrete insight about how to improve MyFlow, cut it or sharpen it.
 - **Silent drift.** Practices on paper diverging from practices in use. The retro only catches this if honest — don't smooth over what went wrong with the process.
 - **Stale references.** A frozen retro loses value when the paths it references move. Either update the paths before freezing, or add a dated note at the top after freeze — never rewrite inline.
@@ -64,4 +64,4 @@ Optional lightweight sections at the end (appendix-style): headline stats, ackno
 
 - `capturing-learnings` — the promotion rule that decides whether a retro insight becomes a new skill, runbook, or memory entry feeding back into MyFlow.
 - `epiphany-tabling` — the in-flight practice that feeds retro content about what surfaced during work.
-- `as-built-documentation` — the permanent record of *what* shipped. Retros and as-builts are complementary: retros capture *how we worked* (the MyFlow process); as-builts capture *what we built* (the product). Retros feed back into MyFlow; as-builts feed into the repo's documentation.
+- Repository documentation review — the permanent record of *what* shipped. Retros capture *how we worked* (the MyFlow process); repository documentation captures *what* we built. Retros feed back into MyFlow; product documentation follows the repository's own conventions.

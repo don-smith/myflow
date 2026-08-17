@@ -1,271 +1,149 @@
 ---
 name: scope
-description: Begin a MyFlow workstream with right-sized Stage 1 scoping. Accepts rough ideas, voice transcripts, tickets, or notes; produces an Adaptive Alignment Artifact under .myflow/artifacts/alignment/ and chains to research.
+description: Begin a MyFlow workstream with right-sized, code-light scoping. Establishes a workstream ID and durable alignment artifact when needed, selects only the specialists the work requires, and offers an isolated worktree or trunk-based path.
 argument-hint: "[rough idea | transcript | ticket path | notes path]"
 shell-timeout: 10
 ---
 
 # Scope
 
-Begin a MyFlow workstream with Stage 1 **Scope**. This skill turns rough narrative input into a compact, evolving **Adaptive Alignment Artifact** and chains to `research`.
+Scope is Stage 1 of MyFlow. It turns a rough request into a shared understanding of the outcome, acceptance criteria, risks, and appropriate workflow depth. It is collaborative and code-light: it reads the repository map and named evidence, but does not perform architectural reconnaissance or implementation.
 
-**Announce at start:** "I'm using the `scope` skill to begin a MyFlow workstream with right-sized scoping."
+**Announce at start:** "I'm using the `scope` skill to establish the outcome, risk, and right-sized path for this workstream."
 
-## Purpose
+## Output
 
-Stage 1 answers:
+For non-trivial work, Scope creates or updates:
 
-> Do we understand the work well enough to proceed to codebase research?
-
-`scope` is conversational and progressive. It is not a rigid FRD interview, not a solution-design phase, and not an implementation phase.
-
-## Input
-
-`$ARGUMENTS` may be:
-
-- a rough idea
-- a voice transcript
-- a ticket or issue description
-- a path to existing notes or an artifact
-
-If no input is provided, ask the user for a short description of the work before probing the repo.
-
-If the input names readable files, read them fully before framing the work. Do not edit source files during Stage 1.
-
-## Metadata
-
-```!
-node "${SKILL_DIR}/../_shared/now.mjs"
-echo
-node "${SKILL_DIR}/../_shared/git-context.mjs"
+```text
+<workstream-root>/<workstream-id>/
+  workstream.md
+  scope/<timestamp>_<topic>.md
 ```
 
-Copy values verbatim when writing the artifact. Do not reformat timezone offsets.
+The default workstream root is `.myflow/workstreams`; `.myflow/repository-map.md` may provide a repository-specific root and branch/worktree policy.
+
+A truly trivial, uninterrupted change may remain in conversation. It is not resumable. If it expands or pauses, create a lightweight plan before continuing.
 
 ## Flow
 
-1. Input → 2. Frame back → 3. Conversation tracks → 4. Minimum alignment → 5. Risk assessment → 6. Decision provenance → 7. Write artifact → 8. Observability checkpoint → 9. Chain to research → 10. Worktree & restart → 11. Present & chain
+1. Read repository context → 2. Frame the request → 3. Establish workstream and checkout path → 4. Align outcome and risk → 5. Select depth and specialists → 6. Write durable state → 7. Present the next action
 
-## Steps
+## 1. Read repository context
 
-### Step 1: Input Handling
+1. Start at the Git root. Read `.myflow/repository-map.md` if it exists, then follow its mapped operating instructions and artifact policy. If it is absent or stale for needed work, recommend `onboard`; do not invent repository policy.
+2. Read user-provided tickets, notes, or named files fully. Do not dispatch broad codebase agents by default.
+3. Ask for a short description when no usable input is provided.
 
-1. **No argument provided** — ask:
-   ```
-   What work should we scope? A rough idea, transcript, ticket, or note path is enough.
-   ```
-   Then wait.
+Scope may inspect a narrow source area only when it is necessary to classify material risk or choose a specialist. Deeper codebase, architecture, or external investigation belongs to the selected specialist.
 
-2. **Argument provided** — detect whether it contains paths:
-   - Read any mentioned file paths fully.
-   - Treat the rest as narrative context.
+## 2. Frame the request
 
-3. **Do not dispatch broad agents by default.** Stage 1 may inspect named files and lightweight repo guidance, but deeper codebase research belongs to `research`. Scope frames the work; research grounds it in code.
-
-### Step 2: Frame the Work Back
-
-Reflect the work in a compact block before asking detailed questions:
+Reflect the tentative understanding before detailed questions:
 
 ```markdown
-Here's what I think this is:
+Here is my current frame:
+- Outcome / beneficiary:
 - Work type:
-- Likely size:
-- Likely risk:
-- Why:
-- Things we may need to discuss:
+- Likely size and risk:
+- Known constraints:
+- What we still need to settle:
 ```
 
-Use tentative language. The developer can correct any part of the frame.
+Ask focused questions until the work has, at minimum:
 
-### Step 3: Offer Conversation Tracks
+- intent and beneficiary;
+- desired outcome and explicit non-goals;
+- concrete, outcome-level acceptance criteria;
+- constraints and material risks; and
+- enough information to choose a workflow depth and next action.
 
-Offer a short menu of useful tracks. The user controls whether to answer now, defer, authorize inference, or skip.
+Acceptance criteria must be observable but normally do not name files, test names, commands, or a technical design. Plan later owns those details in its verification map.
 
-Common tracks:
+## 3. Establish the workstream and checkout path
 
-- goals and non-goals
-- current friction or pain
-- acceptance criteria
-- risk and blast radius
-- artifact / handoff / restart needs
-- telemetry and replay needs
+Before writing a durable alignment artifact, establish a filesystem-safe **workstream ID**. Derive a concise kebab-case ID from the agreed topic, a ticket identifier, or an existing branch when unambiguous. Ask the developer only when it cannot be safely inferred. The ID is stable for the workstream; it is not necessarily the branch name.
 
-Ask one focused question at a time unless 2-4 independent details can be batched safely. When the question offers concrete choices, use the `ask_user_question` tool rather than a prose menu; lead with the recommended option when one exists and rely on the tool's automatic free-text escape hatch for corrections or combinations.
+Inspect the current branch, Git root, and repository-map branch/worktree policy. Present the applicable path:
 
-### Step 4: Minimum Alignment
+- **Isolated branch/worktree:** when repository policy permits and the developer chooses it, propose a branch such as `feature/<workstream-id>` and a worktree path. Create it before finalizing the durable artifact. Write `workstream.md` and the alignment artifact directly in that worktree; do not copy artifacts between checkouts.
+- **Current checkout / trunk:** when the repository uses trunk-based development, policy disallows branches, or the developer declines isolation, create the same workstream directory in the current checkout and record that choice.
 
-Before Stage 1 can finish, capture at least:
+Do not force a branch or worktree. Do not create one without confirmation. If a workstream directory already exists, read its manifest and resume or explicitly supersede it instead of silently creating a duplicate.
 
-- Intent — what problem is being solved, and for whom
-- Desired Outcome — what changes when this succeeds
-- Non-Goals — what is explicitly out of scope
-- Acceptance Criteria — concrete observable checks or outcomes
-- Risk Level — low, medium, or high
-- Risk Triggers — yes/no for each trigger below
-- Suggested Next Step — always `continue_to_research`
+Read `skills/myflow/templates/workstream.md` relative to this skill's sibling `myflow` skill before creating the manifest. The manifest is the directory index: keep its current stage, authoritative artifact, stage-progress table, branch/worktree, and next action current.
 
-Acceptance criteria must be concrete enough for later validation. Avoid vague statements like "works well" or "improves UX" without observable checks.
+## 4. Align outcome and risk
 
-### Step 5: Risk Assessment
+Use the following risk triggers visibly:
 
-Classify risk using exactly these triggers:
-
-1. **ambiguous_intent** — goal, user, success condition, or non-goals remain unclear.
-2. **architecture_impact** — changes boundaries, public APIs, persistent data, major abstractions, or cross-component flow.
-3. **external_dependency** — touches integrations, paid services, auth, deployment, data-loss risk, or third-party APIs.
-
-Risk assessment shapes the depth of the alignment artifact but does not change the next step: scope always chains to `research`. If intent remains fuzzy despite the alignment conversation, recommend `/skill:discover` for deeper requirements extraction before research.
-
-Low-risk work can complete Stage 1 with a compact artifact and acceptance criteria.
-
-### Step 6: Decision Provenance
+- `ambiguous_intent` — goal, beneficiary, success condition, or non-goals remain unclear.
+- `architecture_impact` — likely changes an interface or seam, public contract, persistence, major abstraction, or cross-module flow.
+- `external_dependency` — touches integration, auth, deployment, paid service, data-loss risk, or third-party API.
 
 Record meaningful decisions with provenance:
 
 ```markdown
-- decision: <decision>
+- decision: {decision}
   source: user_provided | agent_inferred | deferred | evidence_confirmed
-  rationale: <why>
-  affects: stage_selection | scope | acceptance_criteria | risk | implementation
+  rationale: {why}
+  affects: scope | acceptance_criteria | risk | stage_selection | implementation
 ```
 
-Do not silently turn an inference into a decision. If a decision matters, either confirm it with the user or mark it `agent_inferred` clearly.
+Unresolved material questions make the alignment artifact `blocked`; do not conceal them in prose.
 
-### Step 7: Write or Update the Alignment Artifact
+## 5. Select depth and specialists
 
-Read `templates/alignment.md` relative to this skill folder before writing. Use it as the artifact structure.
+Choose the smallest safe path with the developer:
 
-Include the Context Checkpoint and Rehydration Manifest sections in the alignment artifact, following the shared template at `skills/myflow/templates/stage-context-checkpoint.md`. The Context Checkpoint tracks in-progress alignment state; the Rehydration Manifest tells the next session what to re-read before research.
+| Path | Use when | Scope output / next action |
+|---|---|---|
+| Trivial, in-session | One reversible, known change; known validation; no new/changed interface, dependency, persistence, security, integration, or operational behavior; no expected interruption | State the outcome, acceptance check, and locked-into-existing-architecture conclusion in conversation. Implement directly only while uninterrupted. |
+| Lightweight | Low-risk but worthwhile work, likely to outlive this turn, or needing implementation authority | Write alignment artifact; next action is a lightweight Plan with a design disposition. |
+| Full | Uncertainty, multiple approaches, architectural impact, new pattern/dependency, multi-phase work, or meaningful external/operational risk | Write alignment artifact; select only needed specialists before a standalone Design and Plan. |
 
-Set the Rehydration Manifest's Next Command to `/skill:research <alignment-path>`.
+Select specialists by evidence rather than forcing a chain:
 
-Write the artifact to:
+- `discover` for unresolved requirements;
+- `research` for a specific codebase or external question;
+- `grill-with-docs` for a repository-scoped decision that may affect domain language or ADRs;
+- `prototype` for uncertain behavior or UI;
+- `domain-modeling` for unclear/changing terminology or boundaries;
+- `architecture-review` for a structural baseline/audit;
+- `improve-codebase-architecture` for a focused technical-debt/deepening workstream;
+- `wayfinder` for work too large to plan in one ordinary effort; or
+- `wizard` when required human-only setup is discovered.
 
-```text
-.myflow/artifacts/alignment/<timestamp>_<topic>.md
-```
+For lightweight work, record the expected Plan design disposition as `locked into existing architecture` or `localized design`. Scope does not settle code shape; it identifies why a full Design is or is not needed.
 
-Use the timestamp from the Metadata block. Use a short kebab-case topic slug.
+## 6. Write durable state
 
-If continuing an existing alignment artifact named by the user, update that artifact in place instead of creating a duplicate.
+For a non-trivial workstream:
 
-### Step 8: Stage Observability Checkpoint
+1. Read `templates/alignment.md` relative to this skill.
+2. Write or update `<workstream-root>/<workstream-id>/scope/<timestamp>_<topic>.md`.
+3. Fill the common checkpoint and rehydration information using `skills/myflow/templates/stage-context-checkpoint.md`.
+4. Update `workstream.md` so Scope is `ready` or `blocked`, it identifies the alignment artifact as authoritative, and it records the selected next action.
 
-Before presenting Stage 1 as complete, fill the artifact's `Replay / Telemetry` section as much as current tooling allows:
+The alignment artifact must include: intent, desired outcome, non-goals, acceptance criteria, risk level/triggers, classification, selected depth, decisions/provenance, open questions, selected specialists, and suggested next action.
 
-- `pi_session_id` / `telemetry_trace_id` / `conversation_log_ref` when available
-- `created_from_branch`
-- `created_worktree`, if created
-- `restart_recommended`
-- `next_session_expected_in`
+## 7. Present the handoff
 
-Also ensure the artifact visibly records the workflow signals needed to evaluate whether Stage 1 worked:
+Report:
 
-- final risk level and risk-trigger values
-- acceptance criteria count/quality
-- decisions with provenance
-- deferred questions
-- suggested next step and rationale
+- workstream ID and directory;
+- branch/worktree or trunk/current-checkout choice;
+- alignment artifact, if written;
+- risk triggers and selected depth;
+- the selected specialist or exact Plan command; and
+- whether a fresh session in the target worktree is recommended.
 
-Do not implement new telemetry events here. Full workflow event instrumentation is future work; this checkpoint preserves the shape and discipline now.
-
-### Step 9: Chain to Research
-
-Scope always chains to `research`. Set `Suggested Next Step` to `continue_to_research`. If the work is still fuzzy after scoping, recommend `/skill:discover` for deeper requirements before research — but scope itself does not perform deep requirements extraction.
-
-### Step 10: Worktree and Restart Offer
-
-At the end of Stage 1, inspect the current branch and repo root:
-
-```bash
-git branch --show-current
-git rev-parse --show-toplevel
-```
-
-Then derive and present:
-
-- topic slug
-- suggested branch name, usually `feature/<topic-slug>`
-- suggested worktree path
-- alignment artifact path
-- next-stage command
-
-If the user is on `main` or another shared branch, offer to set up an isolated worktree before research:
-
-```bash
-# Create worktree
-git worktree add -b feature/<topic-slug> <worktree-path>
-# Ensure artifact directory
-mkdir -p <worktree-path>/.myflow/artifacts/alignment/
-# Copy alignment artifact
-cp .myflow/artifacts/alignment/<timestamp>_<topic>.md <worktree-path>/.myflow/artifacts/alignment/
-```
-
-Recommend a fresh session inside the worktree and show the exact next-stage command.
-
-Stage boundaries should normally resume from artifacts, not `create-handoff` / `resume-handoff`. Handoffs remain available for unusual mid-stage interruption.
-
-### Step 11: Present and Chain
-
-Close with:
-
-```markdown
-Alignment artifact:
-`.myflow/artifacts/alignment/<timestamp>_<topic>.md`
-
-Risk: <low|medium|high>
-Risk triggers: ambiguous_intent=<yes/no>, architecture_impact=<yes/no>, external_dependency=<yes/no>
-Suggested next step: `continue_to_research`
-
-Suggested branch:
-`feature/<topic-slug>`
-
-Suggested worktree:
-`<path>`
-
-**Next step (Stage 1 continues):**
-`/skill:research .myflow/artifacts/alignment/<timestamp>_<topic>.md`
-```
-
-Recommend starting a fresh session for research. If the recommended next step is research (always), say so explicitly and include the expected directory.
-
----
-
-💬 Follow-up: re-run `/skill:scope <alignment-artifact-path>` to deepen the same artifact. Re-run `/skill:scope` for a fresh workstream.
-
-> 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
-
-## Artifact Requirements
-
-The artifact must include these headings:
-
-- Intent
-- Desired Outcome
-- Non-Goals
-- Risk Level
-- Risk Triggers
-- Acceptance Criteria
-- Decisions
-- Open Questions
-- Suggested Next Step
-- Replay / Telemetry
-
-Optional sections may be added when risk requires them.
+At a normal stage boundary, a fresh session reads `.myflow/repository-map.md`, `workstream.md`, and the authoritative alignment artifact. Use `create-handoff` only for an interruption inside Scope.
 
 ## Guardrails
 
-- Do not edit source files during Stage 1.
-- Do not perform deep requirements extraction — that's `discover`'s job. Scope frames the work and chains forward.
-- Do not create multiple Stage 1 artifacts for one workstream unless the user explicitly asks.
-- Do not treat handoffs as routine stage boundaries.
-- Do not skip acceptance criteria.
-- Do not bury risk-trigger decisions in prose; make them visible.
-- Scope always chains to `research`. There is no `implement_directly` shortcut from scope.
-
-## Follow-ups
-
-- To deepen alignment, re-run `/skill:scope <alignment-artifact-path>` and update the same artifact.
-- To extract deeper requirements when intent is still fuzzy, run `/skill:discover "[description]"`.
-- To research the codebase, run `/skill:research <alignment-path>`.
-- To design a solution, run `/skill:design <research-path>`.
-- Then run `/skill:plan <design-path>` to produce an implementation plan.
+- Do not edit product source code during Scope.
+- Do not require research, a standalone design, a branch, or a worktree merely by convention.
+- Do not silently create a new workstream when a matching one exists.
+- Do not allow a conversation-only trivial path to become a multi-session or multi-phase change; create a lightweight plan first.
+- Do not make an architecture assessment from a map or shallow file scan. Select `architecture-review` or another appropriate specialist when real assessment is needed.

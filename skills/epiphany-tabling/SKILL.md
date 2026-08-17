@@ -62,7 +62,7 @@ Tabled entries are processed at:
 - A **milestone close** — outstanding items worth keeping roll into the configured status/backlog location; completed/obsolete items are dropped. The tabled file ends each milestone empty — every entry must resolve to a destination (backlog, skill, runbook, memory) or be explicitly dropped. Zero entries is the only acceptable end state.
 - **Ad-hoc**, if the working file grows past a screen of content — that is a signal to process, not to let it sprawl.
 
-Each entry is processed into its probable destination (status/backlog, spec amendment, runbook, skill, memory entry, as-built adaptation, or conscious drop) and then **removed** from the tabled file. The file stays small; entries arrive, get processed, and leave.
+Each entry is processed into its probable destination (status/backlog, spec amendment, runbook, skill, memory entry, repository documentation, or conscious drop) and then **removed** from the tabled file. The file stays small; entries arrive, get processed, and leave.
 
 ## Related practices
 

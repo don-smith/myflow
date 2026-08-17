@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Create structured git commits by analyzing staged and unstaged changes and grouping them logically into one or more commits with clear, descriptive messages. Use when the user asks to commit, says "commit this" or "commit my changes", wants help writing a commit message, or has finished a chunk of work that needs committing.
+Create structured atomic commits. Use when the user asks to commit, or when Implement has completed a plan phase whose automated success criteria are green.
 argument-hint: [message]
 allowed-tools: Bash(git *), Read, Glob, Grep
 shell-timeout: 10
@@ -28,6 +28,19 @@ git log --pretty=%s -n 20 2>/dev/null || true
 - **In-session**: If there's conversation history, use it to understand what was built/changed
 - **Standalone**: If no context available, rely entirely on git state and file inspection
 
+## Plan-phase commits
+
+When `implement` invokes this skill immediately after a completed plan phase, the accepted plan pre-authorizes **one atomic commit for that phase**. The usual user-confirmation step is skipped only in this context:
+
+- verify the phase's automated success criteria and required checks are green;
+- stage only files assigned to that phase, never unrelated working-tree changes;
+- stop and surface the discrepancy if a changed file cannot be assigned to the phase, a required check failed, or a secret is suspected; and
+- infer a repository-style commit subject from the completed phase and its delivered behavior.
+
+Show the resulting commit hash and subject in the implementation checkpoint. Manual-verification criteria remain for Stage 4 and do not block the phase commit.
+
+For direct user invocations and Close's final closeout commit, retain the normal confirmation process below.
+
 ## Process:
 
 0. **Check git availability:**
@@ -47,12 +60,13 @@ git log --pretty=%s -n 20 2>/dev/null || true
    - Focus on why the changes were made, not just what
    - Check for sensitive information (API keys, credentials) before committing
 
-3. **Present your plan to the user:**
+3. **Confirm the commit plan unless this is a pre-authorized plan-phase commit:**
    - List the files you plan to add for each commit
    - Show the commit message(s) you'll use
-   - Use the `ask_user_question` tool to confirm the commit plan. Question: "{N} commit(s) with {M} files. Proceed?". Header: "Commit". Options: "Commit (Recommended)" (Create the commit(s) as planned); "Adjust" (Change the grouping or commit messages); "Review files" (Show me the full diff before committing).
+   - For a plan-phase commit meeting every condition above, proceed without a separate confirmation.
+   - Otherwise, use the `ask_user_question` tool to confirm the commit plan. Question: "{N} commit(s) with {M} files. Proceed?". Header: "Commit". Options: "Commit (Recommended)" (Create the commit(s) as planned); "Adjust" (Change the grouping or commit messages); "Review files" (Show me the full diff before committing).
 
-4. **Execute upon confirmation:**
+4. **Execute after confirmation, or directly for a pre-authorized plan-phase commit:**
    - Use `git add` with specific files (never use `-A` or `.`)
    - Create commits with your planned messages
    - Show the result with `git log --oneline -n X` (where X = number of commits you just created)

@@ -1,38 +1,142 @@
 ---
 name: tdd
-description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests.
+description: Use during design and planning to shape testable interfaces, seams, and verification strategy; use during implementation when a plan needs a test-first behavior cycle
 ---
 
 # Test-Driven Development
 
-TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
+TDD is a design practice with a testing side effect. A test is a small, executable design conversation: it describes the behavior a caller needs, exposes the interface and seam that behavior requires, and gives us a regression check once the design is implemented.
 
-When exploring the codebase, read `CONTEXT.md` (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.
+TDD is not the same as unit testing. Unit testing means having tests for a unit, regardless of when they were written. TDD means using a failing behavior example to design the interface and implementation before writing production code. The valuable result is a module with a small, useful interface, clear dependencies, and tests that exercise behavior rather than implementation details.
 
-## What a good test is
+## When to use this skill
 
-Tests verify behavior through public interfaces, not implementation details. Code can change entirely; tests shouldn't. A good test reads like a specification — "user can checkout with valid cart" tells you exactly what capability exists — and survives refactors because it doesn't care about internal structure.
+Use TDD primarily during **Design and Plan**:
 
-See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.
+- identify the public interfaces and seams for risk-bearing behavior;
+- decide which dependencies should be passed in rather than constructed internally;
+- choose the appropriate test level (unit, integration, contract, or end-to-end);
+- turn acceptance criteria into executable examples; and
+- record what is and is not covered by automated verification.
 
-## Seams — where tests go
+During **Implement**, follow the TDD decisions and verification map in the accepted plan. Invoke this skill again only when the plan has not specified a seam or behavior, or when implementation reveals that the planned interface is not workable. Do not reopen settled design merely to repeat the loop.
 
-A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
+TDD may be unnecessary for throwaway prototypes, generated code, and configuration-only changes. For legacy behavior, write a characterization or regression test at the best available public seam before changing it.
 
-**Test only at pre-agreed seams.** Before writing any test, write down the seams under test and confirm them with the user. No test is written at an unconfirmed seam. You can't test everything — agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
+When exploring a repository, read `CONTEXT.md` if it exists and respect applicable ADRs so the interface vocabulary, test locations, and dependency conventions match the codebase.
 
-Ask: "What's the public interface, and which seams should we test?"
+## Design the seam before the test
 
-When the shape of that interface is itself in question — how deep the module is, where the seam belongs, what the interface should expose — use the `/codebase-design` skill for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
+A **seam** is the interface where a test observes behavior without reaching inside the module. Tests and callers should cross the same seam.
 
-## Anti-patterns
+Before writing a test, record and, during collaborative planning, confirm:
 
-- **Implementation-coupled** — mocks internal collaborators, tests private methods, or verifies through a side channel (querying the database instead of using the interface). The tell: the test breaks when you refactor but behavior hasn't changed.
-- **Tautological** — the assertion recomputes the expected value the way the code does (`expect(add(a, b)).toBe(a + b)`, a snapshot derived by hand the same way, a constant asserted equal to itself), so it passes by construction and can never disagree with the code. Expected values must come from an independent source of truth — a known-good literal, a worked example, the spec.
-- **Horizontal slicing** — writing all tests first, then all implementation. Bulk tests verify _imagined_ behavior: you test the _shape_ of things rather than user-facing behavior, the tests go insensitive to real changes, and you commit to test structure before understanding the implementation. Work in **vertical slices** instead — one test → one implementation → repeat, each test a **tracer bullet** that responds to what the last cycle taught you.
+1. **Behavior** — what should a caller observe, using an acceptance criterion or independent example.
+2. **Interface** — the smallest useful public interface that can provide that behavior.
+3. **Dependencies** — what the implementation needs, and which of those should be supplied by the caller.
+4. **Test level** — the cheapest level that exercises the real behavior without hiding important integration.
 
-## Rules of the loop
+Use public interfaces, not private methods, internal collaborators, call counts, or side channels. If a test needs to reach inside, first ask whether the seam is in the wrong place or the module is too shallow. Use the `/codebase-design` vocabulary when the interface, depth, or seam is itself a design question.
 
-- **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
-- **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red → green implementation cycle.
+Prefer designs that:
+
+- accept dependencies through parameters, constructors, or factories rather than creating them internally;
+- return meaningful results rather than requiring tests to observe incidental side effects;
+- keep infrastructure behind an adapter at a deliberate seam; and
+- expose a small, deep interface that hides implementation complexity.
+
+A test that requires mocking an unrelated internal dependency is design feedback. Simplify the interface or move the seam before adding more test machinery.
+
+## The red → green loop
+
+Work in a vertical slice: one behavior, one failing test, one minimal implementation.
+
+### 1. Red — write the behavior first
+
+Write one clear test through the agreed public interface. Use a real example and an independent expected result. Name the behavior, not the implementation.
+
+```typescript
+test("returns the saved account by id", async () => {
+  const accounts = new InMemoryAccounts();
+  const service = new AccountService(accounts);
+
+  await service.save({ id: "a-1", name: "Ada" });
+
+  expect(await service.get("a-1")).toEqual({ id: "a-1", name: "Ada" });
+});
+```
+
+### 2. Verify red — observe the right failure
+
+Run the narrowest relevant test command. Confirm that it fails because the behavior is missing, not because of a typo, invalid setup, or broken test runner. A test that already passes is not a useful red step; revise it or choose the next missing behavior.
+
+Do not add a separate “break it on purpose” step. The intended behavior should be absent until the implementation is written, so the first execution supplies the necessary evidence.
+
+### 3. Green — implement only enough
+
+Write the smallest production change that makes the failing behavior pass. Pass dependencies into the code under test. Do not add speculative options, unrelated refactors, or test-only production methods.
+
+### 4. Verify green — run the narrow test, then the relevant suite
+
+Confirm the new test passes, then run the affected suite and the project checks required by the plan. If a test fails, fix the implementation or revisit the design; do not weaken the test to fit the code.
+
+### 5. Refine after green
+
+Remove duplication and improve names only while behavior remains green. Larger architectural refactors belong in the plan or review, not hidden inside a red → green cycle. Repeat with the next behavior.
+
+## Test doubles and infrastructure
+
+Prefer real implementations, simple fixtures, and in-memory adapters where they make the behavior clearer. A fake is acceptable when it is a small, meaningful adapter with behavior the test genuinely needs; do not build elaborate test-only worlds.
+
+Mocks are exceptional, not the default:
+
+- do not mock your own modules or internal collaborators merely to isolate a unit;
+- mock only a genuine system seam when using the real adapter would be unsafe, slow, nondeterministic, or outside the test's purpose;
+- prefer dependency injection over patching globals or intercepting internal calls; and
+- if a mock is necessary, understand the real dependency and model the complete data shape the code may consume.
+
+Integration tests with real components are often simpler and more trustworthy than a large collection of mocks. Test the behavior of the subject, never the behavior or existence of a mock. Read [mocking.md](mocking.md) and [testing-anti-patterns.md](testing-anti-patterns.md) before introducing a double.
+
+## Verification map: make tests visible
+
+Do not leave test intent buried in individual test files. During Design or Plan, add a concise verification map to the stage artifact or handoff:
+
+```markdown
+## Verification Map
+
+| Acceptance criterion | Observable behavior / seam | Test level | Test location or name | Status |
+|---|---|---|---|---|
+| Account can be retrieved after saving | `AccountService` public interface | integration | `account-service.test.ts`: returns the saved account | planned |
+
+### Explicitly not tested
+- Real database failover — covered by the database adapter's integration environment, not this change.
+```
+
+The map is a coverage summary, not a replacement for tests. It should make clear:
+
+- which acceptance criteria have automated evidence;
+- which test level and seam provide that evidence;
+- where a reviewer can find the evidence without reading every test; and
+- what is explicitly not tested, with a reason or a follow-up.
+
+Keep the map synchronized with the plan's success criteria as slices change. At handoff, include the test commands, changed test paths, current red/green evidence, and any uncovered criteria.
+
+## Quality gates
+
+Before a slice is complete:
+
+- [ ] The behavior and public seam were identified before implementation.
+- [ ] The test was written before the production behavior and failed for the expected reason.
+- [ ] The test asserts observable behavior with an independent expected result.
+- [ ] Dependencies are injected where doing so improves the seam; no unrelated internal dependency is mocked.
+- [ ] The smallest useful implementation passes the test.
+- [ ] The affected suite and required project checks pass.
+- [ ] The verification map records the acceptance-criterion coverage and explicit exclusions.
+
+Do not turn these gates into a demand for one unit test per function. Choose tests for meaningful behavior and risk. A well-designed integration test can be better evidence than many isolated tests.
+
+## References
+
+- [tests.md](tests.md) — examples of behavior-focused tests and tautological-test traps
+- [mocking.md](mocking.md) — dependency injection and system-boundary guidance
+- [testing-anti-patterns.md](testing-anti-patterns.md) — mock and test-only production-code anti-patterns

@@ -1,5 +1,7 @@
 # MyFlow Status
 
+> **Workflow-refactor status is maintained in [MyFlow workflow status and alignment](myflow-workflow-status-and-alignment.md).** The entries below are historical notes from the prior workflow model and are not the current skill map or alignment backlog.
+
 ## Recently Completed
 
 - **Stage 3 implementation refresh** (2026-06-29)

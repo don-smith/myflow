@@ -1,112 +1,123 @@
 ---
-date: {iso_timestamp}
-author: {author}
-commit: {commit}
-branch: {branch}
-repository: {repository}
-topic: "{topic}"
-status: ready
-risk_level: low | medium | high
-suggested_next_step: continue_to_research | continue_to_design | implement_directly | stop
-tags: [alignment, stage-1]
-last_updated: {iso_timestamp}
-last_updated_by: {author}
+kind: myflow-alignment
+workstream: "{workstream-id}"
+stage: Scope
+status: ready # in-progress | ready | blocked | complete | superseded
+created_at: {iso_timestamp}
+updated_at: {iso_timestamp}
+repository_map: .myflow/repository-map.md
+upstream: []
+related_artifacts:
+  - "{workstream-manifest-path}"
+planning_depth: lightweight # trivial-in-session | lightweight | full
+suggested_next_action: "{skill and artifact path}"
 ---
 
 # Alignment: {topic}
 
-## Intent
+## Intent and Beneficiary
 
-What problem are we solving, and for whom?
+{What problem are we solving, and for whom?}
 
 ## Desired Outcome
 
-What changes when this succeeds?
+{What changes when this succeeds?}
 
 ## Non-Goals
 
-What are we explicitly not doing?
-
-## Risk Level
-
-low | medium | high
-
-## Risk Triggers
-
-- ambiguous_intent: yes/no
-- architecture_impact: yes/no
-- external_dependency: yes/no
+- {Explicitly out of scope}
 
 ## Acceptance Criteria
 
-- [ ] Concrete observable check or outcome.
+- [ ] {Concrete, observable outcome-level check}
+
+## Classification and Risk
+
+- Work type: `{feature | defect | technical debt | operational | documentation | other}`
+- Risk level: `{low | medium | high}`
+- `ambiguous_intent`: `{yes | no}`
+- `architecture_impact`: `{yes | no}`
+- `external_dependency`: `{yes | no}`
+- Constraints: {relevant repository, delivery, or operational constraints}
+
+## Selected Workflow Depth
+
+`{lightweight | full}`
+
+Rationale: {why this depth fits; state why a standalone design is or is not expected.}
+
+## Selected Specialists
+
+- `{skill | none}` — {question it must answer and its expected return artifact/action}
 
 ## Decisions
 
 - decision: {decision}
   source: user_provided | agent_inferred | deferred | evidence_confirmed
   rationale: {why}
-  affects: stage_selection | scope | acceptance_criteria | risk | implementation
+  affects: scope | acceptance_criteria | risk | stage_selection | implementation
 
-## Open Questions
+## Open Questions and Blockers
 
-- question: {question}
-  status: answer_now | defer | infer | not_relevant
-  notes: {notes}
+- {question or blocker} — {owner / next action, or `None`}
 
-## Suggested Next Step
+## Suggested Next Action
 
-continue_to_research | continue_to_design | implement_directly | stop
+`{exact specialist or plan command}`
 
-Rationale: {why this is the right next step}
+Rationale: {why this is the next safe action}
 
-## Replay / Telemetry
+## Evidence and References
 
-- pi_session_id:
-- parent_session_id:
-- telemetry_trace_id:
-- conversation_log_ref:
-- created_from_branch:
-- created_worktree:
-- restart_recommended: yes/no
-- next_session_expected_in:
+- `{ticket, note, repository-map source, or narrow file inspected}` — {what it established}
 
 ## Context Checkpoint
 
-status: in-progress
+- Status: `{ready | blocked}`
+- Stage: `Scope`
+- Updated: `{iso_timestamp}`
 
 ### Completed
-- {Key decisions locked}
-- {Risk classification accepted}
+
+- {Alignment outcome, acceptance criteria, risk, and depth are settled}
+
+### Decisions
+
+- {Decision} — {outcome and source/evidence}
 
 ### Working Set
-- Files read: {ticket, input notes, repo guidance}
-- Key references: {artifact paths, doc links}
+
+- Current artifact: `{this alignment path}`
+- Relevant files / sources: `{paths and why they matter}`
+- Evidence and verification state: {what Scope observed; no implementation verification claimed}
+
+### Open Questions or Blockers
+
+- {Question or blocker} — {owner / next action, or `None`}
 
 ### Next Action
-- {e.g. "Begin research: /skill:research `<alignment-path>`"}
+
+{Single next safe action.}
 
 ---
 
 ## Rehydration Manifest
 
-### Artifacts to Read
-- `.myflow/artifacts/alignment/{timestamp}_{topic}.md` — full
+### Read First
 
-### Source Files to Read
-- (filled as needed during alignment)
+1. `.myflow/repository-map.md` — if present
+2. `{workstream-manifest path}` — full
+3. `{this alignment path}` — full
+4. `{selected specialist evidence, if any}`
 
-### Key Decisions
-- {Decision 1}: {verdict} — {evidence}
-- {Decision 2}: {verdict} — {evidence}
+### Verify Current State
+
+- `git status --short`
+
+### Key Decisions to Preserve
+
+- {Decision}: {outcome}
 
 ### Next Command
-`/skill:research .myflow/artifacts/alignment/{timestamp}_{topic}.md`
 
-## Future-Stage Carry-Forward
-
-Optional. Capture ideas that should inform later stages without expanding Stage 1 scope.
-
-## References
-
-- {input ticket, note, prior artifact, or repo file}
+`{exact selected specialist or plan command}`

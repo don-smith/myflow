@@ -46,9 +46,9 @@ When the second sighting arrives, match the learning to an artifact type:
 | A tactical, reusable how-to — the specific steps for doing one thing well (may include a script) | **Skill** | Project-local `.pi/skills/<name>/SKILL.md`, global `~/.pi/agent/skills/<name>/SKILL.md`, or an installed Pi package skill | Long — skills travel. |
 | A broader process or practice — often composing multiple skills, sometimes with its own scripts | **Runbook** | Configured runbook path: `node "${SKILL_DIR}/../_shared/repo-store.mjs" path runbooks` | Medium — check on use; runbooks rot fast. |
 | A recurring user preference, constraint, or project context to carry across sessions | **Memory entry** | Personal repo memory: `node "${SKILL_DIR}/../_shared/repo-store.mjs" state memory` | Long — until the context shifts. |
-| A permanent record of shipped work | **As-built** | Configured as-built path: `node "${SKILL_DIR}/../_shared/repo-store.mjs" path as_built` | Permanent — frozen. See the `as-built-documentation` skill. |
+| A permanent record of shipped work | **Repository documentation** | The repository's configured documentation location | Follow the repository's documentation policy; do not assume a universal document type. |
 
-**Skill vs runbook — working heuristic:** a **skill** is the tactical detail: how you do one specific thing (e.g. "epiphany-tabling," "as-built-documentation," "running a particular class of query"). A **runbook** is a broader process or practice that often orchestrates multiple skills (e.g. "onboard a new agent," "release a new image") and may also carry its own scripts. Both skills and runbooks can reference or invoke scripts; the difference is scope — tactical vs. procedural.
+**Skill vs runbook — working heuristic:** a **skill** is the tactical detail: how you do one specific thing (e.g. "epiphany-tabling," "repository documentation review," "running a particular class of query"). A **runbook** is a broader process or practice that often orchestrates multiple skills (e.g. "onboard a new agent," "release a new image") and may also carry its own scripts. Both skills and runbooks can reference or invoke scripts; the difference is scope — tactical vs. procedural.
 
 This heuristic is still being refined — we have a few of each to date and expect to recalibrate as the first runbook lands that clearly composes multiple skills. Rewrite is cheap; the important thing is to start putting these artifacts in place so the codebase becomes more navigable for AI agents and humans together.
 
@@ -71,4 +71,4 @@ Markdown sprawl is the failure mode. The inventory is the mitigation. Consolidat
 
 - `epiphany-tabling` — the source of most learnings this skill processes.
 - `writing-retros` — the milestone-level version of the end-of-artifact checkpoint.
-- `as-built-documentation` — the permanent artifact for a closed piece of work.
+- Repository documentation review — the permanent record for a closed piece of work, following that repository's own conventions.

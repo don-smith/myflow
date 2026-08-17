@@ -36,6 +36,11 @@ A lightweight backup for mid-stage pauses. Artifacts are the primary handoff mec
 
 ## Decisions
 - {Decision}: {verdict}
+
+## Verification snapshot
+- Acceptance criteria covered: {criterion → test path/name or verification command}
+- Explicitly not tested: {criterion/risk → reason or follow-up}
+- Current evidence: {last red/green result, suite, or manual check}
 ```
 
 3. **Present**:
