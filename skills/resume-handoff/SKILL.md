@@ -7,7 +7,7 @@ shell-timeout: 10
 
 # Resume Handoff
 
-Resume work from a lightweight handoff document. Artifacts are the primary handoff mechanism in MyFlow — use this only for mid-stage pauses.
+Resume work from a lightweight handoff document. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` first and read its selected map when found. Artifacts are the primary handoff mechanism in MyFlow — use this only for mid-stage pauses.
 
 ## Process
 

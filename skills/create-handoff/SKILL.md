@@ -8,11 +8,11 @@ shell-timeout: 10
 
 # Create Handoff
 
-A lightweight backup for mid-stage pauses. Artifacts are the primary handoff mechanism in MyFlow — use this only when you need to hand off between artifact boundaries.
+A lightweight backup for mid-stage pauses. First run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and record its selected map path. Artifacts are the primary handoff mechanism in MyFlow — use this only when you need to hand off between artifact boundaries.
 
 ## Process
 
-1. **Determine filepath**: `.myflow/artifacts/handoffs/<timestamp>_<slug>.md` using current time and a short kebab-case slug from `$ARGUMENTS`.
+1. **Determine filepath**: `<workstream-root>/<workstream-id>/handoffs/<timestamp>_<slug>.md` using current time and a short kebab-case slug from `$ARGUMENTS`.
 
 2. **Write the handoff**:
 

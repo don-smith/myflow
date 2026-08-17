@@ -7,7 +7,7 @@ shell-timeout: 10
 
 # Architecture Review
 
-You are tasked with conducting a layer-by-layer architecture review of a target module, producing a single living artifact that captures every triaged finding plus a phased polish plan downstream skills can consume.
+You are tasked with conducting a layer-by-layer architecture review of a target module, producing a single living artifact that captures every triaged finding plus a phased polish plan downstream skills can consume. First run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and use its selected map for repository policy and artifact placement.
 
 ## Input
 

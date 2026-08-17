@@ -9,7 +9,7 @@ Actively build and sharpen the project's domain model as you design. This is the
 
 ## Repository sources
 
-Read `.myflow/repository-map.md` first when it exists. Use its mapped glossary, context-map, and ADR sources rather than assuming `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`.
+Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` first and read its selected `repository-map.md` when found. Use its mapped glossary, context-map, and ADR sources rather than assuming `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`.
 
 If the map is absent or does not name a relevant source, inspect the repository's existing guidance and ask before creating a glossary or ADR location. Record the missing mapping for `onboard` to refresh. Create a source lazily only after the developer confirms its location and there is a resolved term or qualifying decision to record.
 
