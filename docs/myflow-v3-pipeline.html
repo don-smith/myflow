@@ -3,220 +3,254 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>myflow v3 — 5-Stage Pipeline</title>
+  <title>MyFlow v3 — Artifact-Led 5-Stage Workflow</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { min-height: 100vh; }
+    :root {
+      color-scheme: dark;
+      --page: #0f172a;
+      --surface: #111c32;
+      --line: #263550;
+      --text: #e2e8f0;
+      --muted: #9aaac0;
+      --scope: #a5b4fc;
+      --plan: #c4b5fd;
+      --implement: #6ee7b7;
+      --verify: #fbbf24;
+      --close: #f9a8d4;
+    }
 
+    * { box-sizing: border-box; }
+    html { background: var(--page); }
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      line-height: 1.6;
-      padding: 2rem;
-      max-width: 900px;
+      max-width: 1040px;
       margin: 0 auto;
+      padding: 2rem;
+      background: var(--page);
+      color: var(--text);
+      font: 15px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    h2 { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.25rem; color: #f1f5f9; }
-    h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
-    .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.95rem; }
-    .section { margin-bottom: 2rem; }
-    .label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; padding: 2px 8px; border-radius: 4px; }
-
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: .2rem; font-size: clamp(1.7rem, 4vw, 2.25rem); }
+    h2 { margin-bottom: .5rem; font-size: 1.25rem; }
+    h3 { margin-bottom: .35rem; font-size: 1rem; }
+    a { color: #a5b4fc; }
     code {
-      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, monospace;
+      padding: .1rem .35rem;
+      border-radius: .28rem;
+      background: #1e293b;
+      color: #dbeafe;
+      font: .88em "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      white-space: nowrap;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
+    .subtitle { color: var(--muted); margin-bottom: 1.4rem; }
+    .intro, .stage, .practice, .note, .reference {
+      border: 1px solid var(--line);
+      border-radius: .75rem;
+      background: var(--surface);
     }
-    th { text-align: left; padding: 6px 10px; color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; }
-    td { padding: 6px 10px; font-size: 0.85rem; border-top: 1px solid #1e293b; }
+    .intro { padding: 1rem 1.15rem; margin-bottom: 1rem; }
+    .intro p:last-child { margin-bottom: 0; }
+    .badge {
+      display: inline-block;
+      margin: 0 .25rem .25rem 0;
+      padding: .12rem .45rem;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      font-size: .76rem;
+      font-weight: 650;
+      letter-spacing: .02em;
+    }
+    .muted { color: var(--muted); }
+
+    .onboard {
+      margin: 1rem 0;
+      padding: .8rem 1rem;
+      border-left: 3px solid #60a5fa;
+      border-radius: .4rem;
+      background: #12213b;
+    }
+    .onboard p { margin: .25rem 0 0; color: var(--muted); font-size: .9rem; }
+
+    .pipeline { display: grid; gap: .45rem; }
+    .stage {
+      padding: 1rem 1.1rem;
+      border-left: 4px solid var(--accent);
+    }
+    .stage-head {
+      display: flex;
+      gap: .75rem;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .stage-title { color: var(--accent); margin: 0; }
+    .stage-role { color: var(--muted); font-size: .85rem; }
+    .stage p { margin: .45rem 0; }
+    .details { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem 1.25rem; margin-top: .55rem; }
+    .details div { font-size: .88rem; }
+    .details strong { color: #cbd5e1; }
+    .handoff { padding-left: 1.2rem; color: #64748b; font-size: .82rem; }
+
+    .section { margin-top: 1.65rem; }
+    .practices { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; }
+    .practice { padding: .85rem .95rem; }
+    .practice p { margin: .3rem 0 0; color: var(--muted); font-size: .86rem; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .87rem; }
+    th, td { padding: .6rem .7rem; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; }
+    .note { padding: .9rem 1rem; color: var(--muted); font-size: .88rem; }
+    .note p:last-child { margin-bottom: 0; }
+    .reference { margin-top: 1rem; padding: .8rem 1rem; color: var(--muted); font-size: .85rem; }
+    .reference p { margin: 0; }
+
+    @media (max-width: 720px) {
+      body { padding: 1rem; }
+      .details, .practices { grid-template-columns: 1fr; }
+      th, td { padding: .5rem; }
+    }
   </style>
 </head>
 <body>
+  <h1>MyFlow v3 — Artifact-Led 5-Stage Workflow</h1>
+  <p class="subtitle">Right-sized, resumable AI-assisted development: Scope → Plan → Implement → Verify → Close.</p>
 
-<h2>myflow v3 — 5-Stage Pipeline</h2>
-<p class="subtitle">One clear path. Each stage produces an artifact consumed by the next. Cross-cutting practices run alongside.</p>
-
-<div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; font-size: 13px; line-height: 1.7;">
-
-  <!-- Stage 1 -->
-  <div style="border-left: 3px solid #818cf8; padding-left: 12px; margin-bottom: 0;">
-    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #a5b4fc;">1. Scope</h3>
-      <span class="label" style="background: #312e81; color: #a5b4fc;">shaping</span>
-    </div>
-    <div style="margin-top: 8px;">
-      <span class="label" style="background: #3730a3; color: #a5b4fc; font-size: 10px;">primary</span>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #312e81; color: #c7d2fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">scope</code>
-        <code style="background: #312e81; color: #c7d2fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">research</code>
-      </div>
-    </div>
-    <div style="margin-top: 6px;">
-      <span class="label" style="background: #3730a3; color: #a5b4fc; font-size: 10px;">supporting</span>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #312e81; color: #c7d2fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">discover</code>
-      </div>
-    </div>
-    <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-      <strong>Typical flow:</strong> <code>scope</code> → alignment artifact → <code>research</code> → research artifact. Use <code>discover</code> when work is still fuzzy after scoping.<br>
-      <strong>Artifacts:</strong> <code>.myflow/artifacts/alignment/</code> + <code>.myflow/artifacts/research/</code><br>
-      <strong>Checkpoint:</strong> capturing-learnings after each artifact is accepted
-    </div>
+  <div class="intro">
+    <p><strong>One canonical orchestrator per stage.</strong> A stage artifact records the decision or evidence that the next stage needs; it does not replace upstream records. The workflow adapts to risk: a truly trivial, uninterrupted change may stay in conversation, while durable work uses a workstream.</p>
+    <span class="badge" style="color:#a5b4fc">collaborate: Scope &amp; Plan</span>
+    <span class="badge" style="color:#6ee7b7">autonomous: Implement</span>
+    <span class="badge" style="color:#fbbf24">evidence-led: Verify</span>
+    <span class="badge" style="color:#f9a8d4">collaborate: Close</span>
   </div>
 
-  <div style="text-align: center; padding: 3px 0; color: #6366f1; font-size: 16px;">▼ artifact handoff ▼</div>
-
-  <!-- Stage 2 -->
-  <div style="border-left: 3px solid #a78bfa; padding-left: 12px; margin-bottom: 0;">
-    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #c4b5fd;">2. Plan</h3>
-      <span class="label" style="background: #4c1d95; color: #c4b5fd;">deciding</span>
-    </div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">
-      <code style="background: #4c1d95; color: #ddd6fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">design</code>
-      <code style="background: #4c1d95; color: #ddd6fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">architecture-review</code>
-      <code style="background: #4c1d95; color: #ddd6fe; padding: 2px 8px; border-radius: 4px; font-size: 12px;">plan</code>
-    </div>
-    <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-      <strong>Path:</strong> <code>design</code> → <code>plan</code> (with <code>architecture-review</code> feeding design when a structural audit is needed)<br>
-      <strong>Artifacts:</strong> <code>.myflow/artifacts/designs/</code> + <code>.myflow/artifacts/plans/</code> (canonical — implement consumes this)<br>
-      <strong>Checkpoint:</strong> capturing-learnings after plan is accepted<br>
-      <span style="color: #f59e0b;">●</span> epiphany-tabling active
-    </div>
+  <div class="onboard">
+    <strong style="color:#93c5fd">Before a repository when needed — <code>onboard</code></strong>
+    <p>Resolve the repository map and record repository-specific instructions, checks, documentation, retention, and delivery policy. Onboarding is a repository capability, not a sixth workstream stage.</p>
   </div>
 
-  <div style="text-align: center; padding: 3px 0; color: #6366f1; font-size: 16px;">▼ artifact handoff ▼</div>
-
-  <!-- Stage 3 -->
-  <div style="border-left: 3px solid #34d399; padding-left: 12px; margin-bottom: 0;">
-    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #6ee7b7;">3. Implement</h3>
-      <span class="label" style="background: #064e3b; color: #6ee7b7;">building</span>
-    </div>
-    <div style="margin-top: 8px;">
-      <span class="label" style="background: #065f46; color: #6ee7b7; font-size: 10px;">primary</span>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">implement</code>
+  <main class="pipeline" aria-label="MyFlow stages">
+    <section class="stage" style="--accent:var(--scope)">
+      <div class="stage-head">
+        <h2 class="stage-title">1. Scope — <code>scope</code></h2>
+        <span class="stage-role">collaboratively establish the outcome and right-sized path</span>
       </div>
-    </div>
-    <div style="margin-top: 6px;">
-      <span class="label" style="background: #065f46; color: #6ee7b7; font-size: 10px;">supporting tactics (inside implement)</span>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">tdd</code>
-        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">implementation-coder</code>
-        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">dispatching-parallel-agents</code>
-        <code style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 12px;">verification-before-completion</code>
+      <p>Set intent, non-goals, observable acceptance criteria, constraints, risk, workflow depth, and the next specialist or planning action. Scope establishes the workstream ID and offers the repository's permitted worktree or trunk path.</p>
+      <div class="details">
+        <div><strong>Optional specialists:</strong> <code>discover</code>, <code>research</code>, <code>grill-with-docs</code>, <code>prototype</code>, <code>domain-modeling</code>, <code>architecture-review</code>, <code>improve-codebase-architecture</code>, <code>wayfinder</code>, <code>wizard</code></div>
+        <div><strong>Output:</strong> <code>workstream.md</code> and an alignment artifact; focused research, when selected, is supporting evidence.</div>
       </div>
-    </div>
-    <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-      <strong>Primary:</strong> <code>implement</code> executes the plan phase by phase<br>
-      <strong>Inner loop:</strong> TDD · implementation subagents · parallel dispatch (inside each phase)<br>
-      <strong>Artifact:</strong> Working tree changes + plan verification checkboxes<br>
-      <span style="color: #f59e0b;">●</span> epiphany-tabling active; create-handoff / resume-handoff as needed
-    </div>
-  </div>
+      <p class="muted"><strong>Default paths:</strong> <code>.myflow/workstreams/&lt;workstream-id&gt;/workstream.md</code>, <code>scope/</code>, and (when used) <code>research/</code>.</p>
+    </section>
 
-  <div style="text-align: center; padding: 3px 0; color: #6366f1; font-size: 16px;">▼ artifact handoff ▼</div>
+    <div class="handoff">▼ ready Scope artifact and selected evidence</div>
 
-  <!-- Stage 4 -->
-  <div style="border-left: 3px solid #f59e0b; padding-left: 12px; margin-bottom: 0;">
-    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #fbbf24;">4. Review</h3>
-      <span class="label" style="background: #78350f; color: #fbbf24;">verifying</span>
-    </div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">
-      <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">validate</code>
-      <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">manual-verification</code>
-      <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">code-review</code>
-      <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">receiving-code-review</code>
-      <code style="background: #78350f; color: #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 12px;">revise</code>
-    </div>
-    <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-      <strong>Artifact:</strong> Validation report + Manual Verification + Review (<code>.myflow/artifacts/validation/</code> + <code>.myflow/artifacts/reviews/</code>)<br>
-      <strong>Gate:</strong> <code>code-review</code> loops until zero blockers (max 3 passes). Covers quality, security, and dependencies.<br>
-      <strong>Checkpoint:</strong> capturing-learnings after validate + review pass
-    </div>
-  </div>
-
-  <div style="text-align: center; padding: 3px 0; color: #6366f1; font-size: 16px;">▼ artifact handoff ▼</div>
-
-  <!-- Stage 5 -->
-  <div style="border-left: 3px solid #f472b6; padding-left: 12px;">
-    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-      <h3 style="margin: 0; color: #f9a8d4;">5. Close</h3>
-      <span class="label" style="background: #831843; color: #f9a8d4;">closing</span>
-    </div>
-
-    <div style="margin-top: 8px;">
-      <span class="label" style="background: #4a1942; color: #f9a8d4; font-size: 10px;">group 1 · commit &amp; document</span>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">commit</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">as-built-documentation</code>
+    <section class="stage" style="--accent:var(--plan)">
+      <div class="stage-head">
+        <h2 class="stage-title">2. Plan — <code>plan</code></h2>
+        <span class="stage-role">collaboratively make implementation executable</span>
       </div>
-    </div>
-
-    <div style="margin-top: 8px;">
-      <span class="label" style="background: #4a1942; color: #f9a8d4; font-size: 10px;">group 2 · reflect &amp; reconcile</span>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">writing-retros</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">capturing-learnings</code>
+      <p>Produce the accepted implementation authority: phases, a verification map, commit boundaries, manual checks, delivery constraints, and rehydration information. Every executable plan declares its design disposition.</p>
+      <div class="details">
+        <div><strong>Design when justified:</strong> <code>design</code> resolves material structural decisions. Use <code>tdd</code>, <code>codebase-design</code>, <code>architecture-review</code>, <code>domain-modeling</code>, or <code>prototype</code> only when the work needs them.</div>
+        <div><strong>Output:</strong> a lightweight or full executable plan; a standalone design artifact only for structural design.</div>
       </div>
-    </div>
+      <p class="muted"><strong>Default paths:</strong> <code>plan/</code>; structural work also uses <code>design/</code>. Design dispositions: locked into existing architecture · localized design · structural design required.</p>
+    </section>
 
-    <div style="margin-top: 8px;">
-      <span class="label" style="background: #4a1942; color: #f9a8d4; font-size: 10px;">group 3 · update &amp; integrate</span>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0;">
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">doc / knowledge-graph review</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">AGENTS.md updates</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">memory reconcile</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">status review</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">resolve tabled items</code>
-        <code style="background: #831843; color: #fce7f3; padding: 2px 8px; border-radius: 4px; font-size: 12px;">integrate</code>
+    <div class="handoff">▼ accepted, ready plan — start a fresh implementation session</div>
+
+    <section class="stage" style="--accent:var(--implement)">
+      <div class="stage-head">
+        <h2 class="stage-title">3. Implement — <code>implement</code></h2>
+        <span class="stage-role">autonomously execute accepted plan phases</span>
       </div>
-    </div>
+      <p>Work phase by phase against the plan's test-first seam and required checks. After each green phase, create one atomic phase commit with <code>commit</code>; update the implementation checkpoint with evidence, commit hash, deviations, and outstanding manual verification.</p>
+      <div class="details">
+        <div><strong>Use as needed:</strong> <code>tdd</code> for an uncovered behavior or design gap; <code>diagnosing-bugs</code> for evidence-first failure investigation; <code>resolving-merge-conflicts</code> for an in-progress Git recovery.</div>
+        <div><strong>Output:</strong> completed plan state or implementation checkpoint, green phase commits, and the working tree.</div>
+      </div>
+      <p class="muted"><strong>Handoff:</strong> the plan/checkpoint and phase commits become Verify's input. Code review is not an implementation gate.</p>
+    </section>
 
-    <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
-      <strong>Artifacts:</strong> <code>docs/changes/</code> · <code>docs/retros/</code> · <code>docs/memory/</code> · <code>docs/status.md</code> · git commits
-    </div>
-  </div>
+    <div class="handoff">▼ implementation evidence and final green phase commit</div>
 
-</div>
+    <section class="stage" style="--accent:var(--verify)">
+      <div class="stage-head">
+        <h2 class="stage-title">4. Verify — <code>validate</code></h2>
+        <span class="stage-role">independently validate execution against the plan</span>
+      </div>
+      <p>Run the plan's automated checks, inspect completed phases and acceptance-criterion coverage, and invoke <code>code-review</code> against the implementation range and accepted plan. Prepare a manual-verification brief only for human-facing, external, or non-automatable checks.</p>
+      <div class="details">
+        <div><strong>Output:</strong> a validation report with verdict, automated evidence, separate Standards and Spec review evidence, deviations, exclusions, and any manual brief.</div>
+        <div><strong>Correction loops:</strong> implementation defect → Implement; incorrect plan → Plan; changed architecture → Design; changed outcome or acceptance criteria → Scope.</div>
+      </div>
+      <p class="muted"><strong>Default path:</strong> <code>.myflow/workstreams/&lt;workstream-id&gt;/verify/</code>. A passing report hands off to Close; a failing report names its owning corrective stage.</p>
+    </section>
 
-<div class="section" style="margin-top: 16px;">
-  <h3>Cross-Cutting Practices</h3>
-  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #818cf8;">
-      <span class="label">epiphany-tabling</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Active during <strong>stages 2–4</strong>. Anything not trivially in-scope → personal repo tabled file. Resolve in stage 5 group 3.</p>
-    </div>
-    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #a78bfa;">
-      <span class="label">capturing-learnings</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Checkpoint after <strong>stages 1, 2, 4, 5</strong>. Once is a moment; twice is a pattern. Promote twice-seen patterns to skills/memory/runbooks.</p>
-    </div>
-    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #34d399;">
-      <span class="label">verification-before-completion</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Before any completion claim — run the verification command fresh, read output, cite evidence. No shortcuts.</p>
-    </div>
-    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #f59e0b;">
-      <span class="label">stage-boundary restarts</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Fresh sessions expected at <strong>each stage boundary</strong>. Artifacts are the primary handoff mechanism. Resume from artifact path + recommended next-stage command.</p>
-    </div>
-    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #f472b6;">
-      <span class="label">create / resume handoff</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Backup for <strong>mid-stage pauses</strong>. Artifacts are the primary handoff. Use create/resume only when context is high and you must stop mid-stage.</p>
-    </div>
-    <div style="background: #1e293b; border-radius: 8px; padding: 10px; border-left: 3px solid #6366f1;">
-      <span class="label">telemetry &amp; replay checkpoints</span>
-      <p style="font-size: 12px; margin: 4px 0 0 0;">Every stage artifact carries a <strong>Context Checkpoint</strong> (in-progress state) and a <strong>Rehydration Manifest</strong> (finalized handoff). Artifacts are self-contained.</p>
-    </div>
-  </div>
-</div>
+    <div class="handoff">▼ passing validation report and any required human evidence</div>
 
+    <section class="stage" style="--accent:var(--close)">
+      <div class="stage-head">
+        <h2 class="stage-title">5. Close — <code>close</code></h2>
+        <span class="stage-role">collaboratively deliver, preserve continuity, and leave no unowned follow-up</span>
+      </div>
+      <p>Use Verify evidence and repository policy to choose only applicable documentation, status, learning, retrospective, changelog, and delivery actions. Record every unresolved follow-up with a destination; do not force ceremonial closeout work.</p>
+      <div class="details">
+        <div><strong>Optional closeout skills:</strong> <code>capturing-learnings</code>, <code>writing-retros</code>, <code>changelog</code>, and <code>commit</code> for a distinct, developer-approved final closeout commit.</div>
+        <div><strong>Output:</strong> repository-specific closeout updates and, when decisions, manual evidence, or follow-ups must persist, a resumable closeout summary.</div>
+      </div>
+      <p class="muted"><strong>Default path:</strong> <code>.myflow/workstreams/&lt;workstream-id&gt;/close/</code>. Delivery (push, merge, PR, retain branch, or defer) is recorded with the developer rather than inferred.</p>
+    </section>
+  </main>
+
+  <section class="section">
+    <h2>Workstream artifact layout</h2>
+    <div class="note">
+      <p>New durable work uses one local workstream directory. The resolver-selected repository map can override these defaults; existing flat <code>.myflow/artifacts/</code> directories are legacy and are not bulk-migrated.</p>
+    </div>
+    <table>
+      <thead><tr><th>Purpose</th><th>Default location</th><th>When present</th></tr></thead>
+      <tbody>
+        <tr><td>Manifest</td><td><code>&lt;root&gt;/&lt;id&gt;/workstream.md</code></td><td>Every durable workstream</td></tr>
+        <tr><td>Scope and research</td><td><code>&lt;root&gt;/&lt;id&gt;/scope/</code>, <code>research/</code></td><td>Alignment always for non-trivial work; research when selected</td></tr>
+        <tr><td>Plan and design</td><td><code>&lt;root&gt;/&lt;id&gt;/plan/</code>, <code>design/</code></td><td>Plan for every non-trivial workstream; design when structural</td></tr>
+        <tr><td>Verification and closeout</td><td><code>&lt;root&gt;/&lt;id&gt;/verify/</code>, <code>close/</code></td><td>Verify report; closeout summary when persistence is useful</td></tr>
+        <tr><td>Exceptional pause</td><td><code>&lt;root&gt;/&lt;id&gt;/handoffs/</code></td><td>Only for an interruption inside a stage or phase</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="font-size:.85rem; margin:.55rem 0 0">Default <code>&lt;root&gt;</code>: <code>.myflow/workstreams</code>. Run-specific files normally use <code>&lt;timestamp&gt;_&lt;topic&gt;.md</code>.</p>
+  </section>
+
+  <section class="section">
+    <h2>Cross-cutting practices</h2>
+    <div class="practices">
+      <div class="practice"><h3><code>create-handoff</code> / <code>resume-handoff</code></h3><p>Artifacts are the normal stage handoff. Use this pair only for a mid-stage or mid-phase interruption; the handoff points back to the authoritative artifact.</p></div>
+      <div class="practice"><h3><code>epiphany-tabling</code></h3><p>Preserve an out-of-scope observation without expanding the current work. Route it at the next checkpoint to a new Scope, mapped backlog, learning artifact, or deliberate drop.</p></div>
+      <div class="practice"><h3><code>capturing-learnings</code></h3><p>At a useful artifact checkpoint, decide whether evidence merits a skill, runbook, repository record, backlog item, or no preservation.</p></div>
+      <div class="practice"><h3>Fresh stage boundaries</h3><p>A new session resolves the repository map, then reads <code>workstream.md</code>, the authoritative artifact, linked evidence, and current Git state.</p></div>
+      <div class="practice"><h3>Repository policy wins</h3><p>The repository map governs paths, instructions, checks, documentation, retention, and delivery. MyFlow defaults are fallbacks, not local policy.</p></div>
+      <div class="practice"><h3>Correction ownership</h3><p>Return a finding to the stage that owns its decision; re-run downstream verification after the correction rather than masking a change in a later stage.</p></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Supporting skill families</h2>
+    <table>
+      <thead><tr><th>Need</th><th>Skills</th></tr></thead>
+      <tbody>
+        <tr><td>Workflow navigation and repository readiness</td><td><code>myflow</code>, <code>onboard</code></td></tr>
+        <tr><td>Decision and requirements work</td><td><code>grilling</code>, <code>grill-me</code>, <code>grill-with-docs</code>, <code>discover</code>, <code>research</code>, <code>prototype</code>, <code>wayfinder</code>, <code>wizard</code></td></tr>
+        <tr><td>Architecture and design</td><td><code>design</code>, <code>domain-modeling</code>, <code>codebase-design</code>, <code>architecture-review</code>, <code>improve-codebase-architecture</code>, <code>tdd</code></td></tr>
+        <tr><td>Build, recovery, and quality</td><td><code>implement</code>, <code>commit</code>, <code>diagnosing-bugs</code>, <code>resolving-merge-conflicts</code>, <code>validate</code>, <code>code-review</code></td></tr>
+        <tr><td>Closeout and package maintenance</td><td><code>close</code>, <code>changelog</code>, <code>writing-retros</code>, <code>writing-skills</code>, <code>setup-pre-commit</code>, <code>setup-ts-deep-modules</code>, <code>langfuse</code>, <code>wait-what</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer class="reference">
+    <p>Canonical detail: <a href="artifact-and-stage-boundary-contract.md">artifact and stage-boundary contract</a> · <a href="myflow-workflow-status-and-alignment.md">workflow status and alignment</a>. The <code>myflow</code> skill is the navigation layer; it is not a competing pipeline stage.</p>
+  </footer>
 </body>
 </html>
