@@ -19,6 +19,13 @@ test("Implement records resolver-aware phase checkpoints before Verify", async (
   }
 });
 
+test("MyFlow skills resolve repository maps from their installed package", async () => {
+  const implement = await read("skills/implement/SKILL.md");
+
+  assert.doesNotMatch(implement, /node skills\/myflow\/scripts\/resolve-repository-map\.mjs/);
+  assert.match(implement, /installed MyFlow package/i);
+});
+
 test("Validate consumes workstream evidence and writes one complete Verify report", async () => {
   const [validate, template, review] = await Promise.all([
     read("skills/validate/SKILL.md"),

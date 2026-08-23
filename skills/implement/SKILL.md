@@ -11,7 +11,7 @@ Execute only an accepted plan. Work autonomously through every phase unless evid
 
 ## Rehydrate
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`; read the selected map when found.
+1. Run the resolver from the installed MyFlow package, not from the target checkout: `node <myflow-package-root>/skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`. Derive `<myflow-package-root>` from this loaded skill's absolute location (the directory above `skills/`); read the selected map when found.
 2. Read the accepted plan, `workstream.md`, linked design/specialist evidence, and `git status --short`.
 3. Confirm the plan is `ready`, identify the first incomplete phase, and record the resolver-selected map path in the implementation checkpoint.
 
