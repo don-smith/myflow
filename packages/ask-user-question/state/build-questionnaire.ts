@@ -75,6 +75,11 @@ function multiSelectBodyHeights(view: MultiSelectView): (width: number) => TabBo
 const isActiveTab: PerTabSelector<boolean> = (s, ctx) =>
 	ctx.i === selectActivePreviewPaneIndex(s.currentTab, ctx.totalQuestions);
 
+// The questionnaire shares the normal Pi layout with the transcript and footer.
+// Keep enough rows outside the component to show the tail of the agent message
+// that prompted the question.
+export const TRANSCRIPT_RESERVE_ROWS = 6;
+
 /**
  * Pure factory: assembles every TUI component, the props adapter, and a
  * lifecycle handle. Session-state dependencies arrive via `getCurrentTab` and
@@ -106,7 +111,7 @@ class QuestionnaireBuilder {
 	private readonly notesInput = new Input();
 	private readonly inlineInput = new Input();
 	private readonly getTerminalWidth = () => this.tui.terminal.columns;
-	private readonly getTerminalRows = () => this.tui.terminal.rows;
+	private readonly getTerminalRows = () => Math.max(1, this.tui.terminal.rows - TRANSCRIPT_RESERVE_ROWS);
 
 	constructor(config: QuestionnaireBuildConfig) {
 		this.tui = config.tui;

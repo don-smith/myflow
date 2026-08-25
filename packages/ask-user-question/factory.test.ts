@@ -101,6 +101,28 @@ describe("ask_user_question — factory driver (real pi-tui keybindings)", () =>
 		await tool.execute?.("tc", threeOptionParams as never, undefined as never, undefined as never, ctx);
 	});
 
+	it("caps a tall questionnaire so the transcript tail stays visible", async () => {
+		const tool = register();
+		const tallParams = {
+			questions: [
+				{
+					question: "Pick one",
+					header: "Choice",
+					options: [
+						{ label: "Alpha", preview: Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n") },
+						{ label: "Beta" },
+					],
+				},
+			],
+		};
+		const { custom } = driveCustom((c, done) => {
+			expect(c.render(80).length).toBeLessThanOrEqual(18);
+			done({ answers: [], cancelled: true });
+		});
+		const ctx = { hasUI: true, ui: { custom } } as never;
+		await tool.execute?.("tc", tallParams as never, undefined as never, undefined as never, ctx);
+	});
+
 	it("Esc cancels → returns decline envelope with cancelled=true", async () => {
 		const tool = register();
 		const { custom } = driveCustom((c) => {
@@ -169,8 +191,7 @@ describe("ask_user_question — factory driver (real pi-tui keybindings)", () =>
 		const ctx = { hasUI: true, ui: { custom } } as never;
 		await tool.execute?.("tc", threeOptionParams as never, undefined as never, undefined as never, ctx);
 
-		// Collapse shrinks the entire dialog to one row — pi-tui sizes the overlay to
-		// `min(lines.length, maxHeight)`, so a 1-line render frees the transcript above.
+		// Collapse shrinks the custom editor component to one row, freeing the transcript above.
 		expect(collapsedLines).toHaveLength(1);
 		expect(collapsedLines[0]).toContain("Ctrl+] to expand");
 		expect(collapsedLines[0]).toContain("Esc to cancel");

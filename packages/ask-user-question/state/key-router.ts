@@ -149,24 +149,15 @@ function prevNavOnUp(state: QuestionnaireState, runtime: QuestionnaireRuntime): 
 export function routeKey(data: string, state: QuestionnaireState, runtime: QuestionnaireRuntime): QuestionnaireAction {
 	const kb = runtime.keybindings;
 
-	// Collapse/expand toggle is a UI-level affordance — intercepted at the top so it
-	// works from every inner state (notes, inputMode, chat, submit tab, multi-select)
-	// without reaching any branch that would otherwise consume the keystroke. The
-	// questionnaire stays in pi-tui's overlay stack with focus while collapsed, so the
-	// expand key never falls through to a lower overlay (e.g. `/btw`) — that's why we
-	// toggle state instead of calling `OverlayHandle.setHidden(true)`.
+	// Collapse/expand is intercepted first so it works from notes, inline input,
+	// chat, submit, and multi-select modes. The questionnaire component keeps focus
+	// while collapsed, so the expand key cannot leak into Pi's editor.
 	//
-	// Ctrl+] (GS, 0x1d): chosen after Alt+Tab (OS-reserved on macOS), Ctrl+P (collides
-	// with pi-coding-agent "cycle model" + the user's virtual terminal), and F2 (taken
-	// by macOS function-key behavior) were all eliminated. Ctrl+] is free in every
-	// mainstream macOS terminal (Terminal.app, iTerm2, Warp), every multiplexer (tmux,
-	// zellij, screen — none use it as a prefix), and the legacy telnet/ssh escape role
-	// doesn't apply because our overlay runs in-process.
+	// Ctrl+] (GS, 0x1d) avoids Pi's model-cycle binding and common macOS shortcuts.
 	if (matchesKey(data, Key.ctrl("]"))) return { kind: "toggle_collapsed" };
 
-	// Collapsed-mode lockout: while collapsed, swallow every keystroke except cancel so
-	// the user can read the now-uncovered transcript without accidentally mutating
-	// answers or notes. The collapse toggle itself is already handled above.
+	// While collapsed, swallow every keystroke except cancel so reading the transcript
+	// cannot accidentally mutate answers or notes. The toggle is handled above.
 	if (state.collapsed) {
 		if (kb.matches(data, KEYBIND_CANCEL)) return { kind: "cancel" };
 		return { kind: "ignore" };

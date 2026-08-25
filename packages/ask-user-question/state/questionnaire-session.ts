@@ -92,11 +92,9 @@ export class QuestionnaireSession {
 		this.viewAdapter = built.adapter;
 
 		const theme = config.theme;
-		// Collapsed render: a single dim row at the bottom of the overlay. pi-tui sizes
-		// the overlay to `min(lines.length, maxHeight)`, so returning one line shrinks
-		// the bottom-anchored overlay from full-height to one row and the transcript
-		// behind it becomes readable (#47). The overlay stays focused and in the
-		// stack, so Ctrl+] still routes here to expand.
+		// Collapsed render: a single dim row in Pi's editor area. Returning one line
+		// gives nearly the whole terminal back to the transcript while this component
+		// keeps focus, so Ctrl+] still routes here to expand.
 		const collapsedRender = (_width: number): string[] => [
 			theme.fg("dim", ` ${t("hint.expand_line", COLLAPSED_HINT)} `),
 		];

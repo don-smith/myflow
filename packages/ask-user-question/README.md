@@ -20,7 +20,8 @@ Let the model ask you structured clarifying questions instead of guessing. `ask-
 - **Multi-select questions** - checkboxes with `Space` to toggle, Enter-as-toggle on rows, a `Next` sentinel to advance, and toggles persisted across tab switches.
 - **Submit tab** - review every answer before submitting; warns about unanswered questions and offers a Submit picker.
 - **Chat row on every tab** - redirect the conversation without leaving the dialog.
-- **Terminal-row-aware overflow scroll** - when the dialog is taller than the terminal, the body scrolls between a sticky heading and sticky hints/border; overflow indicators (↑ / ↓ / ↕) show what's clipped.
+- **Transcript-safe layout** - the dialog takes the editor's place instead of covering the agent's last message, and tall dialogs reserve room for the transcript and Pi footer.
+- **Terminal-row-aware overflow scroll** - when the dialog is taller than its available rows, the body scrolls between a sticky heading and sticky hints/border; overflow indicators (↑ / ↓ / ↕) show what's clipped.
 - **"Other" free-text fallback** - type a custom answer when no option fits.
 - **Localized UI** - sentinel rows, hints, submit/cancel labels, review pane, and notes affordance display in the user's chosen language via `@myflow/i18n`. Ships Deutsch / English / Español / Français / Português (PT) / Português (BR) / Русский / Українська; switch with `/languages` or `pi --locale <code>`. LLM-facing copy (tool description, schemas, errors) stays English by design.
 
