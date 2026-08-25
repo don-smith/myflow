@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "dependency-semantics",
+      "fixture": "fixtures/dependency-semantics",
+      "prompt": "prompts/dependency-semantics.md",
+      "assertions": [
+        {
+          "id": "real-source-cycle",
+          "description": "Finds the analytics and scheduling source dependency cycle",
+          "kind": "contains-all",
+          "values": ["analytics", "scheduling", "cycle"]
+        },
+        {
+          "id": "typed-runtime-edge",
+          "description": "Distinguishes request and acknowledgement traffic from source dependency direction",
+          "kind": "contains-all",
+          "values": ["acknowledgement", "runtime", "source"]
+        },
+        {
+          "id": "event-coupling",
+          "description": "Names schema and delivery coupling retained by events",
+          "kind": "contains-all",
+          "values": ["schema", "delivery", "coupling"]
+        },
+        {
+          "id": "no-two-way-false-positive",
+          "description": "Does not classify all two-way runtime traffic as a source cycle",
+          "kind": "not-regex",
+          "value": "two-way runtime (traffic|collaboration).*source (cycle|dependency violation)"
+        }
+      ]
+    },
+    {
+      "id": "expected-extension",
+      "fixture": "fixtures/expected-extension",
+      "prompt": "prompts/expected-extension.md",
+      "assertions": [
+        {
+          "id": "cross-language-surface",
+          "description": "Finds the Rust enum and TypeScript registry change surface",
+          "kind": "contains-all",
+          "values": ["PluginKind", "registry.ts", "Rust", "TypeScript"]
+        },
+        {
+          "id": "complete-change-surface",
+          "description": "Reports capabilities, tests, and documentation in the change surface",
+          "kind": "contains-all",
+          "values": ["capabilities", "tests", "documentation"]
+        },
+        {
+          "id": "sibling-inconsistency",
+          "description": "Finds the notes plugin's untyped capability spelling",
+          "kind": "contains-all",
+          "values": ["notes", "file-write", "file:write"]
+        },
+        {
+          "id": "registry-tradeoff",
+          "description": "Treats central registration as an explicit trade-off",
+          "kind": "contains-all",
+          "values": ["registry", "discoverability", "trade-off"]
+        }
+      ]
+    },
+    {
+      "id": "intent-language-history",
+      "fixture": "fixtures/intent-language-history",
+      "prompt": "prompts/intent-language-history.md",
+      "assertions": [
+        {
+          "id": "current-intended-split",
+          "description": "Separates documented ownership intent from current code authority",
+          "kind": "contains-all",
+          "values": ["intended", "current", "invoice", "ledger"]
+        },
+        {
+          "id": "same-context-synonym",
+          "description": "Finds dispatch and shipment as conflicting same-context names",
+          "kind": "contains-all",
+          "values": ["dispatch", "shipment", "synonym"]
+        },
+        {
+          "id": "bounded-context-non-risk",
+          "description": "Preserves charge and debit as context-specific terms",
+          "kind": "contains-all",
+          "values": ["charge", "debit", "context", "non-risk"]
+        },
+        {
+          "id": "qualified-history",
+          "description": "Separates meaningful co-change from bulk formatting noise",
+          "kind": "contains-all",
+          "values": ["co-change", "bulk formatting", "confidence"]
+        }
+      ]
+    }
+  ]
+}

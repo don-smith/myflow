@@ -1,0 +1,5 @@
+{
+  "name": "dependency-semantics-fixture",
+  "private": true,
+  "type": "module"
+}
