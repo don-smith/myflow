@@ -1,0 +1,232 @@
+{
+  "$schema": "../schemas/architecture-model.schema.json",
+  "schemaVersion": "1.0.0",
+  "assessmentId": "architecture-assessment-template",
+  "status": "in-progress",
+  "target": {
+    "name": "Example system",
+    "path": "."
+  },
+  "scope": {
+    "approvedPaths": ["README.md", "src/"],
+    "excludedPaths": [],
+    "expectedFiles": ["README.md", "src/index.ts"],
+    "drivers": ["Safe, explainable change"],
+    "scenarioIds": ["scn-change"]
+  },
+  "blockers": [
+    {
+      "kind": "html-unavailable",
+      "message": "Resolve html-design and produce a checked review packet before marking this bundle ready."
+    }
+  ],
+  "sources": [
+    {
+      "id": "src-code",
+      "kind": "code",
+      "path": "src/index.ts",
+      "locator": "src/index.ts:1-4",
+      "summary": "Current composition entry point"
+    },
+    {
+      "id": "src-intent",
+      "kind": "intent",
+      "path": "README.md",
+      "locator": "README.md:1-5",
+      "summary": "Tracked system intent"
+    }
+  ],
+  "inventory": [
+    {
+      "id": "inv-readme",
+      "path": "README.md",
+      "classification": "documentation",
+      "coverage": "read",
+      "reason": "Tracked intent source"
+    },
+    {
+      "id": "inv-source",
+      "path": "src/index.ts",
+      "classification": "included",
+      "coverage": "read",
+      "reason": "Approved production source"
+    }
+  ],
+  "elements": [
+    {
+      "id": "el-system",
+      "name": "Example system",
+      "kind": "software-system",
+      "state": "both",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:1-4" },
+        { "sourceId": "src-intent", "locator": "README.md:1-5" }
+      ]
+    },
+    {
+      "id": "el-module",
+      "name": "Core module",
+      "kind": "module",
+      "state": "current",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:1-4" }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rel-calls",
+      "kind": "call",
+      "from": "el-system",
+      "to": "el-module",
+      "label": "invokes",
+      "state": "current",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:2" }
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "if-core",
+      "name": "Core interface",
+      "owner": "el-module",
+      "consumers": ["el-system"],
+      "inputs": ["request"],
+      "outputs": ["result"],
+      "invariants": ["A result follows each accepted request"],
+      "errors": ["Rejected request"],
+      "ordering": "One request at a time",
+      "consistency": "Immediate",
+      "versioning": "Unversioned internal interface",
+      "trust": "Same process",
+      "adapters": [],
+      "testSeam": "Call the module interface",
+      "state": "current",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:1-4" }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "flow-request",
+      "name": "Request flow",
+      "kind": "success",
+      "steps": [
+        {
+          "order": 1,
+          "actor": "el-system",
+          "action": "calls",
+          "target": "el-module",
+          "relationshipId": "rel-calls"
+        }
+      ],
+      "state": "current",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:2" }
+      ]
+    }
+  ],
+  "data": [
+    {
+      "id": "data-result",
+      "name": "Request result",
+      "authority": "el-module",
+      "owners": ["el-module"],
+      "persistence": "none",
+      "replication": "none",
+      "retention": "request lifetime",
+      "state": "current",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:3" }
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "id": "term-system",
+      "canonical": "Example system",
+      "aliases": [],
+      "contexts": ["system"],
+      "translations": [],
+      "codeSpellings": ["exampleSystem"],
+      "state": "both",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:1" },
+        { "sourceId": "src-intent", "locator": "README.md:1" }
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "scn-change",
+      "name": "Add a second request kind",
+      "kind": "change",
+      "stimulus": "A developer adds a request kind",
+      "environment": "Current repository",
+      "affectedArtifacts": ["src/index.ts"],
+      "response": "The module accepts the new kind",
+      "responseMeasures": ["Every changed file is named"],
+      "changeSurface": {
+        "additions": [],
+        "modifications": ["src/index.ts"],
+        "deletions": [],
+        "registrationPoints": [],
+        "layers": ["module"],
+        "languages": ["TypeScript"],
+        "contracts": ["if-core"],
+        "documents": ["README.md"],
+        "owners": ["Core owner"]
+      },
+      "state": "current",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:1-4" }
+      ]
+    }
+  ],
+  "divergences": [
+    {
+      "id": "div-example",
+      "name": "Example current and intended delta",
+      "currentClaim": "The current module is unversioned",
+      "intendedClaim": "Tracked intent expects deliberate compatibility",
+      "state": "both",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:1-4" },
+        { "sourceId": "src-intent", "locator": "README.md:1-5" }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-current-interface",
+      "text": "The system calls the core module directly.",
+      "state": "current",
+      "certainty": "confirmed",
+      "evidence": [
+        { "sourceId": "src-code", "locator": "src/index.ts:2" }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "diag-context",
+      "title": "Current call relationship",
+      "question": "What calls the core module?",
+      "scope": "Current system and core module",
+      "abstractionLevel": "system-context",
+      "relationshipType": "dependency",
+      "modelRefs": ["el-system", "rel-calls"]
+    }
+  ]
+}

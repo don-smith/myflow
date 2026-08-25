@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/don-smith/myflow/skills/architecture-assessment/architecture-model.schema.json",
+  "title": "Architecture assessment fact index",
+  "type": "object",
+  "required": [
+    "schemaVersion", "assessmentId", "status", "target", "scope", "blockers",
+    "sources", "inventory", "elements", "relationships", "interfaces", "flows",
+    "data", "terms", "scenarios", "divergences", "claims", "diagrams"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": "1.0.0" },
+    "assessmentId": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["in-progress", "blocked", "ready"] },
+    "target": {
+      "type": "object",
+      "required": ["name", "path"],
+      "properties": { "name": { "type": "string" }, "path": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": ["approvedPaths", "excludedPaths", "expectedFiles", "drivers", "scenarioIds"],
+      "properties": {
+        "approvedPaths": { "type": "array", "items": { "type": "string" } },
+        "excludedPaths": { "type": "array", "items": { "type": "string" } },
+        "expectedFiles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "drivers": { "type": "array", "items": { "type": "string" } },
+        "scenarioIds": { "type": "array", "items": { "type": "string", "pattern": "^scn-" } }
+      },
+      "additionalProperties": false
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "message"],
+        "properties": {
+          "kind": { "enum": ["html-unavailable", "scope", "evidence", "factual-correction", "other"] },
+          "message": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "inventory": { "type": "array", "items": { "$ref": "#/$defs/inventory" } },
+    "elements": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "relationships": { "type": "array", "items": { "$ref": "#/$defs/relationship" } },
+    "interfaces": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "flows": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "data": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "terms": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "scenarios": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "divergences": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "claims": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "diagrams": { "type": "array", "items": { "$ref": "#/$defs/diagram" } }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["sourceId", "locator"],
+      "properties": {
+        "sourceId": { "type": "string", "pattern": "^src-" },
+        "locator": { "type": "string", "minLength": 1 },
+        "quote": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "fact": {
+      "type": "object",
+      "required": ["id", "state", "certainty", "evidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "state": { "enum": ["current", "intended", "both"] },
+        "certainty": { "enum": ["confirmed", "inferred", "unresolved"] },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "gap": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["id", "kind", "path", "locator", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^src-" },
+        "kind": { "enum": ["code", "configuration", "intent", "decision", "test", "history", "external", "developer"] },
+        "path": { "type": "string" },
+        "locator": { "type": "string" },
+        "summary": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "inventory": {
+      "type": "object",
+      "required": ["id", "path", "classification", "coverage", "reason"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^inv-" },
+        "path": { "type": "string" },
+        "classification": { "enum": ["included", "excluded", "generated", "test", "documentation"] },
+        "coverage": { "enum": ["read", "not-read", "not-applicable"] },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "relationship": {
+      "allOf": [
+        { "$ref": "#/$defs/fact" },
+        {
+          "type": "object",
+          "required": ["kind", "from", "to", "label"],
+          "properties": {
+            "kind": { "enum": ["source-dependency", "call", "command", "event", "data-read", "data-write", "data-ownership", "lifecycle", "build", "deploy", "trust", "intended"] },
+            "from": { "type": "string", "pattern": "^el-" },
+            "to": { "type": "string", "pattern": "^el-" },
+            "label": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "diagram": {
+      "type": "object",
+      "required": ["id", "title", "question", "scope", "abstractionLevel", "relationshipType", "modelRefs"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^diag-" },
+        "title": { "type": "string" },
+        "question": { "type": "string" },
+        "scope": { "type": "string" },
+        "abstractionLevel": { "enum": ["system-context", "runtime-unit", "module", "interface", "flow", "data", "current-intended"] },
+        "relationshipType": { "enum": ["boundary", "containment", "dependency", "sequence", "branching", "lifecycle", "comparison", "data"] },
+        "modelRefs": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
