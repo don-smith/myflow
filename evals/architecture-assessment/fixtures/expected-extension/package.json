@@ -1,6 +1,0 @@
-{
-  "name": "expected-extension-fixture",
-  "private": true,
-  "type": "module",
-  "workspaces": ["packages/*"]
-}
