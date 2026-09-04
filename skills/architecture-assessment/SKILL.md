@@ -1,7 +1,7 @@
 ---
 name: architecture-assessment
 description: Use when a developer needs an evidence-led, whole-system architecture explanation and assessment before redesign, alignment, or refactoring.
-argument-hint: "<alignment-or-research-artifact> [target]"
+argument-hint: <alignment-or-research-artifact> [target]
 ---
 
 # Architecture assessment
@@ -33,7 +33,7 @@ The input artifact supplies the workstream, drivers, acceptance criteria, reposi
 
 **REQUIRED SUB-SKILL: `html-design`.** Use it for `packet.html`. Read its profile, pattern, diagram, foundation, example, and quality guidance selected by the packet's content. Run `html-design/scripts/check-artifact.mjs <packet> --profile review-packet`. Without this skill and a passing check, the assessment cannot become `ready`.
 
-The controlled evaluation exception is narrow. A fixed fixture prompt may provide approved drivers, scenarios, target, and `assessment/` output without a MyFlow workstream. Never use that exception for a product repository.
+The controlled evaluation exception is narrow. A fixed fixture prompt may provide approved drivers, scenarios, target, and `assessment/` output without a MyFlow workstream. During a controlled evaluation, do not search for or load `html-design`, omit `packet.html`, and do not run build or package commands in the target. Hash approved source before and after the run. Use an isolated copy if later verification needs those commands. Never use this exception for a product repository.
 
 ## Rehydrate and validate the input
 
@@ -61,7 +61,7 @@ Read [the artifact contract](references/artifact-contract.md) before the first w
 
 ## Checkpoint 1: approve scope and scenarios
 
-Inventory manifests, tracked intent, decisions, deployment files, source, tests, generated files, and relevant history. Propose:
+Inventory manifests and lockfiles such as `Cargo.lock`, tracked intent, decisions, deployment files, source, tests, generated files, and relevant history. Propose:
 
 - included and excluded paths with reasons;
 - stakeholders and intended audience;
@@ -85,7 +85,7 @@ Read [the fact model](references/fact-model.md), then work by runtime unit and r
 7. Record canonical terms, aliases, homonyms, code spellings, and context translations. Do not treat different bounded-context terms as defects without evidence of missing translation.
 8. Record current and intended facts separately. A divergence needs both current code evidence and tracked intent or developer evidence.
 9. Run each approved scenario and record its current response. For change scenarios, name additions, modifications, deletions, registration points, layers, languages, contracts, tests, documents, and owners.
-10. Use relevant Git history only after filtering initial imports, generated changes, formatting, migrations, and reorganizations. Co-change is association, not causality. Record confidence and history limits.
+10. Use relevant Git history only after filtering initial imports, generated changes, bulk formatting, migrations, and reorganizations. Co-change is association, not causality. Record confidence and history limits.
 
 Write the inventory and model progressively after each runtime unit or cohesive file batch. Confirmed current facts require code or configuration evidence. Confirmed intended facts require tracked intent, a decision, or developer evidence. Label inferences and unresolved gaps. Never hide uncertainty in prose.
 

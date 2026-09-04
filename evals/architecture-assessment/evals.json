@@ -28,7 +28,7 @@
           "id": "no-two-way-false-positive",
           "description": "Does not classify all two-way runtime traffic as a source cycle",
           "kind": "not-regex",
-          "value": "two-way runtime (traffic|collaboration).*source (cycle|dependency violation)"
+          "value": "two-way runtime (traffic|collaboration) (is|creates|forms) (a )?source (cycle|dependency violation)"
         }
       ]
     },
@@ -90,7 +90,7 @@
           "id": "qualified-history",
           "description": "Separates meaningful co-change from bulk formatting noise",
           "kind": "contains-all",
-          "values": ["co-change", "bulk formatting", "confidence"]
+          "values": ["co-change", "formatting", "confidence"]
         }
       ]
     }

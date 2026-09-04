@@ -17,7 +17,7 @@ test("declares valid discovery metadata and invocation shape", async () => {
   assert.ok(frontmatter, "missing YAML frontmatter");
   assert.match(frontmatter[1], /^name: architecture-assessment$/m);
   assert.match(frontmatter[1], /^description: Use when .+$/m);
-  assert.match(frontmatter[1], /^argument-hint: "<alignment-or-research-artifact> \[target\]"$/m);
+  assert.match(frontmatter[1], /^argument-hint: <alignment-or-research-artifact> \[target\]$/m);
   assert.match(text, /architecture-assessment <alignment-or-research-artifact> \[target\]/);
 });
 
@@ -67,6 +67,9 @@ test("composes architecture skills without nesting their workflows", async () =>
   assert.match(text, /REQUIRED SUB-SKILL.*html-design/i);
   assert.match(text, /check-artifact\.mjs.*--profile review-packet/is);
   assert.match(text, /cannot become `ready`|must not become `ready`/i);
+  assert.match(text, /controlled evaluation.*do not search.*html-design/is);
+  assert.match(text, /controlled evaluation.*omit `packet\.html`/is);
+  assert.match(text, /controlled evaluation.*do not run.*build|package commands/is);
 });
 
 test("defines the workstream-local bundle and checker commands", async () => {
@@ -82,6 +85,11 @@ test("defines the workstream-local bundle and checker commands", async () => {
   assert.match(text, /check-model\.mjs/);
   assert.match(text, /check-assessment\.mjs/);
   assert.match(text, /html-unavailable/);
+  assert.match(text, /bulk formatting/);
+  assert.match(text, /history.*confidence/is);
+  assert.match(text, /Cargo\.lock/);
+  assert.match(text, /isolated copy/);
+  assert.match(text, /source.*before and after/is);
 });
 
 test("keeps every reference one hop away and the main skill under budget", async () => {

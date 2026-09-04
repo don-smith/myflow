@@ -32,8 +32,29 @@ test("parses campaign commands and required options", () => {
       output: "/tmp/out",
     },
   );
+  assert.deepEqual(
+    parseCli([
+      "candidate",
+      "--models", "openai-codex/gpt-5.6-sol",
+      "--thinking", "high",
+      "--skill", "skills/architecture-assessment/SKILL.md",
+      "--cases", "expected-extension,intent-language-history",
+      "--output", "/tmp/out",
+    ]).cases,
+    ["expected-extension", "intent-language-history"],
+  );
   assert.throws(() => parseCli(["baseline", "--thinking", "high"]), /--models/);
   assert.throws(() => parseCli(["unknown"]), /Unknown command/);
+});
+
+test("the two-way-runtime false-positive assertion distinguishes negation from a defect claim", async () => {
+  const config = JSON.parse(await readFile(new URL("../evals/architecture-assessment/evals.json", import.meta.url), "utf8"));
+  const assertion = config.cases
+    .find((caseDefinition) => caseDefinition.id === "dependency-semantics")
+    .assertions.find((candidate) => candidate.id === "no-two-way-false-positive");
+  const pattern = new RegExp(assertion.value, "i");
+  assert.equal(pattern.test("Two-way runtime traffic is not a source cycle."), false);
+  assert.equal(pattern.test("Two-way runtime traffic is a source cycle."), true);
 });
 
 test("redacts inline credentials and sensitive environment arguments", () => {

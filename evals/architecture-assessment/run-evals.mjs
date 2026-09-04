@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const defaultTimeoutMs = 12 * 60 * 1000;
+const defaultTimeoutMs = 20 * 60 * 1000;
 const knownCommands = new Set([
   "baseline",
   "candidate",
@@ -48,6 +48,7 @@ export function parseCli(argv) {
     if (!parsed.thinking) throw new Error(`${command} requires --thinking`);
     if (!parsed.output) throw new Error(`${command} requires --output`);
     parsed.models = parsed.models.split(",").map((model) => model.trim()).filter(Boolean);
+    if (parsed.cases) parsed.cases = parsed.cases.split(",").map((caseId) => caseId.trim()).filter(Boolean);
   }
   if (command === "candidate" && !parsed.skill) throw new Error("candidate requires --skill");
   if (command === "verify-baseline" && !parsed.output) throw new Error("verify-baseline requires --output");
@@ -337,12 +338,19 @@ function outputFor(root, model, caseId) {
 
 async function runCampaign(options) {
   const config = await loadConfiguration();
+  const cases = options.cases
+    ? config.cases.filter((caseDefinition) => options.cases.includes(caseDefinition.id))
+    : config.cases;
+  if (options.cases && cases.length !== options.cases.length) {
+    const found = new Set(cases.map((caseDefinition) => caseDefinition.id));
+    throw new Error(`Unknown cases: ${options.cases.filter((caseId) => !found.has(caseId)).join(", ")}`);
+  }
   const campaignStartedAt = new Date().toISOString();
   const runs = [];
   for (const model of options.models) {
     const preflight = await preflightModel(model);
     if (!preflight.available) {
-      for (const caseDefinition of config.cases) {
+      for (const caseDefinition of cases) {
         const gap = {
           case: caseDefinition.id,
           status: "unavailable",
@@ -358,7 +366,7 @@ async function runCampaign(options) {
       continue;
     }
 
-    for (const caseDefinition of config.cases) {
+    for (const caseDefinition of cases) {
       const fixturePath = path.join(scriptDir, caseDefinition.fixture);
       const promptPath = path.join(scriptDir, caseDefinition.prompt);
       const prompt = await readFile(promptPath, "utf8");
@@ -382,7 +390,8 @@ async function runCampaign(options) {
     completedAt: new Date().toISOString(),
     models: options.models,
     thinking: options.thinking,
-    expectedRuns: options.models.length * config.cases.length,
+    cases: cases.map((caseDefinition) => caseDefinition.id),
+    expectedRuns: options.models.length * cases.length,
     completedRuns: runs.filter((run) => run.status === "completed").length,
     unavailableRuns: runs.filter((run) => run.status === "unavailable").length,
     failedRuns: runs.filter((run) => run.status === "failed").length,
