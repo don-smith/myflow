@@ -19,6 +19,19 @@ test("Implement records resolver-aware phase checkpoints before Verify", async (
   }
 });
 
+test("Implement delegates every phase through a fresh context", async () => {
+  const implement = await read("skills/implement/SKILL.md");
+
+  for (const phrase of [
+    "exactly one fresh-context implementation subagent",
+    "sequentially",
+    "completion summary",
+    "do not implement a phase directly in the orchestrator",
+  ]) {
+    assert.match(implement, new RegExp(phrase, "i"));
+  }
+});
+
 test("MyFlow skills resolve repository maps from their installed package", async () => {
   const implement = await read("skills/implement/SKILL.md");
 
