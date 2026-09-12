@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile, appendFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile, appendFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
@@ -9,6 +9,7 @@ import test from "node:test";
 const execFileAsync = promisify(execFile);
 const collector = new URL("../skills/observing-myflow/scripts/collect-evidence.mjs", import.meta.url).pathname;
 const derivation = new URL("../skills/observing-myflow/scripts/derive-team-flow.mjs", import.meta.url).pathname;
+const rollup = new URL("../skills/observing-myflow/scripts/rollup-flow-metrics.mjs", import.meta.url).pathname;
 
 const message = (id, parentId, timestamp, value) => ({ type: "message", id, parentId, timestamp, message: value });
 const line = (value) => `${JSON.stringify(value)}\n`;
@@ -30,6 +31,26 @@ async function runDerivation(root, evidence, analysis) {
     derivation,
     "--evidence", evidencePath,
     "--analysis", analysisPath,
+    "--output", outputPath,
+  ]);
+  return { receipt: JSON.parse(stdout), output: JSON.parse(await readFile(outputPath, "utf8")) };
+}
+
+async function runRollup(root, exports, { startedAt = "2026-01-01T00:00:00.000Z", endedAt = "2026-01-10T00:00:00.000Z" } = {}) {
+  const observationRoot = join(root, "observations");
+  for (const [workstream, files] of Object.entries(exports)) {
+    for (const [name, value] of Object.entries(files)) {
+      const path = join(observationRoot, workstream, "curated", name);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, typeof value === "string" ? value : `${JSON.stringify(value)}\n`);
+    }
+  }
+  const outputPath = join(root, "rollup.json");
+  const { stdout } = await execFileAsync("node", [
+    rollup,
+    "--observation-root", observationRoot,
+    "--window-start", startedAt,
+    "--window-end", endedAt,
     "--output", outputPath,
   ]);
   return { receipt: JSON.parse(stdout), output: JSON.parse(await readFile(outputPath, "utf8")) };
@@ -315,6 +336,129 @@ test("derivation rejects overlapping stage intervals and derives qualified effic
   }
 });
 
+test("rollup selects the latest compatible export per workstream and preserves Flow Metric coverage", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-rollup-"));
+  const teamFlow = ({ workstream, startedAt, closedAt, type, cycleTimeMs, flowTimeMs, efficiency, calls, tokens, cost }) => ({
+    schemaVersion: "myflow-team-flow/v2",
+    analysisVersion: "myflow-observation-analysis/v1",
+    project: "github.com/example/project",
+    workstream,
+    classification: { risk: "medium", depth: "lightweight", flowItemType: type },
+    boundaries: { startedAt, closedAt, boundarySemantics: flowTimeMs === null ? "scope-to-close" : "value-stream-to-customer", intervalConvention: "half-open [startedAt, closedAt)" },
+    flowFrameworkContribution: {
+      flowItemType: type,
+      completionContribution: closedAt === null ? 0 : 1,
+      loadInterval: { startedAt, closedAt },
+      scopeToCloseCycleTimeMs: cycleTimeMs,
+      flowTimeMs,
+      efficiency: efficiency === null
+        ? { value: null, activeTimeMs: null, waitTimeMs: null, coverage: "not-measured" }
+        : { value: efficiency, activeTimeMs: 1, waitTimeMs: 1, coverage: "active-and-wait-measured" },
+    },
+    executionFlow: {},
+    developerExperience: { selfReport: null, closeSatisfaction: null },
+    aiEconomics: {
+      calls,
+      uncachedInputTokens: tokens - 4,
+      cacheReadTokens: 1,
+      cacheWriteTokens: 1,
+      outputTokens: 2,
+      reasoningTokens: 1,
+      totalTokens: tokens,
+      recordedCostUsd: cost,
+      costCoverage: { recordedCalls: cost === null ? 0 : calls, missingCalls: cost === null ? calls : 0, ratio: calls ? (cost === null ? 0 : 1) : null },
+      attribution: {},
+      byStage: [],
+      byProviderModel: [{ provider: "anthropic", model: "claude", calls, uncachedInputTokens: tokens - 4, cacheReadTokens: 1, cacheWriteTokens: 1, outputTokens: 2, reasoningTokens: 1, totalTokens: tokens, recordedCostUsd: cost, costCoverage: { recordedCalls: cost === null ? 0 : calls, missingCalls: cost === null ? calls : 0, ratio: calls ? (cost === null ? 0 : 1) : null } }],
+    },
+    outcomes: {}, versions: {}, limitations: [],
+  });
+
+  try {
+    const oldA = teamFlow({ workstream: "a", startedAt: "2025-12-31T00:00:00.000Z", closedAt: "2026-01-02T00:00:00.000Z", type: "Feature", cycleTimeMs: 99, flowTimeMs: null, efficiency: null, calls: 9, tokens: 90, cost: 0.9 });
+    const currentA = teamFlow({ workstream: "a", startedAt: "2025-12-31T00:00:00.000Z", closedAt: "2026-01-03T00:00:00.000Z", type: "Feature", cycleTimeMs: 2_000, flowTimeMs: null, efficiency: null, calls: 1, tokens: 10, cost: 0.1 });
+    const unknownB = teamFlow({ workstream: "b", startedAt: "2026-01-04T00:00:00.000Z", closedAt: "2026-01-05T00:00:00.000Z", type: "Unknown", cycleTimeMs: 4_000, flowTimeMs: 4_000, efficiency: 0.5, calls: 2, tokens: 20, cost: null });
+    const openC = teamFlow({ workstream: "c", startedAt: "2026-01-04T00:00:00.000Z", closedAt: null, type: "Debt", cycleTimeMs: null, flowTimeMs: null, efficiency: null, calls: 3, tokens: 30, cost: 0.3 });
+    const laterD = teamFlow({ workstream: "d", startedAt: "2025-12-30T00:00:00.000Z", closedAt: "2026-01-11T00:00:00.000Z", type: "Defect", cycleTimeMs: 6_000, flowTimeMs: 6_000, efficiency: 0.75, calls: 4, tokens: 40, cost: 0.4 });
+    const boundaryF = teamFlow({ workstream: "f", startedAt: "2026-01-09T00:00:00.000Z", closedAt: "2026-01-10T00:00:00.000Z", type: "Risk", cycleTimeMs: 1_000, flowTimeMs: null, efficiency: null, calls: 1, tokens: 10, cost: 0.1 });
+    const invalidG = teamFlow({ workstream: "g", startedAt: "2026-01-05T00:00:00.000Z", closedAt: "2026-01-06T00:00:00.000Z", type: "Feature", cycleTimeMs: 1_000, flowTimeMs: 1_000, efficiency: null, calls: 1, tokens: 10, cost: 0.1 });
+    invalidG.boundaries.boundarySemantics = "scope-to-close";
+    const { receipt, output } = await runRollup(root, {
+      a: {
+        "20260101T000000Z_a-team-flow.json": oldA,
+        "20260102T000000Z_a-team-flow.json": currentA,
+        "20260103T000000Z_a-team-flow.json": { ...currentA, schemaVersion: "myflow-team-flow/v1" },
+      },
+      b: { "20260105T000000Z_b-team-flow.json": unknownB },
+      c: { "20260106T000000Z_c-team-flow.json": openC },
+      d: { "20260107T000000Z_d-team-flow.json": laterD },
+      e: { "20260108T000000Z_e-team-flow.json": "{not-json\n" },
+      f: { "20260109T000000Z_f-team-flow.json": boundaryF },
+      g: { "20260109T000000Z_g-team-flow.json": invalidG },
+    });
+
+    assert.equal(receipt.schemaVersion, "myflow-flow-rollup/v1");
+    assert.equal(output.selection.scannedExports, 9);
+    assert.equal(output.selection.compatibleExports, 6);
+    assert.equal(output.selection.selectedWorkstreams, 5);
+    assert.deepEqual(output.selection.incompatibleExports, { malformed: 1, unsupportedSchema: 1, invalidV2: 1 });
+    assert.equal(output.flowMetrics.velocity.completedItems, 2);
+    assert.deepEqual(output.flowMetrics.distribution.Feature, { count: 1, ratio: 0.5 });
+    assert.deepEqual(output.flowMetrics.distribution.Unknown, { count: 1, ratio: 0.5 });
+    assert.deepEqual(output.flowMetrics.distribution.coverage, { knownItems: 1, unknownItems: 1, knownRatio: 0.5 });
+    assert.deepEqual(output.flowMetrics.load.history.map(({ at, load }) => [at, load]), [
+      ["2026-01-01T00:00:00.000Z", 2],
+      ["2026-01-03T00:00:00.000Z", 1],
+      ["2026-01-04T00:00:00.000Z", 3],
+      ["2026-01-05T00:00:00.000Z", 2],
+      ["2026-01-09T00:00:00.000Z", 3],
+      ["2026-01-10T00:00:00.000Z", 2],
+    ]);
+    assert.deepEqual(output.flowMetrics.load.current, { asOf: "2026-01-10T00:00:00.000Z", value: 2, coverage: "includes-open-and-finalized-intervals" });
+    assert.deepEqual(output.flowMetrics.cycleTime, { unit: "ms", summary: { count: 2, min: 2_000, max: 4_000, mean: 3_000, median: 3_000 }, coverage: { measuredItems: 2, missingItems: 0, ratio: 1 } });
+    assert.deepEqual(output.flowMetrics.flowTime, { unit: "ms", summary: { count: 1, min: 4_000, max: 4_000, mean: 4_000, median: 4_000 }, coverage: { measuredItems: 1, missingItems: 1, ratio: 0.5 } });
+    assert.deepEqual(output.flowMetrics.efficiency, { mean: 0.5, coverage: { measuredItems: 1, missingItems: 1, ratio: 0.5 } });
+    assert.equal(output.aiEconomics.itemsIncluded, 2);
+    assert.equal(output.aiEconomics.calls, 3);
+    assert.equal(output.aiEconomics.totalTokens, 30);
+    assert.equal(output.aiEconomics.recordedCostUsd, 0.1);
+    assert.deepEqual(output.aiEconomics.costCoverage, { recordedCalls: 1, missingCalls: 2, ratio: 1 / 3 });
+    assert.deepEqual(output.aiEconomics.byProviderModel.map(({ provider, model, calls, totalTokens, recordedCostUsd }) => [provider, model, calls, totalTokens, recordedCostUsd]), [
+      ["anthropic", "claude", 3, 30, 0.1],
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rollup rejects a target-worktree output reached through a symlink", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-rollup-output-"));
+  const target = join(root, "project");
+  const linkedOutput = join(root, "linked-output");
+  const outputPath = join(linkedOutput, "rollup.json");
+
+  try {
+    await mkdir(join(target, "private"), { recursive: true });
+    await execFileAsync("git", ["init", "-q", target]);
+    await execFileAsync("git", ["-C", target, "remote", "add", "origin", "git@github.com:example/project.git"]);
+    await symlink(join(target, "private"), linkedOutput, "dir");
+
+    await assert.rejects(
+      execFileAsync("node", [
+        rollup,
+        "--target", target,
+        "--window-start", "2026-01-01T00:00:00.000Z",
+        "--window-end", "2026-01-02T00:00:00.000Z",
+        "--output", outputPath,
+      ], { env: { ...process.env, HOME: join(root, "home") } }),
+      (error) => /outside the target worktree/i.test(error.stderr),
+    );
+    await assert.rejects(stat(outputPath), { code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("collector defaults to the canonical repository observation tree", async () => {
   const root = await mkdtemp(join(tmpdir(), "observing-myflow-repository-state-"));
   const home = join(root, "home");
@@ -376,11 +520,15 @@ test("collector discovers nested delivery sessions and accepts repeated observer
 });
 
 test("skill contract keeps timing conservative, raw state private, and Close output curated", async () => {
-  const [skill, scenarios, readme, status] = await Promise.all([
+  const [skill, scenarios, readme, status, boundaryContract, scopeSkill, workstreamTemplate, alignmentTemplate] = await Promise.all([
     readFile(new URL("../skills/observing-myflow/SKILL.md", import.meta.url), "utf8"),
     readFile(new URL("./fixtures/observing-myflow-scenarios.md", import.meta.url), "utf8"),
     readFile(new URL("../README.md", import.meta.url), "utf8"),
     readFile(new URL("../docs/myflow-workflow-status-and-alignment.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/artifact-and-stage-boundary-contract.md", import.meta.url), "utf8"),
+    readFile(new URL("../skills/scope/SKILL.md", import.meta.url), "utf8"),
+    readFile(new URL("../skills/myflow/templates/workstream.md", import.meta.url), "utf8"),
+    readFile(new URL("../skills/scope/templates/alignment.md", import.meta.url), "utf8"),
   ]);
   const contract = await readFile(new URL("../skills/observing-myflow/report-contract.md", import.meta.url), "utf8");
 
@@ -395,6 +543,8 @@ test("skill contract keeps timing conservative, raw state private, and Close out
   assert.match(skill, /developer-reported friction|self-report|friction pulse/i);
   assert.match(skill, /myflow-observation-analysis\/v1/i);
   assert.match(skill, /derive-team-flow\.mjs/i);
+  assert.match(skill, /rollup-flow-metrics\.mjs/i);
+  assert.match(skill, /reporting window/i);
   assert.match(skill, /provider.*model|model.*provider/is);
   assert.match(skill, /backward transition|stage return/i);
   assert.match(skill, /necessary learning.*late discovery.*process-induced/is);
@@ -408,12 +558,26 @@ test("skill contract keeps timing conservative, raw state private, and Close out
   assert.match(scenarios, /backward flow/i);
   assert.match(scenarios, /boundary filtering/i);
   assert.match(scenarios, /missing cost/i);
+  assert.match(scenarios, /repository rollup/i);
+  assert.match(scenarios, /latest compatible/i);
   assert.match(contract, /myflow-team-flow\/v2/i);
   assert.match(contract, /Scope-to-Close/i);
   assert.match(contract, /customer-centric Flow Time/i);
   assert.match(contract, /token volume.*individual productivity|individual productivity.*token volume/is);
   assert.match(contract, /reasoning tokens.*subset|subset.*reasoning tokens/is);
+  assert.match(contract, /myflow-flow-rollup\/v1/i);
+  assert.match(contract, /historical Load/i);
+  assert.match(contract, /finalized intervals only/i);
   assert.match(readme, /observing-myflow/i);
+  assert.match(readme, /rollup-flow-metrics\.mjs/i);
+  assert.match(readme, /longitudinal/i);
   assert.match(readme, /\.myflow\/repositories\/<identity>\/observations/i);
   assert.match(status, /observing-myflow/i);
+  assert.match(status, /repository rollup/i);
+  assert.match(boundaryContract, /flow_item_type/i);
+  assert.match(boundaryContract, /implementation risk/i);
+  assert.match(scopeSkill, /flow_item_type/i);
+  assert.match(scopeSkill, /Feature.*Defect.*Debt.*Risk.*Unknown/is);
+  assert.match(workstreamTemplate, /flow_item_type:.*unknown/i);
+  assert.match(alignmentTemplate, /Flow Item type/i);
 });

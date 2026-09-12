@@ -34,6 +34,7 @@ suggested_next_action: "{skill and artifact path}"
 ## Classification and Risk
 
 - Work type: `{feature | defect | technical debt | operational | documentation | other}`
+- Flow Item type: `{Feature | Defect | Debt | Risk | Unknown}`
 - Risk level: `{low | medium | high}`
 - `ambiguous_intent`: `{yes | no}`
 - `architecture_impact`: `{yes | no}`

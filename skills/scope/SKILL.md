@@ -64,6 +64,8 @@ Acceptance criteria must be observable but normally do not name files, test name
 
 Before writing a durable alignment artifact, establish a filesystem-safe **workstream ID**. Derive a concise kebab-case ID from the agreed topic, a ticket identifier, or an existing branch when unambiguous. Ask the developer only when it cannot be safely inferred. The ID is stable for the workstream; it is not necessarily the branch name.
 
+Record the optional `flow_item_type` as `feature`, `defect`, `debt`, `risk`, or `unknown` in `workstream.md`. Use only an explicit developer, ticket, or alignment classification. Do not infer it from prose. Flow Item type describes the value-stream item; implementation risk describes delivery uncertainty. They are separate fields, and `unknown` is valid.
+
 Inspect the current branch, Git root, and repository-map branch/worktree policy. Present the applicable path:
 
 - **Isolated branch/worktree:** when repository policy permits and the developer chooses it, propose a branch such as `feature/<workstream-id>` and a worktree path. Create it before finalizing the durable artifact. Write `workstream.md` and the alignment artifact directly in that worktree; do not copy artifacts between checkouts.
@@ -125,7 +127,7 @@ For a non-trivial workstream:
 3. Fill the common checkpoint and rehydration information using `skills/myflow/templates/stage-context-checkpoint.md`.
 4. Update `workstream.md` so Scope is `ready` or `blocked`, it identifies the alignment artifact as authoritative, and it records the selected next action.
 
-The alignment artifact must include: intent, desired outcome, non-goals, acceptance criteria, risk level/triggers, classification, selected depth, decisions/provenance, open questions, selected specialists, and suggested next action.
+The alignment artifact must include: intent, desired outcome, non-goals, acceptance criteria, optional Flow Item type, risk level/triggers, classification, selected depth, decisions/provenance, open questions, selected specialists, and suggested next action.
 
 ## 7. Present the handoff
 

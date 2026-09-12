@@ -54,6 +54,20 @@ node <skill-dir>/scripts/derive-team-flow.mjs \
 The command filters assistant usage to the half-open workstream boundary, assigns each included call to at most one stage, and reports unassigned calls. It retains uncached input, cache read and write, output, reasoning, total tokens, provider/model groups, recorded cost, and cost coverage. Reasoning tokens are a subset dimension; never add them to output or total tokens.
 4. Write the curated account to `suggestedReportPath`. Return the curated report and team-safe export paths to Close as evidence. Keep the private analysis and raw evidence private. Do not copy any observation file into the target worktree.
 
+## Repository rollup
+
+Compare workstreams over a fixed reporting window with the team-safe exports, never the private evidence:
+
+```bash
+node <skill-dir>/scripts/rollup-flow-metrics.mjs \
+  --target <worktree> \
+  --window-start <timestamp> \
+  --window-end <timestamp> \
+  --output <private-path-outside-worktree>
+```
+
+Use `--observation-root` instead of `--target` only for a controlled fixture or explicit observation-root override. The command selects the lexically latest compatible v2 export in each workstream's `curated/` directory. It reports malformed and incompatible exports, applies a half-open completion window, reconstructs historical and current Load, and keeps Scope-to-Close cycle time separate from canonical Flow Time. Review coverage before interpreting Distribution, Flow Time, Flow Efficiency, current Load, cost, or provider/model totals.
+
 ## Source precedence
 
 Version one uses Pi JSONL, Git, and MyFlow artifacts. When project-based Langfuse supplies the same activity, prefer exact lifecycle spans, use JSONL for recovery, and deduplicate by session and event identity. Keep reports and metric names independent of the backend.
@@ -68,5 +82,6 @@ Version one uses Pi JSONL, Git, and MyFlow artifacts. When project-based Langfus
 | Inferring sentiment from process signals | Leave experience `null`; report process friction separately. |
 | Using whole-session token totals | Derive economics through explicit workstream and stage intervals. |
 | Treating reasoning as extra output | Preserve it as a subset dimension without adding it again. |
+| Comparing workstreams with different windows | Generate rollups with the same explicit reporting window. |
 | Including the observer session | Use retained observer IDs. |
 | Writing Close observations into the target repository | Use the collector-provided personal repository paths. |

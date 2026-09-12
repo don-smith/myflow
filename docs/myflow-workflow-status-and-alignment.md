@@ -56,7 +56,7 @@ Onboard repository (when needed)
 - `tdd` is the canonical TDD skill. It primarily shapes Plan/design test seams and the verification map; implementation re-invokes it only for uncovered behavior or a revealed design gap.
 - `domain-modeling` is a cross-cutting specialist when domain language or boundaries are unclear or changing.
 - `codebase-design` provides shared deep-module vocabulary; it is not a stage.
-- `observing-myflow` records pull-based checkpoint and Close accounts without joining delivery. It keeps raw and curated observation data under the preferred personal global repository identity, never in the target worktree.
+- `observing-myflow` records pull-based checkpoint and Close accounts without joining delivery. It keeps raw and curated observation data under the preferred personal global repository identity, never in the target worktree. Its repository rollup compares compatible team-safe exports over an explicit reporting window.
 
 ### Layered specialist families
 
@@ -82,7 +82,7 @@ Onboard repository (when needed)
 | Verify | Validation, code review, conditional manual-verification brief; corrective loops to owner | **Aligned.** |
 | Close | Right-sized closeout, final closeout commit, delivery status, follow-up disposition | **Aligned.** |
 | Architecture specialists and recovery/learning | Resolver-aware sources, reusable artifacts, design handoff, proportionate recovery | **Aligned initial sweep.** |
-| Observation and evaluation | Pull-based JSONL observation with repository-scoped personal state; optional richer telemetry later | **Observer aligned initial version.** Langfuse telemetry remains deferred and non-blocking. |
+| Observation and evaluation | Pull-based JSONL observation with repository-scoped personal state; compatible workstream exports and repository rollup; optional richer telemetry later | **Observer rollup aligned.** Comparative use and Langfuse telemetry remain follow-up work. |
 | Documentation | README/public overview agrees with active workflow | **Aligned with desk scenarios.** |
 
 ## Ordered work
@@ -92,7 +92,7 @@ Onboard repository (when needed)
 3. **Implement → Verify, Close, and retained-skill slices** — resolver-aware checkpoints, validation/review/manual evidence, proportionate closeout, and initial retained-skill sweep. **Complete.**
 4. **Public documentation and scenario testing** — README/contract/status coherence plus trivial, medium, and structural desk scenarios. **Complete.**
 5. **Real end-to-end pilot** — the first bounded product workstream completed and produced the initial `observing-myflow` skill, collector, and report contract. **Complete.**
-6. **Next action: comparative pilots** — use repository-scoped observations to test whether the recorded improvement hypotheses recur. Keep Langfuse telemetry redesign deferred until JSONL evidence shows a concrete need.
+6. **Next action: comparative pilots** — use fixed-window repository rollups and workstream observations to test whether the recorded improvement hypotheses recur. Keep Langfuse telemetry redesign deferred until JSONL evidence shows a concrete need.
 
 ## Operating rule
 

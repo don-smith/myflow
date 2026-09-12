@@ -48,6 +48,8 @@ Use `<timestamp>_<topic-kebab>.md` for run-specific artifacts unless the reposit
 
 `workstream.md` is a compact index, not a second specification. It names the workstream ID, title, branch/worktree when used, current stage/status, authoritative current artifact, and related artifacts. A person or agent can inspect the directory to see the workstream's progress without mixing it with older work.
 
+A manifest may also record optional `flow_item_type` as `feature`, `defect`, `debt`, `risk`, or `unknown`. Scope uses only an explicit classification and preserves `unknown` when none is available. Flow Item type classifies value-stream work for repository Distribution. It is separate from implementation risk, which records delivery uncertainty and controls workflow depth.
+
 Onboarding remains outside a workstream because it may happen before an ID exists and its findings serve many later workstreams. If onboarding discovers a task, Scope establishes a new workstream for that task.
 
 ### Existing artifacts and retention

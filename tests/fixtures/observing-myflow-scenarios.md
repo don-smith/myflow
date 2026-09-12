@@ -62,6 +62,19 @@ Given no developer self-report and no active or wait classification:
 - keep Flow Efficiency `null` with `not-measured` coverage;
 - do not use token, tool, or elapsed-time volume as a proxy for experience, efficiency, or individual productivity.
 
+## Repository rollup
+
+Given several workstream observation directories with old and current v2 exports, a newer v1 export, one malformed export, an unknown Flow Item type, completed and open load intervals, nullable efficiency, and mixed cost coverage:
+
+- select the latest compatible v2 export for each workstream rather than the latest file of any version;
+- report malformed, unsupported, and invalid v2 counts without exposing private paths;
+- count Velocity and Distribution only when completion falls inside the half-open reporting window;
+- keep unknown Flow Items in their own bucket and state classification coverage;
+- reconstruct historical Load and mark whether current Load includes open exports or finalized intervals only;
+- summarize Scope-to-Close cycle time separately from canonical Flow Time;
+- average qualified Flow Efficiency values and report missing coverage;
+- sum each AI usage dimension, provider/model group, recorded cost, and missing-cost coverage for completed items in the window.
+
 ## Telemetry migration
 
 Given a later deployment where project-based Langfuse telemetry supplies exact lifecycle spans:

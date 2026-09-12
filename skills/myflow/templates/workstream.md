@@ -9,6 +9,7 @@ updated_at: {iso_timestamp}
 repository_map: {resolved repository-map path from resolve-repository-map.mjs}
 branch: "{branch name | trunk/current checkout}"
 worktree: "{path | current checkout}"
+flow_item_type: unknown # feature | defect | debt | risk | unknown
 ---
 
 # {Workstream title}

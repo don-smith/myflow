@@ -7,6 +7,7 @@
 - Curated Close report
 - Metric definitions
 - Team-safe export
+- Repository rollup
 - Improvement hypotheses
 - Evidence and privacy rules
 
@@ -204,14 +205,14 @@ A v2 export has this shape:
   },
   "boundaries": {
     "startedAt": "timestamp",
-    "closedAt": "timestamp",
+    "closedAt": "timestamp or null",
     "boundarySemantics": "scope-to-close",
     "intervalConvention": "half-open [startedAt, closedAt)"
   },
   "flowFrameworkContribution": {
     "flowItemType": "Feature",
     "completionContribution": 1,
-    "loadInterval": { "startedAt": "timestamp", "closedAt": "timestamp" },
+    "loadInterval": { "startedAt": "timestamp", "closedAt": "timestamp or null" },
     "scopeToCloseCycleTimeMs": 0,
     "flowTimeMs": null,
     "efficiency": {
@@ -269,7 +270,41 @@ A v2 export has this shape:
 }
 ```
 
+A finalized export uses `completionContribution: 1` and a non-null `closedAt`. A compatible current export may use `completionContribution: 0`, `closedAt: null`, and null cycle, Flow Time, and efficiency values. Current exports contribute to Load, not completion metrics.
+
 Do not include developer identity, raw prompts, response text, source code, commands, absolute paths, session filenames, credentials, or a developer-productivity score. Teams use flow and AI economics to diagnose the delivery system. Token volume, tool volume, model choice, and cost are not individual productivity measures.
+
+## Repository rollup v1
+
+`myflow-flow-rollup/v1` is a repository-level view over team-safe v2 exports. Run:
+
+```bash
+node scripts/rollup-flow-metrics.mjs \
+  --target <worktree> \
+  --window-start <timestamp> \
+  --window-end <timestamp> \
+  --output <private-path-outside-worktree>
+```
+
+The target form resolves the personal repository observation root. `--observation-root <path>` replaces `--target` for explicit fixtures and controlled overrides. The output must remain outside the target worktree.
+
+### Selection and compatibility
+
+The command scans `observations/<workstream>/curated/*-team-flow.json`. Filenames begin with the collector timestamp, so lexical order is export order. It selects the lexically latest valid `myflow-team-flow/v2` export per workstream. A later v1, malformed, or invalid v2 file does not hide an earlier compatible v2 file. The rollup reports scanned, compatible, selected, malformed, unsupported-schema, and invalid-v2 counts. It does not coerce v1 fields or expose private paths.
+
+All selected exports must carry one project identity. A mixed-project root is rejected. This keeps the rollup repository-scoped.
+
+### Reporting window and Flow Metrics
+
+The reporting window is half-open. Velocity counts selected finalized items whose `closedAt` is in `[window-start, window-end)`. Distribution uses the same completed set and keeps Feature, Defect, Debt, Risk, and Unknown buckets. Its coverage states how many completed items have a known type. Unknown items are not guessed.
+
+Historical Load is reconstructed from every selected load interval that intersects the reporting window. The history starts at `window-start`, applies starts and closes in timestamp order, and ends at `window-end`. Current Load is the value at `window-end`. Coverage says `includes-open-and-finalized-intervals` when a selected open export is available. Otherwise it says `finalized-intervals-only`, meaning finalized intervals only. Do not interpret that value as complete current work in progress.
+
+Cycle time and canonical Flow Time have separate summaries and coverage. Cycle time is the MyFlow Scope-to-Close value. Canonical Flow Time includes only exports with explicit value-stream-to-customer boundaries. Flow Efficiency averages only non-null qualified values and reports measured and missing item counts. No rollup substitutes elapsed time or AI activity for missing active/wait evidence.
+
+AI economics sum the same completed set used by Velocity. The rollup preserves each token dimension, provider/model groups, provider-recorded cost, and cost coverage. It does not estimate missing cost. These totals are delivery-system diagnostics, not individual productivity measures.
+
+For longitudinal comparisons, keep the repository identity, window length, completion rule, and schema version fixed. Compare Velocity, Distribution, Load, time summaries, efficiency coverage, and economics together. A change in one metric alone does not establish an improvement or a cause.
 
 ## Improvement hypotheses
 

@@ -59,6 +59,18 @@ Onboard repository (when needed)
 
 `observing-myflow` can record a third-party flow account at checkpoints and during Close. It reads Pi session logs and workstream evidence without repeating review or verification. Private evidence and curated reports stay outside the target checkout under `~/.myflow/repositories/<identity>/observations/<workstream-id>/`.
 
+After several workstreams have v2 team exports, generate a repository rollup over a fixed reporting window:
+
+```bash
+node skills/observing-myflow/scripts/rollup-flow-metrics.mjs \
+  --target <worktree> \
+  --window-start <timestamp> \
+  --window-end <timestamp> \
+  --output <private-path-outside-worktree>
+```
+
+The rollup reports Velocity, Distribution, historical and current Load, separate cycle and canonical Flow Time summaries, Flow Efficiency coverage, and AI economics. For longitudinal comparisons, keep the repository, schema version, completion rule, and window length fixed. Missing classifications, efficiency evidence, current exports, and recorded cost remain visible as coverage gaps.
+
 A fresh session runs `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, then reads its selected map, `workstream.md`, and the authoritative stage artifact. Small work may use the lightweight path; structural work adds Design and a full plan. Verify owns review/manual evidence, and Close records only applicable delivery and follow-up decisions.
 
 The detailed workflow and alignment status are maintained in:
