@@ -14,9 +14,9 @@ Use the shipped resolver from the Git root before reading or writing repository 
 node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>
 ```
 
-It emits only JSON metadata (`found`, `source`, `mapPath`, and a normalized identity); it never reads map contents, prints the original remote URL, or sends telemetry. An explicit map override (`--map <path>`) is the exception path and wins over all normal discovery. Without an override, lookup order is: an existing repository-local `.myflow/repository-map.md`; an existing personal global map for normalized `origin` (`~/.myflow/repositories/<host>/<owner>/<repo>/repository-map.md`); then, only when `origin` is absent, an existing personal global map keyed by the SHA-256 of the absolute common Git directory at `~/.myflow/repositories/local/<sha256-common-git-dir>/repository-map.md`.
+It emits only JSON metadata (`found`, `source`, `mapPath`, and a normalized identity); it never reads map contents, prints the original remote URL, or sends telemetry. An explicit map override (`--map <path>`) is the exception path and wins over all normal discovery. Without an override, lookup order is: an existing repository-local `.myflow/repository-map.md`; an existing personal global map for normalized `origin` (`~/.myflow/repositories/<host>/<owner>/<repo>/repository-map.md`); then, only when `origin` is absent, an existing personal global map keyed by the SHA-256 of the absolute common Git directory at `~/.myflow/repositories/local/<sha256-common-git-dir>/repository-map.md`. Personal observation state uses the resolver's preferred global `target` identity even when a repository-local map takes policy precedence.
 
-A missing result is explicit, not an invitation to invent policy. `onboard` uses `target` to obtain the preferred writable global target. A malformed origin and a non-Git directory return machine-readable diagnostics; do not fall back silently from a malformed origin. Existing repository-local maps remain supported and authoritative; no legacy map or flat artifact is bulk-migrated. Only personal maps and their onboarding records are global. Active workstream artifacts remain local to the current worktree.
+A missing result is explicit, not an invitation to invent policy. `onboard` uses `target` to obtain the preferred writable global target. A malformed origin and a non-Git directory return machine-readable diagnostics; do not fall back silently from a malformed origin. Existing repository-local maps remain supported and authoritative; no legacy map or flat artifact is bulk-migrated. Personal maps, onboarding records, and private observations are global. Active delivery workstream artifacts remain local to the current worktree.
 
 ## Principles
 
@@ -34,6 +34,7 @@ MyFlow separates repository-level knowledge from workstream evidence. A **workst
 |---|---|---|
 | Repository map | Resolver-selected local `.myflow/repository-map.md` or personal global `~/.myflow/repositories/<identity>/repository-map.md` | Local policy wins; global policy is personal knowledge |
 | Onboarding run / evaluation | Beside the selected global map: `onboarding/runs/`, `onboarding/evaluations/`; local maps follow mapped policy | Repository-level discovery history and feedback |
+| Observation state and reports | Preferred personal global repository target: `~/.myflow/repositories/<identity>/observations/<workstream-id>/` | Private third-party evidence and curated flow reports; never written to the target worktree |
 | Workstream manifest | `.myflow/workstreams/<workstream-id>/workstream.md` | Workstream index and current stage |
 | Scope alignment | `.myflow/workstreams/<workstream-id>/scope/` | Workstream record |
 | Specialist research | `.myflow/workstreams/<workstream-id>/research/` | Supporting evidence, when used |
