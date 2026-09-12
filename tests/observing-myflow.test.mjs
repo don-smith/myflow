@@ -8,6 +8,7 @@ import test from "node:test";
 
 const execFileAsync = promisify(execFile);
 const collector = new URL("../skills/observing-myflow/scripts/collect-evidence.mjs", import.meta.url).pathname;
+const derivation = new URL("../skills/observing-myflow/scripts/derive-team-flow.mjs", import.meta.url).pathname;
 
 const message = (id, parentId, timestamp, value) => ({ type: "message", id, parentId, timestamp, message: value });
 const line = (value) => `${JSON.stringify(value)}\n`;
@@ -17,6 +18,21 @@ async function writeSession(root, directory, name, entries, trailing = "") {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, entries.map(line).join("") + trailing);
   return path;
+}
+
+async function runDerivation(root, evidence, analysis) {
+  const evidencePath = join(root, "evidence.json");
+  const analysisPath = join(root, "analysis.json");
+  const outputPath = join(root, "team-flow.json");
+  await writeFile(evidencePath, `${JSON.stringify(evidence)}\n`);
+  await writeFile(analysisPath, `${JSON.stringify(analysis)}\n`);
+  const { stdout } = await execFileAsync("node", [
+    derivation,
+    "--evidence", evidencePath,
+    "--analysis", analysisPath,
+    "--output", outputPath,
+  ]);
+  return { receipt: JSON.parse(stdout), output: JSON.parse(await readFile(outputPath, "utf8")) };
 }
 
 async function runCollector({ target, sessionsRoot, stateRoot, observer = "observer-session", mode = "checkpoint", env = {} }) {
@@ -120,6 +136,185 @@ test("collector incrementally captures exact-cwd workstream evidence and exclude
   }
 });
 
+test("collector preserves complete usage and groups provider and model economics", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-usage-"));
+  const target = join(root, "project");
+  const workstream = join(target, ".myflow/workstreams/demo-flow");
+  const sessionsRoot = join(root, "sessions");
+  const header = { type: "session", version: 3, id: "usage-session", timestamp: "2026-01-01T00:00:00.000Z", cwd: target };
+
+  await mkdir(workstream, { recursive: true });
+  await writeFile(join(workstream, "workstream.md"), "---\nworkstream: demo-flow\ncurrent_stage: Implement\nstatus: active\n---\n");
+  await execFileAsync("git", ["init", "-q", target]);
+  await writeSession(sessionsRoot, "project", "usage.jsonl", [
+    header,
+    message("u1", null, "2026-01-01T00:00:01.000Z", { role: "user", content: "Read .myflow/workstreams/demo-flow/plan/plan.md" }),
+    message("a1", "u1", "2026-01-01T00:00:02.000Z", {
+      role: "assistant", provider: "anthropic", model: "claude-sonnet",
+      content: [{ type: "text", text: "first" }], stopReason: "stop",
+      usage: { input: 10, cacheRead: 20, cacheWrite: 5, output: 7, reasoning: 3, totalTokens: 42, cost: { total: 0.02 } },
+    }),
+    message("a2", "a1", "2026-01-01T00:00:03.000Z", {
+      role: "assistant", provider: "openai", model: "gpt-test",
+      content: [{ type: "text", text: "second" }], stopReason: "stop",
+      usage: { input: 11, cacheRead: 4, cacheWrite: 0, output: 8, reasoning: 2, totalTokens: 25, cost: {} },
+    }),
+    message("a3", "a2", "2026-01-01T00:00:04.000Z", {
+      role: "assistant", content: [{ type: "text", text: "unattributed" }], stopReason: "stop",
+      usage: { input: 0, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0, totalTokens: 0, cost: {} },
+    }),
+  ]);
+
+  try {
+    const result = await runCollector({ target, sessionsRoot, stateRoot: join(root, "state") });
+    assert.deepEqual(
+      result.entries.filter((entry) => entry.usage).map((entry) => [entry.provider, entry.model, entry.usage.reasoningTokens, entry.usage.cacheReadTokens]),
+      [["anthropic", "claude-sonnet", 3, 20], ["openai", "gpt-test", 2, 4], [null, null, 0, 0]],
+    );
+    assert.deepEqual(result.metrics.tokenUsage, { totalTokens: 67, costUsd: 0.02 });
+    assert.equal(result.metrics.usage.calls, 3);
+    assert.equal(result.metrics.usage.uncachedInputTokens, 21);
+    assert.equal(result.metrics.usage.cacheReadTokens, 24);
+    assert.equal(result.metrics.usage.cacheWriteTokens, 5);
+    assert.equal(result.metrics.usage.outputTokens, 15);
+    assert.equal(result.metrics.usage.reasoningTokens, 5);
+    assert.equal(result.metrics.usage.totalTokens, 67);
+    assert.deepEqual(result.metrics.usage.costCoverage, { recordedCalls: 1, missingCalls: 2, ratio: 1 / 3 });
+    assert.deepEqual(result.metrics.usage.providerModelCoverage, { attributedCalls: 2, unattributedCalls: 1, ratio: 2 / 3 });
+    assert.deepEqual(result.metrics.usage.byProviderModel.map(({ provider, model, calls, recordedCostUsd }) => [provider, model, calls, recordedCostUsd]), [
+      ["anthropic", "claude-sonnet", 1, 0.02],
+      ["openai", "gpt-test", 1, null],
+      ["unknown", "unknown", 1, null],
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("derivation filters explicit boundaries and attributes repeated non-overlapping stage intervals", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-derive-"));
+  const usage = (totalTokens, recordedCostUsd = null) => ({
+    uncachedInputTokens: totalTokens - 4,
+    cacheReadTokens: 1,
+    cacheWriteTokens: 1,
+    outputTokens: 2,
+    reasoningTokens: 1,
+    totalTokens,
+    recordedCostUsd,
+  });
+  const evidence = {
+    schemaVersion: "myflow-observation-evidence/v1",
+    entries: [
+      { id: "precursor", timestamp: "2026-01-01T00:00:05.000Z", role: "assistant", provider: "anthropic", model: "claude", usage: usage(10, 0.01) },
+      { id: "scope", timestamp: "2026-01-01T00:00:15.000Z", role: "assistant", provider: "anthropic", model: "claude", usage: usage(20, 0.02) },
+      { id: "plan-1", timestamp: "2026-01-01T00:00:25.000Z", role: "assistant", provider: "openai", model: "gpt", usage: usage(30) },
+      { id: "scope-return", timestamp: "2026-01-01T00:00:35.000Z", role: "assistant", provider: "anthropic", model: "claude", usage: usage(40, 0.04) },
+      { id: "unassigned", timestamp: "2026-01-01T00:00:45.000Z", role: "assistant", provider: null, model: null, usage: usage(50, 0.05) },
+      { id: "tail", timestamp: "2026-01-01T00:01:05.000Z", role: "assistant", provider: "openai", model: "gpt", usage: usage(60, 0.06) },
+    ],
+    metrics: { turnaroundWindows: [{ startedAt: "2026-01-01T00:00:12.000Z", endedAt: "2026-01-01T00:00:14.000Z", durationMs: 2000 }] },
+  };
+  const analysis = {
+    schemaVersion: "myflow-observation-analysis/v1",
+    project: "github.com/example/project",
+    workstream: "demo-flow",
+    startedAt: "2026-01-01T00:00:10.000Z",
+    closedAt: "2026-01-01T00:01:00.000Z",
+    boundarySemantics: "scope-to-close",
+    classification: { risk: "medium", depth: "lightweight", flowItemType: "Feature" },
+    stageIntervals: [
+      { stage: "Scope", startedAt: "2026-01-01T00:00:10.000Z", endedAt: "2026-01-01T00:00:20.000Z" },
+      { stage: "Plan", startedAt: "2026-01-01T00:00:20.000Z", endedAt: "2026-01-01T00:00:30.000Z" },
+      { stage: "Scope", startedAt: "2026-01-01T00:00:30.000Z", endedAt: "2026-01-01T00:00:40.000Z" },
+    ],
+    activeTimeMs: null,
+    waitTimeMs: null,
+    executionFlow: { reworkEpisodes: 1, stageReturnCount: 1, lateDiscoveryCount: 0, returnLoopMs: 10_000, processFriction: { failedChecks: 1, corrections: 1 } },
+    developerExperience: { selfReport: null, closeSatisfaction: null },
+    outcomes: { verifyVerdict: "pass", acceptedPhaseCount: 1, toolSuccessRate: 1 },
+    versions: { myflow: "test", pi: "test" },
+    limitations: ["No active and wait classification was recorded."],
+  };
+
+  try {
+    const { receipt, output } = await runDerivation(root, evidence, analysis);
+    assert.equal(receipt.schemaVersion, "myflow-team-flow/v2");
+    assert.equal(output.flowFrameworkContribution.scopeToCloseCycleTimeMs, 50_000);
+    assert.equal(output.flowFrameworkContribution.flowTimeMs, null);
+    assert.equal(output.flowFrameworkContribution.efficiency.value, null);
+    assert.equal(output.flowFrameworkContribution.efficiency.coverage, "not-measured");
+    assert.equal(output.executionFlow.stageResidenceMs.Scope, 20_000);
+    assert.equal(output.executionFlow.stageResidenceMs.Plan, 10_000);
+    assert.equal(output.executionFlow.stageIntervals.length, 3);
+    assert.deepEqual(output.developerExperience, { selfReport: null, closeSatisfaction: null });
+    assert.deepEqual(output.executionFlow.processFriction, { failedChecks: 1, corrections: 1 });
+    assert.equal(output.aiEconomics.calls, 4);
+    assert.equal(output.aiEconomics.totalTokens, 140);
+    assert.equal(output.aiEconomics.recordedCostUsd, 0.11);
+    assert.deepEqual(output.aiEconomics.costCoverage, { recordedCalls: 3, missingCalls: 1, ratio: 0.75 });
+    assert.deepEqual(output.aiEconomics.attribution, {
+      boundaryExcludedCalls: 2,
+      assignedCalls: 3,
+      unassignedCalls: 1,
+      assignedRecordedCostUsd: 0.06,
+      unassignedRecordedCostUsd: 0.05,
+      assignedCostCoverage: { recordedCalls: 2, missingCalls: 1, ratio: 2 / 3 },
+      unassignedCostCoverage: { recordedCalls: 1, missingCalls: 0, ratio: 1 },
+    });
+    assert.equal(output.aiEconomics.uncachedInputTokens, 124);
+    assert.equal(output.aiEconomics.cacheReadTokens, 4);
+    assert.equal(output.aiEconomics.cacheWriteTokens, 4);
+    assert.equal(output.aiEconomics.outputTokens, 8);
+    assert.equal(output.aiEconomics.reasoningTokens, 4);
+    assert.deepEqual(output.aiEconomics.byStage.map(({ stage, calls, totalTokens, recordedCostUsd }) => [stage, calls, totalTokens, recordedCostUsd]), [
+      ["Plan", 1, 30, null],
+      ["Scope", 2, 60, 0.06],
+    ]);
+    assert.ok(output.aiEconomics.byProviderModel.some((group) => group.provider === "anthropic" && group.model === "claude" && group.totalTokens === 60 && group.recordedCostUsd === 0.06));
+    assert.ok(output.aiEconomics.byProviderModel.some((group) => group.provider === "unknown" && group.model === "unknown" && group.calls === 1));
+    assert.equal(JSON.stringify(output).includes("precursor"), false);
+    assert.equal(JSON.stringify(output).includes("tail"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("derivation rejects overlapping stage intervals and derives qualified efficiency only from explicit active and wait evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-validation-"));
+  const evidence = { schemaVersion: "myflow-observation-evidence/v1", entries: [] };
+  const base = {
+    schemaVersion: "myflow-observation-analysis/v1",
+    project: "project", workstream: "demo-flow",
+    startedAt: "2026-01-01T00:00:00.000Z", closedAt: "2026-01-01T00:01:00.000Z",
+    boundarySemantics: "value-stream-to-customer",
+    classification: { risk: "low", depth: "lightweight", flowItemType: "Defect" },
+    stageIntervals: [], activeTimeMs: 15_000, waitTimeMs: 5_000,
+    executionFlow: { processFriction: {} },
+    developerExperience: { selfReport: { value: "smooth", source: "developer-report" }, closeSatisfaction: null },
+  };
+
+  try {
+    const { output } = await runDerivation(root, evidence, base);
+    assert.equal(output.flowFrameworkContribution.flowTimeMs, 60_000);
+    assert.equal(output.flowFrameworkContribution.efficiency.value, 0.75);
+    assert.equal(output.flowFrameworkContribution.efficiency.coverage, "active-and-wait-measured");
+    assert.deepEqual(output.developerExperience.selfReport, { value: "smooth", source: "developer-report" });
+
+    await assert.rejects(
+      runDerivation(root, evidence, {
+        ...base,
+        stageIntervals: [
+          { stage: "Scope", startedAt: "2026-01-01T00:00:10.000Z", endedAt: "2026-01-01T00:00:30.000Z" },
+          { stage: "Plan", startedAt: "2026-01-01T00:00:20.000Z", endedAt: "2026-01-01T00:00:40.000Z" },
+        ],
+      }),
+      (error) => /overlap/i.test(error.stderr),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("collector defaults to the canonical repository observation tree", async () => {
   const root = await mkdtemp(join(tmpdir(), "observing-myflow-repository-state-"));
   const home = join(root, "home");
@@ -187,6 +382,7 @@ test("skill contract keeps timing conservative, raw state private, and Close out
     readFile(new URL("../README.md", import.meta.url), "utf8"),
     readFile(new URL("../docs/myflow-workflow-status-and-alignment.md", import.meta.url), "utf8"),
   ]);
+  const contract = await readFile(new URL("../skills/observing-myflow/report-contract.md", import.meta.url), "utf8");
 
   assert.match(skill, /unknown gap|unknown interval/i);
   assert.match(skill, /not active agent time/i);
@@ -196,7 +392,10 @@ test("skill contract keeps timing conservative, raw state private, and Close out
   assert.match(skill, /team-safe/i);
   assert.match(skill, /Close/i);
   assert.match(skill, /observer.*session/i);
-  assert.match(skill, /developer-reported friction|friction pulse/i);
+  assert.match(skill, /developer-reported friction|self-report|friction pulse/i);
+  assert.match(skill, /myflow-observation-analysis\/v1/i);
+  assert.match(skill, /derive-team-flow\.mjs/i);
+  assert.match(skill, /provider.*model|model.*provider/is);
   assert.match(skill, /backward transition|stage return/i);
   assert.match(skill, /necessary learning.*late discovery.*process-induced/is);
   assert.match(skill, /developer report.*private account|private account.*developer report/is);
@@ -207,6 +406,13 @@ test("skill contract keeps timing conservative, raw state private, and Close out
   assert.match(scenarios, /repository observation tree/i);
   assert.match(scenarios, /telemetry migration/i);
   assert.match(scenarios, /backward flow/i);
+  assert.match(scenarios, /boundary filtering/i);
+  assert.match(scenarios, /missing cost/i);
+  assert.match(contract, /myflow-team-flow\/v2/i);
+  assert.match(contract, /Scope-to-Close/i);
+  assert.match(contract, /customer-centric Flow Time/i);
+  assert.match(contract, /token volume.*individual productivity|individual productivity.*token volume/is);
+  assert.match(contract, /reasoning tokens.*subset|subset.*reasoning tokens/is);
   assert.match(readme, /observing-myflow/i);
   assert.match(readme, /\.myflow\/repositories\/<identity>\/observations/i);
   assert.match(status, /observing-myflow/i);

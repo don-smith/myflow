@@ -33,6 +33,17 @@ A later RED test showed that the collector still suggested Close outputs inside 
 
 The GREEN implementation now resolves `target` through `resolve-repository-map.mjs`, stores each workstream under `~/.myflow/repositories/<identity>/observations/`, and keeps explicit state-root overrides repository-specific.
 
+## Evidence-qualified economics RED
+
+Before the Phase 1 contract and scripts changed, `node --test tests/observing-myflow.test.mjs` failed at the public command and documentation seams:
+
+- collector entries omitted provider, model, cache read and write, and reasoning usage;
+- no `derive-team-flow.mjs` command existed for explicit boundary and stage attribution;
+- the skill did not require `myflow-observation-analysis/v1` before producing team-safe output;
+- the report contract still exposed inferred `developerFriction` in the v1 team export.
+
+The fixture suite now checks provider/model grouping, missing cost, boundary filtering, repeated stages, overlap rejection, unassigned usage, absent sentiment, and nullable efficiency.
+
 ## Deliberate limits
 
 - Pi JSONL cannot provide exact lifecycle spans.

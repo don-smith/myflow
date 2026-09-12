@@ -191,15 +191,24 @@ function summarizeEntry(record, sessionId) {
   if (text) summary.excerpt = excerpt(text);
   if (message.role === "assistant") {
     summary.stopReason = message.stopReason;
+    summary.provider = typeof message.provider === "string" ? message.provider : null;
+    summary.model = typeof message.model === "string" ? message.model : null;
     summary.toolCalls = (Array.isArray(message.content) ? message.content : [])
       .filter((block) => block && block.type === "toolCall")
       .map((block) => ({ id: block.id, name: block.name, arguments: summarizeArguments(block.name, block.arguments) }));
     if (message.usage) {
+      const recordedCostUsd = typeof message.usage.cost?.total === "number" ? message.usage.cost.total : null;
       summary.usage = {
         input: message.usage.input ?? 0,
         output: message.usage.output ?? 0,
         totalTokens: message.usage.totalTokens ?? 0,
-        cost: message.usage.cost?.total,
+        ...(recordedCostUsd === null ? {} : { cost: recordedCostUsd }),
+        uncachedInputTokens: message.usage.input ?? 0,
+        cacheReadTokens: message.usage.cacheRead ?? 0,
+        cacheWriteTokens: message.usage.cacheWrite ?? 0,
+        outputTokens: message.usage.output ?? 0,
+        reasoningTokens: message.usage.reasoning ?? 0,
+        recordedCostUsd,
       };
     }
   }
@@ -242,6 +251,42 @@ function stageSignals(entries, workstream) {
   return signals;
 }
 
+function emptyUsageTotals() {
+  return {
+    calls: 0,
+    uncachedInputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    totalTokens: 0,
+    recordedCostUsd: 0,
+    recordedCostCalls: 0,
+  };
+}
+
+function addUsage(totals, usage) {
+  totals.calls++;
+  for (const key of ["uncachedInputTokens", "cacheReadTokens", "cacheWriteTokens", "outputTokens", "reasoningTokens", "totalTokens"]) {
+    totals[key] += typeof usage[key] === "number" ? usage[key] : 0;
+  }
+  if (typeof usage.recordedCostUsd === "number") {
+    totals.recordedCostUsd += usage.recordedCostUsd;
+    totals.recordedCostCalls++;
+  }
+}
+
+function finishUsage(totals) {
+  const { recordedCostCalls, ...usage } = totals;
+  usage.recordedCostUsd = recordedCostCalls ? Number(usage.recordedCostUsd.toFixed(6)) : null;
+  usage.costCoverage = {
+    recordedCalls: recordedCostCalls,
+    missingCalls: usage.calls - recordedCostCalls,
+    ratio: usage.calls ? recordedCostCalls / usage.calls : null,
+  };
+  return usage;
+}
+
 function aggregateMetrics(sessions) {
   const roleCounts = {};
   const toolCalls = {};
@@ -251,6 +296,9 @@ function aggregateMetrics(sessions) {
   let totalTokens = 0;
   let cost = 0;
   let hasCost = false;
+  const usageTotals = emptyUsageTotals();
+  const usageGroups = new Map();
+  let attributedProviderModelCalls = 0;
 
   for (const session of sessions) {
     const entries = session.allEntries;
@@ -271,6 +319,13 @@ function aggregateMetrics(sessions) {
         if (entry.usage) {
           totalTokens += entry.usage.totalTokens ?? 0;
           if (typeof entry.usage.cost === "number") { cost += entry.usage.cost; hasCost = true; }
+          addUsage(usageTotals, entry.usage);
+          const provider = entry.provider ?? "unknown";
+          const model = entry.model ?? "unknown";
+          if (entry.provider && entry.model) attributedProviderModelCalls++;
+          const key = `${provider}\u0000${model}`;
+          if (!usageGroups.has(key)) usageGroups.set(key, { provider, model, totals: emptyUsageTotals() });
+          addUsage(usageGroups.get(key).totals, entry.usage);
         }
         for (const call of entry.toolCalls ?? []) {
           toolCalls[call.name] ??= { total: 0, errors: 0 };
@@ -298,6 +353,17 @@ function aggregateMetrics(sessions) {
     turnaroundWindows,
     largestUnknownGaps: unknownGaps.slice(0, 10),
     tokenUsage: { totalTokens, ...(hasCost ? { costUsd: Number(cost.toFixed(6)) } : {}) },
+    usage: {
+      ...finishUsage(usageTotals),
+      providerModelCoverage: {
+        attributedCalls: attributedProviderModelCalls,
+        unattributedCalls: usageTotals.calls - attributedProviderModelCalls,
+        ratio: usageTotals.calls ? attributedProviderModelCalls / usageTotals.calls : null,
+      },
+      byProviderModel: [...usageGroups.values()]
+        .map(({ provider, model, totals }) => ({ provider, model, ...finishUsage(totals) }))
+        .sort((left, right) => left.provider.localeCompare(right.provider) || left.model.localeCompare(right.model)),
+    },
   };
 }
 
@@ -427,7 +493,7 @@ function main() {
       "Unknown gaps cannot be assigned to human wait, provider time, tool time, or idle time without lifecycle telemetry.",
       "Session and artifact evidence cannot replace code review, verification, or product correctness checks.",
     ],
-    private: { statePath, accountPath, snapshotPath: "" },
+    private: { statePath, accountPath, snapshotPath: "", suggestedAnalysisPath: join(privateDir, "analysis", `${stamp}_${options.workstream}-analysis.json`) },
     curated: {
       suggestedReportPath: join(curatedDir, `${stamp}_${options.workstream}-flow-account.md`),
       suggestedTeamMetricsPath: join(curatedDir, `${stamp}_${options.workstream}-team-flow.json`),

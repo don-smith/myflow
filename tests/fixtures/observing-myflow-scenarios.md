@@ -34,6 +34,34 @@ Given a Plan review that returns a ready design to Design and a developer who re
 - treat the corrective gate as useful while still accounting for its flow cost;
 - propose a risk-triggered mitigation rather than adding mandatory ceremony to every workstream.
 
+## Evidence-qualified AI economics
+
+Given assistant entries from more than one provider and model, with uncached input, cache read and write, output, reasoning, total-token, and recorded-cost fields:
+
+- preserve every usage dimension without adding reasoning tokens to output or total tokens;
+- group calls and usage by provider and model;
+- report recorded and missing cost coverage rather than estimating absent cost;
+- retain the evidence-v1 `tokenUsage` aggregate for compatible readers.
+
+## Boundary filtering and repeated stages
+
+Given precursor usage, explicit workstream boundaries, repeated non-overlapping Scope intervals, a Plan interval, usage between intervals, and subsequent-work usage:
+
+- include only calls inside the half-open workstream boundary;
+- assign each included call to no more than one stage interval;
+- sum repeated intervals under the same stage without merging away the return;
+- report between-stage calls and recorded cost as unassigned;
+- reject overlapping, reversed, or out-of-bound stage intervals.
+
+## Conservative experience and efficiency
+
+Given no developer self-report and no active or wait classification:
+
+- keep self-report and Close satisfaction `null`;
+- report process-friction counts separately from developer experience;
+- keep Flow Efficiency `null` with `not-measured` coverage;
+- do not use token, tool, or elapsed-time volume as a proxy for experience, efficiency, or individual productivity.
+
 ## Telemetry migration
 
 Given a later deployment where project-based Langfuse telemetry supplies exact lifecycle spans:
