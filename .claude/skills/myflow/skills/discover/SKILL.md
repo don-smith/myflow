@@ -7,7 +7,7 @@ argument-hint: "[free-text feature description | existing artifact path]"
 # Discover
 
 <MyFlow-Note>
-In MyFlow Stage 1, `/skill:scope` is the canonical entry point.
+In MyFlow Stage 1, `/scope` is the canonical entry point.
 Use `discover` explicitly when scope reveals ambiguous intent — the work needs deeper requirements extraction than the adaptive alignment flow provides.
 Produces: `.myflow/artifacts/discover/`. Chains to: `research`.
 </MyFlow-Note>
@@ -42,8 +42,8 @@ Copy values verbatim — do not reformat the timezone offset.
    ```
    I'll capture feature intent into an FRD. Provide one of:
 
-   `/skill:discover [free-text feature description]`     — fresh interview, write a new FRD
-   `/skill:discover [existing artifact path]`            — refine an existing FRD/ticket/doc via fresh interview
+   `/discover [free-text feature description]`     — fresh interview, write a new FRD
+   `/discover [existing artifact path]`            — refine an existing FRD/ticket/doc via fresh interview
    ```
    Then wait for input.
 
@@ -170,9 +170,9 @@ Compile interview output into the FRD. Redistribute answers into template bucket
 
    ---
 
-   💬 Follow-up: discover writes a fresh FRD per call — re-invoke `/skill:discover` to iterate.
+   💬 Follow-up: discover writes a fresh FRD per call — re-invoke `/discover` to iterate.
 
-   **Next step:** `/skill:research .myflow/artifacts/discover/<YYYY-MM-DD_HH-MM-SS>_<topic>.md` — ground the intent in codebase reality.
+   **Next step:** `/research .myflow/artifacts/discover/<YYYY-MM-DD_HH-MM-SS>_<topic>.md` — ground the intent in codebase reality.
 
    > 🆕 Tip: start a fresh session with `/new` first — chained skills work best with a clean context window.
    ```
@@ -180,7 +180,7 @@ Compile interview output into the FRD. Redistribute answers into template bucket
 ### Step 8: Handle Follow-ups
 
 - **Fresh artifact per call, no in-place append.** Each invocation writes a NEW timestamp-distinct FRD.
-- **Iterate by re-invoking.** Re-run `/skill:discover [path-to-prior-FRD]` to produce a fresh FRD.
+- **Iterate by re-invoking.** Re-run `/discover [path-to-prior-FRD]` to produce a fresh FRD.
 - **No rubber-stamp question.** NEVER ask a final "looks good / want to adjust" question.
 - **Manual edits are allowed.** The developer can Edit the FRD directly.
 

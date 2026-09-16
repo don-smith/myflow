@@ -49,7 +49,7 @@ A lightweight backup for mid-stage pauses. First run `node skills/myflow/scripts
 Handoff written to:
 `.myflow/artifacts/handoffs/<filename>.md`
 
-**Next step:** `/skill:resume-handoff .myflow/artifacts/handoffs/<filename>.md`
+**Next step:** `/resume-handoff .myflow/artifacts/handoffs/<filename>.md`
 ```
 
 Keep it short. The artifact already has the full context — the handoff just points at what to resume.

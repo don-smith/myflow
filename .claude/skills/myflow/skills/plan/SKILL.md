@@ -55,7 +55,7 @@ If Plan discovers that a supposedly lightweight change needs a new seam, public 
 8. Update `workstream.md`: Plan is `ready`, Implement is the current stage, the plan is authoritative, and its next action is:
 
    ```text
-   /skill:implement <plan-path>
+   `/implement <plan-path>`
    ```
 
 9. Present the plan and ask for acceptance. Only an accepted, `ready` plan authorizes autonomous implementation.

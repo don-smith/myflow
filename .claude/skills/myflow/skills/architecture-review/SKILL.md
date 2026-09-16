@@ -256,7 +256,7 @@ Phases are agent-driven: each one will be handed to `design` → `plan` → `imp
    The artifact is design/plan-consumable per phase:
 
    **Next step (per-phase landing):**
-   - `/skill:design .myflow/artifacts/architecture-reviews/{filename}.md` followed by free-text "Implement Phase 1: {phase name}" — design treats the named phase as the feature scope.
+   - `/design .myflow/artifacts/architecture-reviews/{filename}.md` followed by free-text "Implement Phase 1: {phase name}" — design treats the named phase as the feature scope.
    - Repeat for each phase.
 
    > 🆕 Tip: start a fresh session with `/new` before each design invocation — chained skills work best with a clean context window.
@@ -268,7 +268,7 @@ Phases are agent-driven: each one will be handed to `design` → `plan` → `imp
 
 2. **Bump frontmatter.** Update `last_updated` + `last_updated_by`; set `last_updated_note: "Updated <brief description>"`.
 
-3. **When to re-invoke instead.** If the target has materially changed (new files, restructured layers), re-run `/skill:architecture-review` for a fresh artifact.
+3. **When to re-invoke instead.** If the target has materially changed (new files, restructured layers), re-run `/architecture-review` for a fresh artifact.
 
 ## Guidelines
 

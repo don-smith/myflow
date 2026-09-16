@@ -14,7 +14,7 @@ A design artifact records the chosen solution shape and its consequences. It doe
 
 1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, read its selected map when `found`, and record the resolved path. Then read the workstream's `workstream.md` and the supplied alignment/research artifact fully.
 2. Confirm the artifact's workstream ID and resolve the workstream root from the map (default `.myflow/workstreams`).
-3. If Scope selected `lightweight` work and no material architectural question remains, do not manufacture a design artifact. State the locked/localized design disposition for Plan and continue with `/skill:plan <alignment-path>`.
+3. If Scope selected `lightweight` work and no material architectural question remains, do not manufacture a design artifact. State the locked/localized design disposition for Plan and continue with `/plan <alignment-path>`.
 4. If the input lacks a workstream, acceptance criteria, or a question that needs architecture, return to Scope rather than guessing.
 
 ## Flow
@@ -34,7 +34,7 @@ A design artifact records the chosen solution shape and its consequences. It doe
 8. Present a fresh-session command:
 
    ```text
-   /skill:plan <design-artifact-path>
+   `/plan <design-artifact-path>`
    ```
 
 ## Required design outcome

@@ -56,9 +56,9 @@ Every non-trivial workstream has an executable plan. Its **design disposition** 
 
 **Orchestrator:** `implement`
 
-Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `validate` skill and executes it immediately; `/skill:validate` is recovery/rehydration guidance, not a user-operated gate. Use `epiphany-tabling` only when a new observation should be preserved without expanding the current work.
+Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `validate` skill and executes it immediately; `/validate` is recovery/rehydration guidance, not a user-operated gate. Use `epiphany-tabling` only when a new observation should be preserved without expanding the current work.
 
-When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify.
+When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent (via `context: fork` in Claude Code) owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify.
 
 **Artifact:** implementation checkpoint or updated plan state, plus the working tree.
 
@@ -123,7 +123,7 @@ Optional onboarding specialists remain separate:
 
 ## Artifact and session rules
 
-[The artifact and stage-boundary contract](../../docs/artifact-and-stage-boundary-contract.md) defines canonical paths, resolver lookup, the common artifact interface, planning depths, and corrective loops. The resolver-selected repository map overrides its defaults.
+[The artifact and stage-boundary contract](../../../../docs/artifact-and-stage-boundary-contract.md) defines canonical paths, resolver lookup, the common artifact interface, planning depths, and corrective loops. The resolver-selected repository map overrides its defaults.
 
 Stage artifacts are the primary handoff mechanism. Each should make the current state and next action discoverable without conversation history. At minimum, record:
 
