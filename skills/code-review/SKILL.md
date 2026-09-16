@@ -17,7 +17,7 @@ Execute the active adapter and retain its full output:
 node "${SKILL_DIR}/_helpers/review-range.mjs" "<scope-spec>"
 ```
 
-Record scope status, strategy, base, tip, range, dirty state, changed-files count, and every changed file. `scope_status: invalid` or `empty`, a truncated manifest, unresolved revision, or mismatch with Validate's base/head makes review **blocked**. Dirty state outside an explicit range is an exclusion; `all` includes committed, staged, unstaged, and untracked files. Give every reviewer the same range, complete manifest, diff commands, plan, and mapped sources. A missing plan/equivalent spec blocks Spec Fidelity. Documented standards may be unavailable; still apply maintainability judgment.
+Record scope status, strategy, base, tip, range, dirty state, changed-files count, and every changed file. Read the generated `patch_path` and give every reviewer that same patch evidence with the complete manifest, range, plan, and mapped sources. The `all` patch preserves committed, cached, unstaged, and untracked layers separately so opposing index and worktree changes remain visible. `scope_status: invalid` or `empty`, a truncated manifest, unreadable patch evidence, unresolved revision, or mismatch with Validate's base/head makes review **blocked**. Dirty state outside an explicit range is an exclusion. A missing plan/equivalent spec blocks Spec Fidelity. Documented standards may be unavailable; still apply maintainability judgment.
 
 ## Run three independent lanes
 

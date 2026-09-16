@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -13,10 +13,20 @@ const git = (cwd, args) =>
 const runHelper = (cwd, scope) =>
 	execFileSync(process.execPath, [helper.pathname, scope], { cwd, encoding: "utf-8" });
 
+const changedFilesBody = (output) => output.split("---changed-files---\n", 2)[1];
+
 const changedFiles = (output) => {
-	const body = output.split("---changed-files---\n", 2)[1].trim();
+	const body = changedFilesBody(output).trim();
 	return body ? body.split("\n") : [];
 };
+
+const outputField = (output, name) => {
+	const match = output.match(new RegExp(`^${name}:\\s+(.+)$`, "m"));
+	assert.ok(match, `missing ${name} in helper output`);
+	return match[1];
+};
+
+const patchEvidence = (output) => readFileSync(outputField(output, "patch_path"), "utf8");
 
 const createRepo = () => {
 	const repo = mkdtempSync(join(tmpdir(), "review-range-"));
@@ -44,6 +54,7 @@ test("all scope includes committed, tracked working-tree, and untracked files", 
 		writeFileSync(join(repo, "untracked.txt"), "untracked\n");
 
 		const output = runHelper(repo, "all");
+		const patch = patchEvidence(output);
 
 		assert.match(output, /default_branch:\s+main/);
 		assert.match(output, /strategy:\s+branch-all/);
@@ -51,6 +62,60 @@ test("all scope includes committed, tracked working-tree, and untracked files", 
 		assert.match(output, /dirty_state:\s+dirty/);
 		assert.match(output, /changed_files_count:\s+3/);
 		assert.deepEqual(changedFiles(output), ["committed.txt", "tracked.txt", "untracked.txt"]);
+		for (const file of ["committed.txt", "tracked.txt", "untracked.txt"]) {
+			assert.match(patch, new RegExp(`diff --git (?:a|/dev/null)/${file.replace(".", "\\.")}`));
+		}
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("all scope preserves opposing cached and unstaged layers in manifest and patch evidence", () => {
+	const repo = createRepo();
+	try {
+		writeFileSync(join(repo, "base.txt"), "staged version\n");
+		git(repo, ["add", "base.txt"]);
+		writeFileSync(join(repo, "base.txt"), "base\n");
+
+		for (const scope of ["all", "auto"]) {
+			const output = runHelper(repo, scope);
+			const patch = patchEvidence(output);
+
+			assert.match(output, /scope_status:\s+ready/);
+			assert.match(output, /changed_files_count:\s+1/);
+			assert.deepEqual(changedFiles(output), ["base.txt"]);
+			assert.match(patch, /cached changes relative to HEAD/);
+			assert.match(patch, /-base\n\+staged version/);
+			assert.match(patch, /unstaged changes relative to index/);
+			assert.match(patch, /-staged version\n\+base/);
+		}
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("all scope includes files introduced by a clean merge", () => {
+	const repo = createRepo();
+	try {
+		const main = git(repo, ["rev-parse", "main"]).trim();
+		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
+		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+		git(repo, ["checkout", "-qb", "integration"]);
+		git(repo, ["checkout", "-qb", "feature", "main"]);
+		writeFileSync(join(repo, "merged.txt"), "merged\n");
+		git(repo, ["add", "merged.txt"]);
+		git(repo, ["commit", "-qm", "feature"]);
+		git(repo, ["checkout", "-q", "integration"]);
+		writeFileSync(join(repo, "main.txt"), "main\n");
+		git(repo, ["add", "main.txt"]);
+		git(repo, ["commit", "-qm", "main"]);
+		git(repo, ["merge", "-q", "--no-ff", "feature", "-m", "clean merge"]);
+
+		const output = runHelper(repo, "all");
+
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["merged.txt", "main.txt"]);
+		assert.match(patchEvidence(output), /diff --git a\/merged\.txt b\/merged\.txt/);
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
 	}
@@ -130,11 +195,72 @@ test("single root commit scope includes the root commit", () => {
 	const repo = createRepo();
 	try {
 		const root = git(repo, ["rev-parse", "HEAD"]).trim();
+		const emptyTree = git(repo, ["hash-object", "-t", "tree", "/dev/null"]).trim();
 
-		const output = runHelper(repo, root);
+		for (const scope of [root, "commit"]) {
+			const output = runHelper(repo, scope);
 
+			assert.match(output, new RegExp(`base:\\s+${emptyTree}`));
+			assert.match(output, /scope_status:\s+ready/);
+			assert.deepEqual(changedFiles(output), ["base.txt"]);
+			assert.match(patchEvidence(output), /\+base/);
+		}
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("commit scope at a clean merge includes changes relative to its first parent", () => {
+	const repo = createRepo();
+	try {
+		git(repo, ["checkout", "-qb", "feature"]);
+		writeFileSync(join(repo, "feature.txt"), "feature\n");
+		git(repo, ["add", "feature.txt"]);
+		git(repo, ["commit", "-qm", "feature"]);
+		git(repo, ["checkout", "-q", "main"]);
+		writeFileSync(join(repo, "main.txt"), "main\n");
+		git(repo, ["add", "main.txt"]);
+		git(repo, ["commit", "-qm", "main"]);
+		const firstParent = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["merge", "-q", "--no-ff", "feature", "-m", "clean merge"]);
+		const merge = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, "commit");
+
+		assert.match(output, new RegExp(`base:\\s+${firstParent}`));
+		assert.match(output, new RegExp(`tip:\\s+${merge}`));
 		assert.match(output, /scope_status:\s+ready/);
-		assert.deepEqual(changedFiles(output), ["base.txt"]);
+		assert.deepEqual(changedFiles(output), ["feature.txt"]);
+		assert.match(patchEvidence(output), /diff --git a\/feature\.txt b\/feature\.txt/);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("commit scope at a merge includes conflict resolution relative to its first parent", () => {
+	const repo = createRepo();
+	try {
+		writeFileSync(join(repo, "conflict.txt"), "shared\n");
+		git(repo, ["add", "conflict.txt"]);
+		git(repo, ["commit", "-qm", "shared file"]);
+		git(repo, ["checkout", "-qb", "feature"]);
+		writeFileSync(join(repo, "conflict.txt"), "feature\n");
+		git(repo, ["commit", "-qam", "feature edit"]);
+		git(repo, ["checkout", "-q", "main"]);
+		writeFileSync(join(repo, "conflict.txt"), "main\n");
+		git(repo, ["commit", "-qam", "main edit"]);
+		const firstParent = git(repo, ["rev-parse", "HEAD"]).trim();
+		assert.throws(() => git(repo, ["merge", "--no-ff", "feature", "-m", "conflicted merge"]));
+		writeFileSync(join(repo, "conflict.txt"), "resolved\n");
+		git(repo, ["add", "conflict.txt"]);
+		git(repo, ["commit", "-qm", "resolved merge"]);
+
+		const output = runHelper(repo, "commit");
+
+		assert.match(output, new RegExp(`base:\\s+${firstParent}`));
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["conflict.txt"]);
+		assert.match(patchEvidence(output), /-main\n\+resolved/);
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
 	}
@@ -264,15 +390,89 @@ test("named branch scope uses its tip and merge base while another branch is che
 	}
 });
 
-test("invalid scope is explicit and never masquerades as an empty pass", () => {
+test("named branch scope includes files introduced by a clean merge", () => {
 	const repo = createRepo();
 	try {
+		git(repo, ["checkout", "-qb", "feature"]);
+		writeFileSync(join(repo, "merged.txt"), "merged\n");
+		git(repo, ["add", "merged.txt"]);
+		git(repo, ["commit", "-qm", "feature"]);
+		git(repo, ["checkout", "-qb", "integration", "main"]);
+		writeFileSync(join(repo, "integration.txt"), "integration\n");
+		git(repo, ["add", "integration.txt"]);
+		git(repo, ["commit", "-qm", "integration"]);
+		git(repo, ["merge", "-q", "--no-ff", "feature", "-m", "clean merge"]);
+		git(repo, ["checkout", "-q", "main"]);
+
+		const output = runHelper(repo, "integration");
+
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["merged.txt", "integration.txt"]);
+		assert.match(patchEvidence(output), /diff --git a\/merged\.txt b\/merged\.txt/);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("working-tree strategies produce matching manifests and patch evidence", () => {
+	const repo = createRepo();
+	try {
+		writeFileSync(join(repo, "staged.txt"), "staged\n");
+		git(repo, ["add", "staged.txt"]);
+		writeFileSync(join(repo, "base.txt"), "unstaged\n");
+
+		const staged = runHelper(repo, "staged");
+		assert.deepEqual(changedFiles(staged), ["staged.txt"]);
+		assert.match(patchEvidence(staged), /diff --git a\/staged\.txt b\/staged\.txt/);
+		assert.doesNotMatch(patchEvidence(staged), /diff --git a\/base\.txt b\/base\.txt/);
+
+		const working = runHelper(repo, "working");
+		assert.deepEqual(changedFiles(working), ["base.txt"]);
+		assert.match(patchEvidence(working), /diff --git a\/base\.txt b\/base\.txt/);
+		assert.doesNotMatch(patchEvidence(working), /diff --git a\/staged\.txt b\/staged\.txt/);
+
+		const modified = runHelper(repo, "modified");
+		assert.deepEqual(changedFiles(modified), ["base.txt", "staged.txt"]);
+		assert.match(patchEvidence(modified), /diff --git a\/base\.txt b\/base\.txt/);
+		assert.match(patchEvidence(modified), /diff --git a\/staged\.txt b\/staged\.txt/);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("invalid scope is explicit, clears patch evidence, and never masquerades as an empty pass", () => {
+	const repo = createRepo();
+	try {
+		const validOutput = runHelper(repo, git(repo, ["rev-parse", "HEAD"]).trim());
+		assert.notEqual(patchEvidence(validOutput), "");
 		const output = runHelper(repo, "missing-review-ref");
 
 		assert.match(output, /strategy:\s+unrecognised/);
 		assert.match(output, /scope_status:\s+invalid/);
 		assert.match(output, /note:\s+scope spec not recognised/);
 		assert.deepEqual(changedFiles(output), []);
+		assert.equal(patchEvidence(output), "");
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("changed-files cap counts UTF-8 bytes and reserves the truncation footer", () => {
+	const repo = createRepo();
+	try {
+		git(repo, ["config", "core.quotePath", "false"]);
+		for (let index = 0; index < 220; index += 1) {
+			const name = `${String(index).padStart(3, "0")}-${"界".repeat(70)}.txt`;
+			writeFileSync(join(repo, name), `${index}\n`);
+		}
+		git(repo, ["add", "-A"]);
+
+		const output = runHelper(repo, "staged");
+		const body = changedFilesBody(output);
+
+		assert.match(output, /changed_files_count:\s+220/);
+		assert.match(body, /\(\.\.\. \d+ more files truncated \.\.\.\)\n$/);
+		assert.ok(Buffer.byteLength(body, "utf8") <= 40 * 1024);
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
 	}

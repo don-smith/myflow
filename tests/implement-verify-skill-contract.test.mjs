@@ -159,6 +159,14 @@ test("Validate-to-code-review contract rejects negated and advisory-only executi
   }
 });
 
+const assertCloseReviewRefusalContract = (close) => {
+  assert.match(close, /missing[^.\n]*failing[^.\n]*mismatched[^.\n]*review evidence[^.\n]*prevents Close/i);
+  assert.doesNotMatch(
+    close,
+    /(?:missing|failing|mismatched)[^.\n]*review evidence[^.\n]*(?:do not|does not|must not|never)[^.\n]*prevent Close/i,
+  );
+};
+
 test("Close requires linked passing review evidence, not only a validation pass string", async () => {
   const close = await read("skills/close/SKILL.md");
 
@@ -171,8 +179,24 @@ test("Close requires linked passing review evidence, not only a validation pass 
     "missing",
     "failing",
     "blocked",
+    "mismatched",
   ]) {
     assert.match(close, new RegExp(phrase, "i"));
   }
   assert.match(close, /Do not trust (?:only )?the validation report(?:'s)? top-level verdict/i);
+  assertCloseReviewRefusalContract(close);
+});
+
+test("Close review gate rejects explicit missing, failing, and mismatched negations", async () => {
+  const close = await read("skills/close/SKILL.md");
+  assertCloseReviewRefusalContract(close);
+
+  for (const kind of ["missing", "failing", "mismatched"]) {
+    const mutant = close.replace(
+      /Missing[^.\n]*failing[^.\n]*mismatched[^.\n]*review evidence[^.\n]*prevents Close/i,
+      `${kind} review evidence does not prevent Close`,
+    );
+    assert.match(mutant, new RegExp(`${kind}[^.\\n]*review evidence[^.\\n]*prevent Close`, "i"));
+    assert.throws(() => assertCloseReviewRefusalContract(mutant));
+  }
 });

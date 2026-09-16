@@ -56,6 +56,7 @@
 //     `note:` so the LLM can ask the user via ask_user_question rather than fail.
 
 import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const CHANGED_FILES_LINE_CAP = 2000;
@@ -123,20 +124,42 @@ const dedupChangedFiles = (raw) => {
 };
 
 const formatChangedFiles = (files) => {
-	let out = "";
-	let count = 0;
-	for (const f of files) {
-		const next = `${f}\n`;
-		if (out.length + next.length > CHANGED_FILES_BYTE_CAP) break;
-		if (count >= CHANGED_FILES_LINE_CAP) break;
-		out += next;
-		count += 1;
+	const included = [];
+	for (const file of files) {
+		if (included.length >= CHANGED_FILES_LINE_CAP) break;
+		const candidate = [...included, `${file}\n`];
+		const remaining = files.length - candidate.length;
+		const footer = remaining > 0 ? `(... ${remaining} more files truncated ...)\n` : "";
+		if (Buffer.byteLength(candidate.join("") + footer, "utf8") > CHANGED_FILES_BYTE_CAP) break;
+		included.push(`${file}\n`);
 	}
-	if (count < files.length) {
-		out += `(... ${files.length - count} more files truncated ...)\n`;
+
+	let footer =
+		included.length < files.length ? `(... ${files.length - included.length} more files truncated ...)\n` : "";
+	while (
+		included.length > 0 &&
+		Buffer.byteLength(included.join("") + footer, "utf8") > CHANGED_FILES_BYTE_CAP
+	) {
+		included.pop();
+		footer = `(... ${files.length - included.length} more files truncated ...)\n`;
 	}
-	return out;
+	return included.join("") + footer;
 };
+
+const capture = (args) => {
+	try {
+		return execFileSync("git", args, {
+			encoding: "utf-8",
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+	} catch (error) {
+		return typeof error?.stdout === "string" ? error.stdout : "";
+	}
+};
+
+const diff = (...args) => capture(["diff", "--no-ext-diff", "--binary", "-U30", ...args]);
+
+const patchSection = (label, patch) => (patch ? `# code-review: ${label}\n${patch}` : "");
 
 const result = {
 	default_branch: resolveDefaultBranch(),
@@ -202,7 +225,9 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 	if (oldest) setBranchAll(oldest, safe(["rev-parse", "HEAD"]));
 	else result.note = `merge-base ${defaultBranch}..HEAD failed`;
 } else if (lower === "commit") {
-	setWorkingTree(safe(["rev-parse", "HEAD"]), safe(["rev-parse", "HEAD"]));
+	const head = safe(["rev-parse", "HEAD"]);
+	const parent = safe(["rev-parse", "HEAD^1"]) || emptyTree;
+	setExplicitRange(parent, head);
 } else if (lower === "staged" || lower === "working" || lower === "modified") {
 	setWorkingTree();
 } else if (scope.includes("..")) {
@@ -259,13 +284,14 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 
 // ChangedFiles per strategy.
 if (result.strategy === "branch-all") {
-	// A complete branch review is a union: committed first-parent changes,
-	// tracked working-tree changes, and untracked non-ignored files. Do not use
-	// `git diff HEAD` alone: it intentionally omits untracked files.
+	// A complete branch review is a union of committed, cached, unstaged, and
+	// untracked names. Keep cached and unstaged separate: their net HEAD-to-
+	// worktree view can cancel even though both layers contain reviewable edits.
 	const committed = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
-	const tracked = safe(["diff", "HEAD", "--name-only"]);
+	const cached = safe(["diff", "--cached", "--name-only"]);
+	const unstaged = safe(["diff", "--name-only"]);
 	const untracked = safe(["ls-files", "--others", "--exclude-standard"]);
-	result.changedFiles = dedupChangedFiles(`${committed}\n${tracked}\n${untracked}`);
+	result.changedFiles = dedupChangedFiles(`${committed}\n${cached}\n${unstaged}\n${untracked}`);
 } else if (result.strategy === "first-parent") {
 	const raw = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
 	result.changedFiles = dedupChangedFiles(raw);
@@ -273,10 +299,7 @@ if (result.strategy === "branch-all") {
 	const raw = safe(["diff", "--name-only", result.range]);
 	result.changedFiles = dedupChangedFiles(raw);
 } else if (result.strategy === "working-tree") {
-	if (lower === "commit") {
-		const raw = safe(["show", "HEAD", "--name-only", "--pretty=format:"]);
-		result.changedFiles = dedupChangedFiles(raw);
-	} else if (lower === "staged") {
+	if (lower === "staged") {
 		const raw = safe(["diff", "--cached", "--name-only"]);
 		result.changedFiles = dedupChangedFiles(raw);
 	} else if (lower === "modified") {
@@ -306,6 +329,23 @@ const dirtyState = safe(["status", "--porcelain=v1", "--untracked-files=normal"]
 const patchPath = resolve(
 	safe(["rev-parse", "--git-path", "code-review-patch.diff"], ".git/code-review-patch.diff"),
 );
+
+let patch = "";
+if (result.strategy === "branch-all") {
+	patch += patchSection("committed changes", diff(result.range));
+	patch += patchSection("cached changes relative to HEAD", diff("--cached"));
+	patch += patchSection("unstaged changes relative to index", diff());
+	for (const file of dedupChangedFiles(safe(["ls-files", "--others", "--exclude-standard"]))) {
+		patch += patchSection(`untracked file ${file}`, diff("--no-index", "--", "/dev/null", file));
+	}
+} else if (result.strategy === "first-parent" || result.strategy === "explicit-range") {
+	patch = diff(result.range);
+} else if (result.strategy === "working-tree") {
+	if (lower === "staged") patch = diff("--cached");
+	else if (lower === "modified") patch = diff("HEAD");
+	else patch = diff();
+}
+writeFileSync(patchPath, patch, "utf8");
 
 const lines = [
 	`default_branch: ${result.default_branch}`,

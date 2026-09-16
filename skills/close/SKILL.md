@@ -12,7 +12,7 @@ Close consumes Verify evidence; it does not repeat validation or force ceremonia
 
 1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read the selected map when found.
 2. Read `workstream.md`, the validation report, accepted plan, and current Git state. Do not trust only the validation report's top-level verdict. Follow its linked review artifact and read the review artifact before entering Close.
-3. Confirm the linked review artifact exists, names the same accepted plan and implementation range as the validation report/checkpoint, contains the required review evidence, and has a passing review verdict. Missing provenance/evidence or a missing, failing, or blocked review prevents Close and returns to Verify or the recorded corrective owner.
+3. Confirm the linked review artifact exists, names the same accepted plan and implementation range as the validation report/checkpoint, contains the required review evidence, and has a passing review verdict. Missing, failing, blocked, or mismatched review evidence prevents Close and returns to Verify or the recorded corrective owner.
 4. Determine the closeout path: `<workstream-root>/<workstream-id>/close/<timestamp>_<topic>.md` (normally `.myflow/workstreams/<workstream-id>/close/`).
 
 ## Determine proportionate actions

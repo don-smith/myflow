@@ -24,9 +24,38 @@ const assertOmissionEvidenceContract = (document) => {
   assert.match(document, /changed-code evidence[^.]*only when[^.]*code exists/is);
 };
 
+const assertPositiveContract = (document, required, forbiddenNegation) => {
+  assert.match(document, required);
+  assert.doesNotMatch(document, forbiddenNegation);
+};
+
 const assertReviewIdentityContract = (document) => {
-  assert.match(document, /run ID and agent identity actually used for each fresh review lane/i);
-  assert.match(document, /run ID and agent identity actually used for independent P0\/P1 verification/i);
+  assertPositiveContract(
+    document,
+    /record the run ID and agent identity actually used for each fresh review lane/i,
+    /(?:do not|does not|must not|never) record[^.\n]*run ID[^.\n]*agent identity[^.\n]*fresh review lane/i,
+  );
+  assertPositiveContract(
+    document,
+    /record the run ID and agent identity actually used for independent P0\/P1 verification/i,
+    /(?:do not|does not|must not|never) record[^.\n]*run ID[^.\n]*agent identity[^.\n]*independent P0\/P1 verification/i,
+  );
+};
+
+const assertSeverityGateContract = (document) => {
+  assertPositiveContract(
+    document,
+    /confirmed P0\/P1[^.\n]*(?:fail|block)/i,
+    /confirmed P0\/P1[^.;\n]*(?:do not|does not|must not|never)[^.;\n]*(?:fail|block)/i,
+  );
+};
+
+const assertIndependentVerificationContract = (document) => {
+  assertPositiveContract(
+    document,
+    /(?:send|require)[^.\n]*P0\/P1[^.\n]*independent verification/i,
+    /(?:do not|does not|must not|never) (?:send|require)[^.\n]*P0\/P1[^.\n]*independent verification/i,
+  );
 };
 
 test("code review pins complete scope through the active range helper", async () => {
@@ -48,6 +77,7 @@ test("code review pins complete scope through the active range helper", async ()
     assert.match(skill, new RegExp(phrase, "i"));
   }
   assert.match(skill, /changed[- ]files/i);
+  assert.match(skill, /read[^.]*patch_path[^.]*reviewer/is);
   assert.match(packageJson, /skills\/code-review\/_helpers\/review-range\.test\.mjs/);
 });
 
@@ -74,16 +104,19 @@ test("review skill and durable template require actual lane and verifier identit
     assert.match(document, /locally available agents[^.]*no model matrix/is);
 
     const withoutLaneIdentity = document.replace(
-      /[^.]*run ID and agent identity actually used for each fresh review lane\./i,
-      " Lane identity may be omitted.",
+      /record the run ID and agent identity actually used for each fresh review lane/i,
+      "do not record the run ID and agent identity actually used for each fresh review lane",
     );
     const withoutVerifierIdentity = document.replace(
-      /[^.]*run ID and agent identity actually used for independent P0\/P1 verification\./i,
-      " Verifier identity may be omitted.",
+      /record the run ID and agent identity actually used for independent P0\/P1 verification/i,
+      "do not record the run ID and agent identity actually used for independent P0/P1 verification",
     );
 
-    assert.throws(() => assertReviewIdentityContract(withoutLaneIdentity));
-    assert.throws(() => assertReviewIdentityContract(withoutVerifierIdentity));
+    for (const mutant of [withoutLaneIdentity, withoutVerifierIdentity]) {
+      assert.match(mutant, /run ID/i);
+      assert.match(mutant, /agent identity/i);
+      assert.throws(() => assertReviewIdentityContract(mutant));
+    }
   }
 });
 
@@ -135,8 +168,27 @@ test("every retained finding has auditable evidence and deterministic severity",
     }
     assertOmissionEvidenceContract(document);
   }
-  assert.match(skill, /P0\/P1[^.]*independent[^.]*verif/is);
+  assertIndependentVerificationContract(skill);
   assert.match(skill, /code and callers/i);
+});
+
+test("severity gating and independent verification reject explicit negation", async () => {
+  const skill = await read("skills/code-review/SKILL.md");
+  assertSeverityGateContract(skill);
+  assertIndependentVerificationContract(skill);
+
+  const mutants = [
+    skill.replace("confirmed P0/P1 → **fail**", "confirmed P0/P1 do not fail"),
+    skill.replace(
+      /Send provisional P0\/P1 claims to a separate fresh-context verifier for independent verification\./,
+      "Do not require provisional P0/P1 claims to receive independent verification.",
+    ),
+  ];
+
+  assert.match(mutants[0], /P0\/P1[^.\n]*fail/i);
+  assert.match(mutants[1], /P0\/P1[^.\n]*independent verification/i);
+  assert.throws(() => assertSeverityGateContract(mutants[0]));
+  assert.throws(() => assertIndependentVerificationContract(mutants[1]));
 });
 
 test("finding contract rejects a schema that makes changed-code evidence mandatory for omissions", async () => {
@@ -161,7 +213,7 @@ test("public workflow contract names the substantive review gate", async () => {
     assert.match(document, /Correctness and Risk/i);
     assert.match(document, /Standards and Maintainability/i);
     assert.match(document, /Spec Fidelity/i);
-    assert.match(document, /P0\/P1[^.]*block/is);
+    assertSeverityGateContract(document);
     assert.match(document, /P2[^.]*does not block/is);
   }
 });
@@ -196,7 +248,7 @@ test("review gate and durable artifact are explicit", async () => {
     read("skills/validate/templates/validation.md"),
   ]);
 
-  assert.match(skill, /P0\/P1[^.]*fail/is);
+  assertSeverityGateContract(skill);
   assert.match(skill, /P2[^.]*does not block/is);
   assert.match(skill, /missing mandatory evidence[^.]*blocked/is);
   assert.match(skill, /workstream[^.]*verify\//is);
