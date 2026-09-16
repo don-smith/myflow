@@ -15,6 +15,15 @@ import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  listSessionFiles,
+  completeRecords,
+  sessionMatchesWorktree,
+  sessionContainsWorkstream,
+  jsonlSourceCapabilities,
+} from "./lib/pi-jsonl-adapter.mjs";
+import { NORMALIZED_EVIDENCE_SCHEMA_VERSION } from "./lib/normalized-evidence.mjs";
+
 const SCHEMA_VERSION = "myflow-observation-evidence/v1";
 const STATE_VERSION = "myflow-observation-state/v1";
 const MAX_EXCERPT = 500;
@@ -39,14 +48,14 @@ function parseArgs(argv) {
   }
   const mode = argv[0];
   if (mode !== "checkpoint" && mode !== "finalize") throw new Error("First argument must be checkpoint or finalize.");
-  const options = { mode, receiptOnly: false, observerSessions: [] };
+  const options = { mode, receiptOnly: false, observerSessions: [], source: "pi-jsonl" };
   for (let index = 1; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === "--receipt-only") {
       options.receiptOnly = true;
       continue;
     }
-    if (!["--target", "--workstream", "--sessions-root", "--state-root", "--observer-session"].includes(arg)) {
+    if (!["--target", "--workstream", "--sessions-root", "--state-root", "--observer-session", "--source"].includes(arg)) {
       throw new Error(`Unknown option: ${arg}`);
     }
     const value = argv[++index];
@@ -57,6 +66,9 @@ function parseArgs(argv) {
   if (!options.target) throw new Error("--target is required.");
   if (!options.workstream) throw new Error("--workstream is required.");
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(options.workstream)) throw new Error("--workstream must be filesystem-safe.");
+  if (options.source !== "pi-jsonl" && options.source !== "langfuse-v2") {
+    throw new Error("--source must be pi-jsonl or langfuse-v2");
+  }
   return options;
 }
 
@@ -100,45 +112,6 @@ function readJson(path, fallback) {
 function writeJson(path, value) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-}
-
-function listSessionFiles(root) {
-  if (!existsSync(root)) throw new Error(`Pi sessions root does not exist: ${root}`);
-  const files = [];
-  function walk(directory) {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      if (entry.name === "subagent-artifacts") continue;
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) walk(path);
-      else if (entry.isFile() && entry.name.endsWith(".jsonl")) files.push(path);
-    }
-  }
-  walk(root);
-  return files.sort();
-}
-
-function completeRecords(path) {
-  const bytes = readFileSync(path);
-  const finalNewline = bytes.lastIndexOf(0x0a);
-  if (finalNewline < 0) return { bytes, completeOffset: 0, records: [] };
-  const records = [];
-  let start = 0;
-  let lineNumber = 0;
-  for (let index = 0; index <= finalNewline; index++) {
-    if (bytes[index] !== 0x0a) continue;
-    lineNumber++;
-    const raw = bytes.subarray(start, index).toString("utf8").trim();
-    const endOffset = index + 1;
-    if (raw) {
-      try {
-        records.push({ value: JSON.parse(raw), startOffset: start, endOffset, lineNumber });
-      } catch {
-        records.push({ value: undefined, startOffset: start, endOffset, lineNumber, parseError: true });
-      }
-    }
-    start = endOffset;
-  }
-  return { bytes, completeOffset: finalNewline + 1, records };
 }
 
 function contentText(content) {
@@ -428,14 +401,12 @@ function main() {
   for (const path of listSessionFiles(sessionsRoot)) {
     const parsed = completeRecords(path);
     const header = parsed.records.find((record) => record.value?.type === "session")?.value;
-    if (!header?.id || !header.cwd) continue;
-    if (canonical(header.cwd) !== target) continue;
+    if (!sessionMatchesWorktree(header, target)) continue;
     if (observerIds.has(header.id)) {
       excludedSessions.push({ sessionId: header.id, reason: "observer" });
       continue;
     }
-    const completeText = parsed.bytes.subarray(0, parsed.completeOffset).toString("utf8");
-    if (!completeText.includes(`.myflow/workstreams/${options.workstream}`)) {
+    if (!sessionContainsWorkstream(parsed.bytes, parsed.completeOffset, options.workstream)) {
       excludedSessions.push({ sessionId: header.id, reason: "no-workstream-evidence" });
       continue;
     }
@@ -470,10 +441,13 @@ function main() {
   const curatedDir = join(privateDir, "curated");
   const packet = {
     schemaVersion: SCHEMA_VERSION,
+    normalizedEvidenceSchema: NORMALIZED_EVIDENCE_SCHEMA_VERSION,
     analysisVersion: "observing-myflow-v1",
     mode: options.mode,
-    source: "pi-jsonl",
-    sourceCapabilities: { exactLifecycleSpans: false, persistedMessages: true, toolResults: true, branchesAndCompactions: true },
+    source: options.source,
+    sourceCapabilities: options.source === "pi-jsonl"
+      ? jsonlSourceCapabilities()
+      : { exactLifecycleSpans: true, persistedMessages: false, toolResults: true, branchesAndCompactions: true },
     generatedAt,
     targetCwd: target,
     workstreamId: options.workstream,
@@ -488,6 +462,8 @@ function main() {
     artifacts,
     changedArtifacts,
     artifactChangeBasis,
+    normalizedEvidenceAvailable: false,
+    langfuseAdapterReceipt: null,
     limitations: [
       "JSONL timestamps provide observable ordering and turnaround windows, not active agent time.",
       "Unknown gaps cannot be assigned to human wait, provider time, tool time, or idle time without lifecycle telemetry.",

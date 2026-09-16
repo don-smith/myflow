@@ -323,6 +323,46 @@ Repeated evidence may be offered to `capturing-learnings`. A first occurrence is
 
 The private account may point to detailed evidence but should remain concise. The private analysis contains explicit attribution and interpretation inputs. The curated report includes only the minimum excerpt needed to support a material claim. The team-safe export contains derived aggregate values only. Keep all four outside the target worktree. If personal observation-retention policy conflicts with these defaults, stop and ask before publishing more data.
 
+## Normalized evidence contract
+
+### myflow-normalized-evidence/v1
+
+Versioned, source-neutral observation records produced by the official Langfuse Pi Adapter and the Pi JSONL recovery Adapter. Both emit the same contract so downstream consumers (correlation, economics, derivation) operate on a single shape.
+
+A normalized observation row has:
+
+- `source` ("langfuse-v2" or "pi-jsonl"), `sourceId`, `rowId` (source-prefixed stable identity).
+- `traceId`, `parentObservationId` (physical tree).
+- `type` (observation type string), `knownType` (boolean for recognized types), `name`.
+- `startTime`, `endTime`.
+- `isRootCapability`, `rootObservationId` (resolved physical root).
+- `emittingSessionId` (native Pi session), `groupingSessionId` (Langfuse grouping session).
+- `turnNumber`, `pluginName`, `pluginVersion`, `pluginCapability`.
+- `provider`, `model`, `assistantIndex`, `callOrder` (derived or explicit), `toolCallId`.
+- `level`, `statusMessage`, `state` (ok, error, cancelled, aborted).
+- `usage` (uncachedInputTokens, cacheReadTokens, cacheWriteTokens, outputTokens, reasoningTokens, totalTokens). Reasoning tokens are a subset dimension; outputTokens already include them.
+- `cost` (recordedTotal), `costKnown` (boolean).
+- `contextSources` (tracks own vs inherited for each propagated field).
+- `provenance` (array of original source IDs).
+
+Missing values are undefined, never zero. Unknown observation types (`knownType: false`) are preserved. Structural coverage (observed-complete, partial, unknown) is separate from delivery state (observed-within-window, timeout, late-visible, deadline-incomplete, unknown).
+
+### Source adapters
+
+**Langfuse Pi 0.1.2 Adapter** (`langfuse-pi-0.1.2-adapter.mjs`): dispatches on exact plugin version. Preserves the physical tree, root context, emitting/grouping sessions, traces, observations, parents, turns, assistant order, tool calls, provider/model, usage dimensions, provider-recorded cost, errors, aborts, compaction, branches, and unknown future types. Does not persist raw input/output by default.
+
+**Pi JSONL Recovery Adapter** (`pi-jsonl-adapter.mjs`): extracts model-usage and tool-event entries from Pi session JSONL files. Emits the same normalized evidence contract for recovery and parity. Source capabilities: tool results present, persisted messages, but no exact lifecycle spans.
+
+### Langfuse v2 reader
+
+The reader (`langfuse-v2-reader.mjs`) queries `GET /api/public/v2/observations` with exact field groups (`core,basic,time,metadata,model,usage,metrics,trace_context`), full cursor chains for fixed windows, structured session filtering (required on self-hosted 4.1.0), and duplicate/conflict detection. Does not request `io` by default.
+
+### Correlation contract
+
+The correlation module (`correlate-attempts.mjs`) associates observations with lifecycle stage attempts using explicit execution references, canonical repository/worktree identity, artifact access, branch, session lineage, and bounded time. Auto-assigns exact or strong matches only. Medium matches are reviewable (status: ambiguous). Weak and conflicting matches remain unassigned. Preserves candidate count, reasons, confidence, assigned, ambiguous, unassigned, source-missing, and boundary-excluded coverage.
+
+Identity-qualified Langfuse and JSONL parity passes before economics comparison. Unmatched evidence remains visible.
+
 ## Local stage review contract
 
 ### myflow-stage-review/v1
