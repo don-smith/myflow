@@ -1,87 +1,50 @@
 ---
 name: code-review
-description: Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to "review since X".
+description: Use when reviewing a branch, commit range, pull request, or work-in-progress change against its specification and repository standards.
 ---
 
-Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
+# Code Review
 
-- **Standards** — does the code conform to this repo's documented coding standards?
-- **Spec** — does the code faithfully implement the originating issue / spec?
+Produce a bounded, independent review with an auditable gate.
 
-Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
+## Pin the scope
 
-Before reviewing, run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read the selected map when found. Use its mapped standards/spec sources. An issue tracker is optional: when it or another standards/spec source is unavailable, report it as unavailable rather than requiring setup or inventing a dependency.
+Run the installed `../myflow/scripts/resolve-repository-map.mjs` resolver and read mapped instructions. Require a scope spec and accepted plan or equivalent specification; Validate supplies its exact implementation `base..head` and accepted plan.
 
-## Process
+Execute the active adapter and retain its full output:
 
-### 1. Pin the fixed point
+```bash
+node "${SKILL_DIR}/_helpers/review-range.mjs" "<scope-spec>"
+```
 
-Whatever the user said is the fixed point — a commit SHA, branch name, tag, `main`, `HEAD~5`, etc. If they didn't specify one, ask for it.
+Record scope status, strategy, base, tip, range, dirty state, changed-files count, and every changed file. `scope_status: invalid` or `empty`, a truncated manifest, unresolved revision, or mismatch with Validate's base/head makes review **blocked**. Dirty state outside an explicit range is an exclusion; `all` includes committed, staged, unstaged, and untracked files. Give every reviewer the same range, complete manifest, diff commands, plan, and mapped sources. A missing plan/equivalent spec blocks Spec Fidelity. Documented standards may be unavailable; still apply maintainability judgment.
 
-Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
+## Run three independent lanes
 
-Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here — not inside two parallel sub-agents.
+Launch these fresh-context reviewers in parallel:
 
-### 2. Identify the spec source
+- **Correctness and Risk** — trace behavior through callers, tests, boundaries, regressions, and failure paths. Add security checks when trust, auth, permissions, secrets, input, or sensitive data change. Add dependency checks when manifests, locks, imports, versions, or external APIs change.
+- **Standards and Maintainability** — apply mapped rules, then inspect clarity, duplication, coupling, needless generality, tests, and maintainability. Repository rules override generic heuristics.
+- **Spec Fidelity** — compare every acceptance criterion, phase outcome, exclusion, and requested behavior in the accepted plan with the implementation; identify omissions, wrong behavior, and scope creep.
 
-Look for the originating spec, in this order:
+If fresh subagent capability is unavailable, a lane fails to return, or any lane misses part of the manifest, block rather than silently pass.
 
-1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.) — fetch via the workflow in `docs/agents/issue-tracker.md`.
-2. A path the user passed as an argument.
-3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
-4. If nothing is found, use the supplied accepted plan when available. Otherwise report the **Spec** axis as `unavailable`; do not block review on a missing issue tracker.
+## Normalize and verify
 
-### 3. Identify the standards sources
+Retain only actionable findings. Assign a stable ID (`CR-001`, `SM-001`, or `SF-001`) and severity:
 
-Anything mapped by the resolver-selected repository map that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`. If none is available, report documented standards as `unavailable` while retaining the judgement-only smell baseline.
+- **P0** — exploitable security/safety failure, irreversible data loss/corruption, or broad outage.
+- **P1** — incorrect behavior, regression, unmet requirement, or material operational/maintenance failure.
+- **P2** — bounded improvement without demonstrated incorrect behavior; P2 does not block.
 
-On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+Every retained finding needs its stable ID, P0/P1/P2, changed `file:line` plus verbatim quote, failure mechanism, affected behavior or requirement, and smallest fix.
 
-- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces.
+Send provisional P0/P1 claims to a separate fresh-context verifier for independent verification. It inspects the cited code and callers, establishes the mechanism, and returns `confirmed`, `falsified`, or `inconclusive` with evidence. Drop falsified claims, retain confirmed claims, and block on inconclusive P0/P1 or unavailable verification. Do not change severity merely to alter the gate.
 
-Each smell reads *what it is* → *how to fix*; match it against the diff:
+## Gate and persist
 
-- **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
-- **Duplicated Code** — the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
-- **Feature Envy** — a method that reaches into another object's data more than its own. → move the method onto the data it envies.
-- **Data Clumps** — the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
-- **Primitive Obsession** — a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
-- **Repeated Switches** — the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
-- **Shotgun Surgery** — one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
-- **Divergent Change** — one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
-- **Speculative Generality** — abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
-- **Message Chains** — long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
-- **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
-- **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
+- confirmed P0/P1 → **fail**;
+- missing mandatory evidence, incomplete scope, required fresh review unavailable, or inconclusive verification → **blocked**;
+- otherwise → **pass**; retained P2 findings do not block.
 
-### 4. Spawn both sub-agents in parallel
-
-**Standards sub-agent prompt** — include:
-
-- The full diff command and commit list.
-- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
-- The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
-
-**Spec sub-agent prompt** — include:
-
-- The diff command and commit list.
-- The path or fetched contents of the spec.
-- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
-
-If the spec is missing, skip the Spec sub-agent and note this in the final report.
-
-### 5. Aggregate
-
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings — the two axes are deliberately separate (see _Why two axes_).
-
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes — that's the reranking the separation exists to prevent.
-
-## Why two axes
-
-A change can pass one axis and fail the other:
-
-- Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
-- Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
-
-Reporting them separately stops one axis from masking the other.
+Write `templates/review.md` under the workstream `verify/` directory. Include plan provenance, scope, lane evidence, retained findings, P0/P1 verification, exclusions, and review verdict. The validation report must link this durable artifact and copy its range and verdict; a prose summary is not a substitute.

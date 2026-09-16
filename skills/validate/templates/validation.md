@@ -33,8 +33,11 @@ implementation_checkpoint: {checkpoint path or plan state}
 - Review range base: `{exact first implementation commit parent}`
 - Review range head: `{exact final implementation commit}`
 - Review verdict: `{pass | fail | blocked}` — {gate basis}
-- Standards: `{pass | findings | unavailable}` — {evidence}
-- Spec: `{pass | findings | unavailable}` — {evidence}
+- Correctness and Risk: `{complete | blocked}` — {evidence}
+- Standards and Maintainability: `{complete | blocked}` — {evidence or documented standards unavailable}
+- Spec Fidelity: `{complete | blocked}` — {accepted-plan evidence}
+- Confirmed P0/P1: `{count}` — {finding IDs or none}
+- Retained P2: `{count}` — {finding IDs or none; non-blocking}
 
 ## Deviations and Defects
 

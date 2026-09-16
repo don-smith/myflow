@@ -13,7 +13,7 @@
 //   modified            — every tracked file differing from HEAD (git diff HEAD; staged + unstaged, no untracked)
 //   all                 — every current-branch change: committed since default base, staged, unstaged, and untracked
 //   <hash>              — single commit (~7+ hex chars)
-//   <A>..<B>            — range; A is verified ancestor of B, swapped if reversed
+//   <A>..<B>            — exact base..head range; A is verified ancestor of B, swapped if reversed
 //   <h1>,<h2>,<h3>      — comma- or whitespace-separated commit list; helper finds endpoints
 //   <branch-name>       — assumed PR branch checked out at HEAD
 //
@@ -28,6 +28,9 @@
 //   range:          <base>..<tip>|(n/a)
 //   fp_flag:        --first-parent|(empty)
 //   patch_path:     <worktree-safe path for the diff tempfile>
+//   scope_status:   ready|empty|invalid
+//   dirty_state:    clean|dirty
+//   changed_files_count: <N>
 //   note:           <reason>          (only when strategy=unrecognised)
 //   ---changed-files---
 //   <deduplicated file list, capped at 2000 entries OR 40 KB whichever first>
@@ -41,8 +44,9 @@
 //   - For first-parent strategies (empty/PR-branch), OLDEST is ALREADY the
 //     parent-of-first-feature-commit (computed via git merge-base), so BASE=OLDEST.
 //     Do NOT compute BASE=OLDEST^ — that would skip a commit.
-//   - For explicit-range strategies (single hash, A..B), BASE=OLDEST^ to include
-//     OLDEST's own changes (standard `A..B` excludes A).
+//   - An explicit A..B is already a base..head range and must be preserved.
+//     For a single hash only, BASE=hash^ (or the empty tree for a root commit)
+//     so the hash's own changes are included.
 //   - --first-parent is orthogonal to --no-merges: the former prunes second-parent
 //     subtrees from reachability; the latter drops merge commits themselves from
 //     the log. Both flags are independently controllable in the consumer's git log.
@@ -138,7 +142,7 @@ const result = {
 	range: "(n/a)",
 	fp_flag: "(empty)",
 	note: "",
-	changedFiles: "",
+	changedFiles: [],
 };
 
 const argv = process.argv[2] ?? "";
@@ -161,14 +165,13 @@ const setBranchAll = (oldest, newest) => {
 	result.strategy = "branch-all";
 };
 
-const setExplicitRange = (oldest, newest) => {
+const setExplicitRange = (base, tip) => {
 	result.strategy = "explicit-range";
-	result.oldest = oldest;
-	result.newest = newest;
-	const parent = safe(["rev-parse", `${oldest}^`]);
-	result.base = parent || oldest;
-	result.tip = newest;
-	result.range = `${result.base}..${newest}`;
+	result.oldest = base;
+	result.newest = tip;
+	result.base = base;
+	result.tip = tip;
+	result.range = `${base}..${tip}`;
 	result.fp_flag = "(empty)";
 };
 
@@ -223,7 +226,8 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 	}
 } else if (isHexHash(scope) && refExists(scope)) {
 	const hash = safe(["rev-parse", scope]);
-	setExplicitRange(hash, hash);
+	const parent = safe(["rev-parse", `${hash}^`]) || safe(["hash-object", "-t", "tree", "/dev/null"], hash);
+	setExplicitRange(parent, hash);
 } else if (refExists(scope)) {
 	const oldest = safe(["merge-base", defaultBranch, "HEAD"]);
 	if (oldest) setBranchAll(oldest, safe(["rev-parse", "HEAD"]));
@@ -240,33 +244,37 @@ if (result.strategy === "branch-all") {
 	const committed = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
 	const tracked = safe(["diff", "HEAD", "--name-only"]);
 	const untracked = safe(["ls-files", "--others", "--exclude-standard"]);
-	result.changedFiles = formatChangedFiles(dedupChangedFiles(`${committed}\n${tracked}\n${untracked}`));
+	result.changedFiles = dedupChangedFiles(`${committed}\n${tracked}\n${untracked}`);
 } else if (result.strategy === "first-parent") {
 	const raw = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
-	result.changedFiles = formatChangedFiles(dedupChangedFiles(raw));
+	result.changedFiles = dedupChangedFiles(raw);
 } else if (result.strategy === "explicit-range") {
-	const raw = safe(["log", result.range, "--name-only", "--pretty=format:"]);
-	result.changedFiles = formatChangedFiles(dedupChangedFiles(raw));
+	const raw = safe(["diff", "--name-only", result.range]);
+	result.changedFiles = dedupChangedFiles(raw);
 } else if (result.strategy === "working-tree") {
 	if (lower === "commit") {
 		const raw = safe(["show", "HEAD", "--name-only", "--pretty=format:"]);
-		result.changedFiles = formatChangedFiles(dedupChangedFiles(raw));
+		result.changedFiles = dedupChangedFiles(raw);
 	} else if (lower === "staged") {
 		const raw = safe(["diff", "--cached", "--name-only"]);
-		result.changedFiles = formatChangedFiles(dedupChangedFiles(raw));
+		result.changedFiles = dedupChangedFiles(raw);
 	} else if (lower === "modified") {
 		// modified: every tracked file that differs from HEAD (staged + unstaged,
 		// no untracked). Matches `git diff HEAD` semantics — what would be
 		// committed by `git add -u && git commit`.
 		const raw = safe(["diff", "HEAD", "--name-only"]);
-		result.changedFiles = formatChangedFiles(dedupChangedFiles(raw));
+		result.changedFiles = dedupChangedFiles(raw);
 	} else {
 		// working: unstaged only (matches git's "working tree" definition and
 		// the skill's `git diff -U30` patch command — both exclude staged).
 		const raw = safe(["diff", "--name-only"]);
-		result.changedFiles = formatChangedFiles(dedupChangedFiles(raw));
+		result.changedFiles = dedupChangedFiles(raw);
 	}
 }
+
+const scopeStatus =
+	result.strategy === "unrecognised" ? "invalid" : result.changedFiles.length === 0 ? "empty" : "ready";
+const dirtyState = safe(["status", "--porcelain=v1", "--untracked-files=normal"]) ? "dirty" : "clean";
 
 // Worktree-safe tempfile location. In a git worktree (or submodule) `.git` is a
 // regular FILE (a gitlink), so a literal `.git/<name>` write fails with ENOTDIR.
@@ -288,9 +296,12 @@ const lines = [
 	`range:          ${result.range}`,
 	`fp_flag:        ${result.fp_flag}`,
 	`patch_path:     ${patchPath}`,
+	`scope_status:   ${scopeStatus}`,
+	`dirty_state:    ${dirtyState}`,
+	`changed_files_count: ${result.changedFiles.length}`,
 ];
 if (result.strategy === "unrecognised" && result.note) {
 	lines.push(`note:           ${result.note}`);
 }
 lines.push("---changed-files---");
-process.stdout.write(`${lines.join("\n")}\n${result.changedFiles}`);
+process.stdout.write(`${lines.join("\n")}\n${formatChangedFiles(result.changedFiles)}`);

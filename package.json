@@ -74,7 +74,7 @@
   "scripts": {
     "lint": "echo 'No lint configured yet'",
     "test": "bun run test:root && bun run test:packages",
-    "test:root": "node --test tests/*.test.mjs",
+    "test:root": "node --test tests/*.test.mjs skills/code-review/_helpers/review-range.test.mjs",
     "test:packages": "bun run --filter @myflow/test-utils --filter @myflow/ask-user-question --filter @myflow/web-tools --filter @myflow/telemetry test"
   },
   "devDependencies": {

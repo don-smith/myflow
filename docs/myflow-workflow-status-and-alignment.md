@@ -29,7 +29,7 @@ Onboard repository (when needed)
 | Verify | `validate` | Load and execute `code-review` with the exact implementation range and accepted plan, then prepare human manual verification. |
 | Close | `close` | Require linked passing review evidence, then complete applicable documentation, learning, delivery, and final-closeout work collaboratively. |
 
-After the final green phase, Implement reads the installed Validate skill and executes it immediately in the same parent session. `/skill:validate` is recovery/rehydration guidance only, not a user-operated gate. Close inspects linked passing review evidence and its plan/range provenance instead of trusting only a validation report's top-level verdict.
+After the final green phase, Implement reads the installed Validate skill and executes it immediately in the same parent session. `/skill:validate` is recovery/rehydration guidance only, not a user-operated gate. Verify runs fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity lanes. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and its plan/range provenance instead of trusting only a validation report's top-level verdict.
 
 `myflow` is the workflow map and navigation layer, not a competing stage.
 

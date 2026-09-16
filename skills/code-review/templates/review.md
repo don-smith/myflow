@@ -1,151 +1,72 @@
 ---
-template_version: 2
-date: {Current date and time with timezone in ISO format}
-author: {User from injected git context}
-repository: {Repository name}
-branch: {Current branch name}
-commit: {Current commit hash}
-review_type: {commit | pr | staged | working}
-scope: "{What was reviewed}"
-scope_strategy: {first-parent | explicit-range | working-tree}
-in_scope_files_count: {N}
-status: ready
-severity: { critical: {C}, important: {I}, suggestion: {S} }
-verification: { verified: {V}, weakened: {W}, falsified: {F} }
-blockers_count: {B}
-tags: [code-review, relevant-components]
+template_version: 3
+date: {ISO timestamp with timezone}
+repository: {repository identity}
+branch: {branch}
+head_commit: {current HEAD}
+accepted_plan: {path or equivalent spec source}
+scope_spec: {input passed to review-range.mjs}
+scope_status: {ready | empty | invalid}
+scope_strategy: {branch-all | first-parent | explicit-range | working-tree}
+range_base: {exact base or n/a}
+range_head: {exact head or n/a}
+dirty_state: {clean | dirty}
+changed_files_count: {N}
+review_verdict: {pass | fail | blocked}
+findings: {p0: N, p1: N, p2: N}
+tags: [code-review, verify]
 ---
 
-# Code Review — {Scope}
+# Code Review — {scope}
 
-**Commit:** `{hash}` · **Status:** `{status}` · **Findings:** {C}🔴 · {I}🟡 · {S}🔵 · **Verification:** {V}✓ / {W}− / {F}✗
+## Provenance and Scope
 
-## Top Blockers
+- Accepted plan: `{path or equivalent spec source}`
+- Scope status: `{ready | empty | invalid}`
+- Range base: `{hash or n/a}`
+- Range head: `{hash or n/a}`
+- Dirty state: `{clean | dirty}` — {included or explicit exclusion}
+- Adapter command: `node "${SKILL_DIR}/_helpers/review-range.mjs" "{scope spec}"`
+- In-scope files ({N}):
+  - `{path}`
+- Exclusions: {none or reasoned list}
 
-1. **{ID}** — {one-line headline}
-2. **{ID}** — {one-line headline}
+## Lane Evidence
 
----
+| Fresh-context lane | Status | Coverage and evidence |
+|---|---|---|
+| Correctness and Risk | {complete / blocked} | {callers, tests, failure paths; conditional security/dependency checks and triggers} |
+| Standards and Maintainability | {complete / blocked} | {mapped standards or unavailable; maintainability evidence} |
+| Spec Fidelity | {complete / blocked} | {accepted-plan criteria and exclusions checked} |
 
-## Legend
+## Retained Findings
 
-```text
-Severity    🔴 fix before merge   🟡 fix soon   🔵 nice to have   💭 discuss
-ID prefix   I interaction   Q quality   S security   G gap
-Verify      ✓ verified   − weakened (demoted)   ✗ falsified (dropped)
-Annotate    [precedent-weighted]   [cascade: <kind>]   [subsumed-by <ID>]
-```
+Repeat this block for each retained finding; write `None` when there are no findings.
 
----
+### {stable ID} — {P0 | P1 | P2}: {headline}
 
-## 🔴 Critical
+- **Changed file:line:** `{path:line}`
+- **Quote:** `{verbatim changed code}`
+- **Failure mechanism:** {how the defect occurs}
+- **Affected behavior or requirement:** {observable impact or accepted-plan citation}
+- **Smallest fix:** {minimal corrective action}
+- **Source lane:** {Correctness and Risk | Standards and Maintainability | Spec Fidelity}
 
-### {ID} 🔴 {short headline} `{annotation?}`
+## Finding Verification
 
-**Where**
-`{file:line}`
+| Stable ID (P0/P1) | Result | Independent evidence from code and callers |
+|---|---|---|
+| `{ID}` | {confirmed / falsified / inconclusive} | {evidence} |
 
-**Code**
-```{lang}
-{verbatim line(s) from the file}
-```
+Falsified claims are dropped from retained findings. Inconclusive P0/P1 claims block the review.
 
-**Why**
-{1–2 sentences: mechanism, not symptom}
+## Review Verdict
 
-**Fix**
-{one sentence, imperative}
+**Review verdict:** `{pass | fail | blocked}`
 
-**Alt**
-{optional: alternative fix}
-
----
-
-## 🟡 Important
-
-### {ID} 🟡 {short headline} `{annotation?}`
-
-**Where**
-`{file:line}`
-
-**Code**
-```{lang}
-{verbatim line(s)}
-```
-
-**Why**
-{mechanism}
-
-**Fix**
-{action}
-
----
-
-## 🔵 Suggestions
-
-### {ID} 🔵 {short headline}
-
-**Where**
-`{file:line}`
-
-**Fix**
-{action}
-
----
-
-## 💭 Discussion
-
-### {ID} 💭 {question / architectural concern}
-
-**Where**
-`{file:line}`
-
-**Why**
-{what the reviewer wants the author to consider}
-
----
-
-## Pattern Analysis
-
-| Peer            | Mirrored | Missing | Diverged | Intentional |
-| --------------- | -------: | ------: | -------: | ----------: |
-| `{peer file}`   |      {M} |    {Mi} |      {D} |         {A} |
-
-**Missing/Diverged rows drive:** {finding IDs}
-
-**Key divergences from peer**
-- {divergence one}
-- {divergence two}
-
----
-
-## Impact
-
-| Consumer        | Change           | Findings |
-| --------------- | ---------------- | -------- |
-| `{file:line}`   | {change class}   | {IDs}    |
-
----
-
-## Precedents
-
-| Commit    | Subject          | Follow-ups                                              |
-| --------- | ---------------- | ------------------------------------------------------- |
-| `{hash}`  | {commit subject} | {30d follow-ups, or "NOT ancestor of {TIP}", or note}   |
-
-**Recurring lessons (most → least frequent)**
-
-1. {composite lesson}
-2. ...
-
----
-
-## Recommendation
-
-> (advisor prose pasted verbatim here as a blockquote when advisor ran; omit the blockquote otherwise)
-
-| # | ID     | Action                      | Alt / Note        |
-| - | ------ | --------------------------- | ----------------- |
-| 1 | {ID}   | {action, one sentence}      | {alternative}     |
-| 2 | {ID}   | {action}                    | —                 |
-| 3 | {ID}   | {action}                    | —                 |
+- Confirmed P0: {N}
+- Confirmed P1: {N}
+- Retained P2: {N} — does not block
+- Missing mandatory evidence: {none or list}
+- Gate basis: {confirmed P0/P1 fail; missing mandatory evidence blocks; otherwise pass}
+- Validation report link: `{path to report, or pending path for Validate to fill}`

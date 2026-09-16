@@ -55,7 +55,7 @@ Onboard repository (when needed)
 | Verify | `validate` | Validation report, linked review evidence, and manual-verification brief |
 | Close | `close` | Evidence-gated documentation, delivery, learning, and closeout updates |
 
-After the final green phase, the same parent session loads the installed Validate skill and executes it immediately. `/skill:validate` is recovery/rehydration guidance only, not a command the developer must remember to run. Validate loads and executes the sibling code-review skill with the exact implementation range and accepted plan. Close inspects linked passing review evidence and matching provenance instead of trusting only a top-level validation pass.
+After the final green phase, the same parent session loads the installed Validate skill and executes it immediately. `/skill:validate` is recovery/rehydration guidance only, not a command the developer must remember to run. Validate loads and executes the sibling code-review skill with the exact implementation range and accepted plan. Its fresh review lanes cover Correctness and Risk, Standards and Maintainability, and Spec Fidelity. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and matching provenance instead of trusting only a top-level validation pass.
 
 `design` is a collaborative Plan step used for material structural decisions; it is not mandatory for lightweight work. `research`, `prototype`, architecture specialists, domain modeling, and TDD are selected only when the work needs them.
 

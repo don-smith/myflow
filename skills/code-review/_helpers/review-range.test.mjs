@@ -10,17 +10,28 @@ const helper = new URL("./review-range.mjs", import.meta.url);
 const git = (cwd, args) =>
 	execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
 
-const changedFiles = (output) => output.split("---changed-files---\n", 2)[1].trim().split("\n");
+const runHelper = (cwd, scope) =>
+	execFileSync(process.execPath, [helper.pathname, scope], { cwd, encoding: "utf-8" });
+
+const changedFiles = (output) => {
+	const body = output.split("---changed-files---\n", 2)[1].trim();
+	return body ? body.split("\n") : [];
+};
+
+const createRepo = () => {
+	const repo = mkdtempSync(join(tmpdir(), "review-range-"));
+	git(repo, ["init", "-qb", "main"]);
+	git(repo, ["config", "user.email", "test@example.com"]);
+	git(repo, ["config", "user.name", "Test"]);
+	writeFileSync(join(repo, "base.txt"), "base\n");
+	git(repo, ["add", "base.txt"]);
+	git(repo, ["commit", "-qm", "base"]);
+	return repo;
+};
 
 test("all scope includes committed, tracked working-tree, and untracked files", () => {
-	const repo = mkdtempSync(join(tmpdir(), "review-range-"));
+	const repo = createRepo();
 	try {
-		git(repo, ["init", "-qb", "main"]);
-		git(repo, ["config", "user.email", "test@example.com"]);
-		git(repo, ["config", "user.name", "Test"]);
-		writeFileSync(join(repo, "base.txt"), "base\n");
-		git(repo, ["add", "base.txt"]);
-		git(repo, ["commit", "-qm", "base"]);
 		git(repo, ["checkout", "-qb", "feature"]);
 		writeFileSync(join(repo, "committed.txt"), "feature commit\n");
 		git(repo, ["add", "committed.txt"]);
@@ -29,13 +40,78 @@ test("all scope includes committed, tracked working-tree, and untracked files", 
 		git(repo, ["add", "tracked.txt"]);
 		writeFileSync(join(repo, "untracked.txt"), "untracked\n");
 
-		const output = execFileSync(process.execPath, [helper.pathname, "all"], {
-			cwd: repo,
-			encoding: "utf-8",
-		});
+		const output = runHelper(repo, "all");
 
 		assert.match(output, /strategy:\s+branch-all/);
+		assert.match(output, /scope_status:\s+ready/);
+		assert.match(output, /dirty_state:\s+dirty/);
+		assert.match(output, /changed_files_count:\s+3/);
 		assert.deepEqual(changedFiles(output), ["committed.txt", "tracked.txt", "untracked.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("explicit range preserves the supplied base and head", () => {
+	const repo = createRepo();
+	try {
+		writeFileSync(join(repo, "before.txt"), "before\n");
+		git(repo, ["add", "before.txt"]);
+		git(repo, ["commit", "-qm", "before range"]);
+		const base = git(repo, ["rev-parse", "HEAD"]).trim();
+		writeFileSync(join(repo, "feature.txt"), "feature\n");
+		git(repo, ["add", "feature.txt"]);
+		git(repo, ["commit", "-qm", "feature"]);
+		const head = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, `${base}..${head}`);
+
+		assert.match(output, new RegExp(`base:\\s+${base}`));
+		assert.match(output, new RegExp(`tip:\\s+${head}`));
+		assert.deepEqual(changedFiles(output), ["feature.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("single root commit scope includes the root commit", () => {
+	const repo = createRepo();
+	try {
+		const root = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, root);
+
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["base.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("invalid scope is explicit and never masquerades as an empty pass", () => {
+	const repo = createRepo();
+	try {
+		const output = runHelper(repo, "missing-review-ref");
+
+		assert.match(output, /strategy:\s+unrecognised/);
+		assert.match(output, /scope_status:\s+invalid/);
+		assert.match(output, /note:\s+scope spec not recognised/);
+		assert.deepEqual(changedFiles(output), []);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("valid scope with no changed files is reported as empty", () => {
+	const repo = createRepo();
+	try {
+		const output = runHelper(repo, "all");
+
+		assert.match(output, /strategy:\s+branch-all/);
+		assert.match(output, /scope_status:\s+empty/);
+		assert.match(output, /dirty_state:\s+clean/);
+		assert.match(output, /changed_files_count:\s+0/);
+		assert.deepEqual(changedFiles(output), []);
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
 	}

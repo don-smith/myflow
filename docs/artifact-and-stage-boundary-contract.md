@@ -120,7 +120,7 @@ The user and Scope decide the depth in situ. A stage may increase depth when evi
 5. **Use handoffs only mid-stage.** A handoff names the current stage and artifact, summarizes the live working set, and never becomes a competing specification.
 6. **Route corrections to their owner.** An implementation defect returns to Implement; an unexecutable or incorrect plan returns to Plan; a changed architectural decision returns to Design; a changed outcome or acceptance criterion returns to Scope. Re-run downstream verification after correction.
 7. **Enter Verify without a user gate.** After the final green phase, the same parent session reads the installed Validate skill and executes it immediately. `/skill:validate` is recovery/rehydration guidance only.
-8. **Do not close on unverified work.** Verify completes automated validation and code review, writes a separate review artifact with plan/range provenance, then presents required manual verification to the human. Close inspects linked passing review evidence rather than trusting the validation report's top-level verdict. Repository-specific policy may add gates.
+8. **Do not close on unverified work.** Verify completes automated validation and fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity review lanes, then writes a separate artifact with plan/range provenance. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence rather than trusting the validation report's top-level verdict. Repository-specific policy may add gates.
 
 ## Lightweight plan template
 
