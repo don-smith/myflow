@@ -23,6 +23,14 @@ test("artifact contract defines common stage handoffs and right-sized planning",
     "common Git directory",
     "explicit map override",
     "personal global",
+    "authoritative lifecycle journal",
+    "lifecycle/events.jsonl",
+    "append-only",
+    "canonical stage attempt",
+    "correction episode",
+    "returnEpisodeCount",
+    "stageReturnCount",
+    "activityReturnCount",
   ]) {
     assert.match(contract, new RegExp(requirement, "i"));
   }
@@ -46,6 +54,11 @@ test("shared templates support resumable stage state and lightweight plans", asy
   assert.match(plan, /Commit Strategy/);
   assert.match(workstream, /## Stage Progress/);
   assert.match(workstream, /Current State/);
+  assert.match(workstream, /Lifecycle Journal/);
+  assert.match(workstream, /lifecycle\/events\.jsonl/);
+  assert.match(workstream, /returnEpisodeCount/);
+  assert.match(workstream, /stageReturnCount/);
+  assert.match(workstream, /activityReturnCount/);
 });
 
 test("scope establishes a workstream and selects rather than forces specialists", async () => {

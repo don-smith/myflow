@@ -9,11 +9,13 @@
  *   node resolve-repository-map.mjs discover [--cwd <directory>] [--map <path>]
  *   node resolve-repository-map.mjs target [--cwd <directory>] [--map <path>]
  */
-import { createHash } from "node:crypto";
-import { existsSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { execFileSync } from "node:child_process";
+
+import {
+  preferredGlobalRepositoryTarget,
+  resolveRepositoryContext,
+} from "./lib/repository-context.mjs";
 
 const usage =
   "usage: resolve-repository-map.mjs <discover|target> [--cwd <directory>] [--map <path>]";
@@ -35,84 +37,8 @@ function parseArguments(arguments_) {
   return options;
 }
 
-function git(cwd, arguments_) {
-  return execFileSync("git", arguments_, {
-    cwd,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  }).trim();
-}
-
 function error(mode, code, message) {
   return { mode, found: false, error: { code, message } };
-}
-
-function normalizeOrigin(origin) {
-  let host;
-  let path;
-  const urlStyle = origin.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?([^/:]+)(?:\/|$)(.+)$/i);
-  const scpStyle = origin.match(/^(?:[^@/:]+@)?([^/:]+):(.+)$/);
-
-  if (urlStyle) {
-    [, host, path] = urlStyle;
-  } else if (scpStyle) {
-    [, host, path] = scpStyle;
-  } else {
-    return undefined;
-  }
-
-  const segments = path.replace(/^\/+|\/+$/g, "").split("/");
-  if (segments.length !== 2 || segments.some((segment) => !segment)) return undefined;
-  const [owner, repositoryWithSuffix] = segments;
-  const repository = repositoryWithSuffix.replace(/\.git$/i, "");
-  if (!repository || repository === "." || repository === "..") return undefined;
-
-  return `${host.toLowerCase()}/${owner}/${repository}`;
-}
-
-function gitContext(cwd) {
-  try {
-    const root = git(cwd, ["rev-parse", "--show-toplevel"]);
-    const commonGitDirectory = git(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
-    let origin;
-    try {
-      origin = git(cwd, ["config", "--get", "remote.origin.url"]);
-    } catch {
-      origin = undefined;
-    }
-    return {
-      root: realpathSync(root),
-      commonGitDirectory: realpathSync(commonGitDirectory),
-      origin,
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function globalMap(home, identity) {
-  return join(home, ".myflow", "repositories", ...identity.split("/"), "repository-map.md");
-}
-
-function preferredGlobalTarget(context) {
-  if (context.origin !== undefined) {
-    const identity = normalizeOrigin(context.origin);
-    if (!identity) return { error: "INVALID_ORIGIN" };
-    return {
-      source: "origin",
-      mapPath: globalMap(homedir(), identity),
-      identity: { kind: "origin", value: identity },
-      reason: "preferred global target derived from origin",
-    };
-  }
-
-  const hash = createHash("sha256").update(context.commonGitDirectory).digest("hex");
-  return {
-    source: "common-git-dir",
-    mapPath: join(homedir(), ".myflow", "repositories", "local", hash, "repository-map.md"),
-    identity: { kind: "common-git-dir-sha256", value: hash },
-    reason: "preferred global target derived from common Git directory",
-  };
 }
 
 function discover(options, context) {
@@ -127,11 +53,7 @@ function discover(options, context) {
     };
   }
 
-  const target = preferredGlobalTarget(context);
-  if (target.error) {
-    return error(options.mode, "INVALID_ORIGIN", "origin remote cannot be normalized to host/owner/repository");
-  }
-
+  const target = preferredGlobalRepositoryTarget(context);
   const localMap = join(context.root, ".myflow", "repository-map.md");
   if (existsSync(localMap)) {
     return {
@@ -167,10 +89,7 @@ function target(options, context) {
     };
   }
 
-  const result = preferredGlobalTarget(context);
-  if (result.error) {
-    return error(options.mode, "INVALID_ORIGIN", "origin remote cannot be normalized to host/owner/repository");
-  }
+  const result = preferredGlobalRepositoryTarget(context);
   return { mode: "target", found: existsSync(result.mapPath), ...result };
 }
 
@@ -184,16 +103,17 @@ function main() {
     return;
   }
 
-  const context = options.map ? undefined : gitContext(options.cwd);
-  const result = options.map
-    ? options.mode === "discover"
-      ? discover(options)
-      : target(options)
-    : context
-      ? options.mode === "discover"
-        ? discover(options, context)
-        : target(options, context)
-      : error(options.mode, "NOT_GIT_REPOSITORY", "working directory is not inside a Git repository");
+  let result;
+  if (options.map) {
+    result = options.mode === "discover" ? discover(options) : target(options);
+  } else {
+    try {
+      const context = resolveRepositoryContext(options.cwd);
+      result = options.mode === "discover" ? discover(options, context) : target(options, context);
+    } catch (exception) {
+      result = error(options.mode, exception.code, exception.message);
+    }
+  }
 
   process.stdout.write(`${JSON.stringify(result)}\n`);
   if (result.error) process.exitCode = 1;

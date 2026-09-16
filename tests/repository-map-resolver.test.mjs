@@ -7,6 +7,11 @@ import { execFile as execFileCallback } from "node:child_process";
 import test from "node:test";
 import { promisify } from "node:util";
 
+import {
+  normalizeRepositoryOrigin,
+  resolveRepositoryContext,
+} from "../skills/myflow/scripts/lib/repository-context.mjs";
+
 const execFile = promisify(execFileCallback);
 const resolver = new URL("../skills/myflow/scripts/resolve-repository-map.mjs", import.meta.url);
 
@@ -53,6 +58,14 @@ test("discover prefers an existing repository-local map", async () => {
     identity: { kind: "origin", value: "github.com/don-smith/myflow" },
     reason: "existing repository-local map takes precedence",
   });
+});
+
+test("shared repository context normalizes identity for lifecycle callers", async () => {
+  const cwd = await createRepository({ remote: "git@github.com:don-smith/myflow.git" });
+  assert.equal(normalizeRepositoryOrigin("https://github.com/don-smith/myflow.git"), "github.com/don-smith/myflow");
+  const context = resolveRepositoryContext(cwd);
+  assert.equal(context.root, await realpath(cwd));
+  assert.deepEqual(context.identity, { kind: "origin", value: "github.com/don-smith/myflow" });
 });
 
 test("normalizes SSH and HTTPS origins to the same global target", async () => {
@@ -151,6 +164,23 @@ test("no-origin repositories use a stable hash of the common Git directory", asy
   assert.equal(selected.found, true);
   assert.equal(selected.source, "common-git-dir");
   assert.equal(selected.mapPath, expected);
+});
+
+test("resolver CLI output remains byte-compatible", async () => {
+  const home = await mkdtemp(join(tmpdir(), "myflow-map-home-"));
+  const cwd = await createRepository({ remote: "https://github.com/acme/widgets.git" });
+  const { stdout } = await execFile(process.execPath, [resolver.pathname, "discover", "--cwd", cwd], {
+    env: { ...process.env, HOME: home },
+  });
+  const expected = {
+    mode: "discover",
+    found: false,
+    source: "origin",
+    mapPath: globalMap(home, "github.com/acme/widgets"),
+    identity: { kind: "origin", value: "github.com/acme/widgets" },
+    reason: "no repository map exists at the preferred global target",
+  };
+  assert.equal(stdout, `${JSON.stringify(expected)}\n`);
 });
 
 test("reports actionable diagnostics for non-Git directories and malformed origins", async () => {
