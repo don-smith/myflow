@@ -51,12 +51,17 @@ const createRepo = () => {
 	return repo;
 };
 
-test("all scope includes committed, tracked working-tree, and untracked files", () => {
+const createRepoWithRemote = () => {
 	const repo = createRepo();
+	const main = git(repo, ["rev-parse", "main"]).trim();
+	git(repo, ["update-ref", "refs/remotes/origin/main", main]);
+	git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+	return repo;
+};
+
+test("all scope includes committed, tracked working-tree, and untracked files", () => {
+	const repo = createRepoWithRemote();
 	try {
-		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-qb", "feature"]);
 		writeFileSync(join(repo, "committed.txt"), "feature commit\n");
 		git(repo, ["add", "committed.txt"]);
@@ -107,11 +112,8 @@ test("all scope preserves opposing cached and unstaged layers in manifest and pa
 });
 
 test("all scope includes files introduced by a clean merge", () => {
-	const repo = createRepo();
+	const repo = createRepoWithRemote();
 	try {
-		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-qb", "integration"]);
 		git(repo, ["checkout", "-qb", "feature", "main"]);
 		writeFileSync(join(repo, "merged.txt"), "merged\n");
@@ -134,11 +136,9 @@ test("all scope includes files introduced by a clean merge", () => {
 });
 
 test("all scope preserves a remote-only default ref in a detached checkout", () => {
-	const repo = createRepo();
+	const repo = createRepoWithRemote();
 	try {
 		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-q", "--detach", main]);
 		git(repo, ["branch", "-D", "main"]);
 		writeFileSync(join(repo, "detached-feature.txt"), "detached feature\n");
@@ -588,11 +588,8 @@ test("changed-files cap counts UTF-8 bytes and reserves the truncation footer", 
 });
 
 test("all and named-branch scopes omit reverted paths that have no endpoint patch", () => {
-	const repo = createRepo();
+	const repo = createRepoWithRemote();
 	try {
-		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-qb", "feature"]);
 		writeFileSync(join(repo, "reverted.txt"), "temporary\n");
 		git(repo, ["add", "reverted.txt"]);

@@ -26,10 +26,10 @@ Onboard repository (when needed)
 | Scope | `scope` | Collaboratively establish intended outcome, acceptance criteria, risk, and appropriate workflow depth. |
 | Plan | `plan` | Produce implementation authority, using a standalone `design` artifact only when justified. |
 | Implement | `implement` | Autonomously execute accepted plan phases, commit each green phase, then continue to Verify in the same parent session. |
-| Verify | `validate` | Load and execute `code-review` with the exact implementation range and accepted plan, then prepare human manual verification. |
+| Verify | `validate` | Load and execute `code-review` with the exact implementation scope and accepted plan, then prepare human manual verification. |
 | Close | `close` | Require linked passing review evidence, then complete applicable documentation, learning, delivery, and final-closeout work collaboratively. |
 
-After the final green phase, Implement reads the installed Validate skill and executes it immediately in the same parent session. `/skill:validate` is recovery/rehydration guidance only, not a user-operated gate. Verify runs fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity lanes. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and its plan/range provenance instead of trusting only a validation report's top-level verdict.
+After the final green phase, Implement reads the installed Validate skill and executes it immediately in the same parent session. `/skill:validate` is recovery/rehydration guidance only, not a user-operated gate. Verify runs fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity lanes. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and its plan/scope provenance instead of trusting only a validation report's top-level verdict.
 
 `myflow` is the workflow map and navigation layer, not a competing stage.
 

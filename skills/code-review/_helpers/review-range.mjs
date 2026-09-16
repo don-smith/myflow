@@ -168,6 +168,7 @@ const result = {
 };
 
 const argv = process.argv[2] ?? "";
+const rawInput = argv;
 const scope = stripOuterQuotes(argv);
 const lower = scope.toLowerCase();
 const defaultBranch = result.default_branch;
@@ -388,7 +389,7 @@ const scopeStatus =
 
 const lines = [
 	`default_branch: ${result.default_branch}`,
-	`scope_spec:     ${JSON.stringify(scope)}`,
+	`scope_spec:     ${JSON.stringify(rawInput)}`,
 	`strategy:       ${result.strategy}`,
 	`resolved_commits: ${result.resolvedCommits.length > 0 ? result.resolvedCommits.join(",") : "(n/a)"}`,
 	`oldest:         ${result.oldest}`,
