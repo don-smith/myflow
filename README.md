@@ -109,6 +109,48 @@ The package declares these optional Pi extensions alongside its skills:
 
 Their configuration lives under `~/.myflow/config/`. Telemetry must remain permitted by the repository and must not transmit sensitive source, credentials, tokens, or personal data without explicit approval.
 
+## Official Langfuse Pi plugin
+
+MyFlow ships replacement lifecycle, evaluation, and publication modules that do not depend on custom telemetry. The official `@langfuse/pi-observability-plugin` can provide native Pi traces alongside those modules.
+
+### Privacy limit
+
+The pinned `@langfuse/pi-observability-plugin@0.1.2` sends prompts, assistant responses, tool arguments and results, compaction summaries, and images to the configured Langfuse project by default. Its built-in masking redacts only Langfuse key-shaped tokens. It does not mask source code, file paths, commands, credentials (beyond its own API keys), personal data, or reasoning text.
+
+Raw official-plugin capture is **not safe by default** for production repositories. Do not enable it without explicit, per-repository review of what will be sent.
+
+### Opt-in gate
+
+Production opt-in remains blocked until stronger client-side capture suppression or masking exists. The current local exception allows a developer to use the plugin for bounded, non-sensitive workstreams with a dedicated Langfuse project, configured retention, and no managed LLM evaluator over raw observations.
+
+### Kill switch
+
+`LANGFUSE_TRACING_ENABLED=false` disables the official plugin at process startup. It wins over all other plugin configuration. The custom telemetry extension (`packages/telemetry`) can be disabled through `pi config`.
+
+### JSONL recovery
+
+Pi JSONL session files remain the authoritative recovery source. The observer collector (`skills/observing-myflow/scripts/collect-evidence.mjs`) reads JSONL by default. JSONL does not depend on Langfuse availability, network connectivity, or plugin flush success.
+
+### Installation (explicit only)
+
+The plugin is not a workspace dependency and is not enabled automatically. To use it for a bounded pilot, install the exact pinned version alongside the recorded dependency tree:
+
+```bash
+pi install npm:@langfuse/pi-observability-plugin@0.1.2
+```
+
+Record the resolved versions of `@langfuse/otel` and `@langfuse/tracing` (the plugin declares `^5.10.0`; the registry reports `5.11.1` as latest as of 2026-09-13) plus your Pi, Node, and Langfuse deployment version. Restart Pi after installation.
+
+### Rollback
+
+To restore the pre-plugin state:
+
+```bash
+pi remove @langfuse/pi-observability-plugin
+```
+
+If `packages/telemetry` was ever removed and must be restored, check out the pre-cutover commit (`2e03bf8`) for `packages/telemetry/`, `package.json`, and `bun.lock`. Restart Pi after restoring. Historical Langfuse traces and scores delivered before rollback cannot be unsent; delete the Langfuse project or wait for retention expiry.
+
 ## Validation
 
 ```bash

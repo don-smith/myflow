@@ -1010,3 +1010,61 @@ test("rollup preserves compatibility with new additive v2 fields", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("lifecycle journal and local stage review remain complete without Langfuse credentials", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-nocred-"));
+  const workstream = join(root, "test-flow");
+
+  try {
+    // Write a lifecycle journal with all canonical stages
+    await writeLifecycleJournal(workstream, [
+      { kind: "workstream.created", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "create", occurredAt: "2026-01-01T00:00:00.000Z", attemptId: null, attemptOrdinal: null },
+      { kind: "stage.entered", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-enter", occurredAt: "2026-01-01T00:00:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-done", occurredAt: "2026-01-01T00:05:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-enter", occurredAt: "2026-01-01T00:05:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-done", occurredAt: "2026-01-01T00:10:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-enter", occurredAt: "2026-01-01T00:10:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-done", occurredAt: "2026-01-01T00:15:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-enter", occurredAt: "2026-01-01T00:15:01.000Z" },
+      { kind: "verification.completed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-pass", occurredAt: "2026-01-01T00:20:00.000Z", verificationStatus: "passed" },
+      { kind: "stage.completed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-done", occurredAt: "2026-01-01T00:20:01.000Z", terminalReason: "advanced" },
+    ]);
+
+    // 1. Lifecycle journal works without Langfuse credentials
+    const journal = readLifecycleJournal(workstream);
+    assert.ok(journal, "lifecycle journal exists without Langfuse");
+    assert.ok(journal.events.length >= 10, `journal contains expected events, got ${journal.events.length}`);
+
+    const state = reduceJournalEvents(journal.events);
+    assert.ok(state, "reducer produces state without Langfuse");
+    assert.equal(state.attempts.length, 4, "all four canonical stages tracked");
+    assert.equal(state.returnEpisodeCount, 0, "no return episodes");
+
+    const intervals = deriveAttemptIntervals(state);
+    assert.equal(intervals.length, 4, "attempt intervals derived");
+    assert.equal(intervals[0].source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE, "lifecycle-sourced intervals");
+
+    // 2. Return summaries derive from lifecycle without Langfuse
+    const summaries = deriveReturnSummaries(state);
+    assert.equal(summaries.source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+    assert.equal(summaries.returnEpisodeCount, 0);
+
+    // 3. First-pass flow derived without Langfuse
+    const flow = deriveFirstPassFlow(state);
+    assert.equal(flow.isFirstPass, true);
+    assert.equal(flow.source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+
+    // 4. Attempt economics account generated without Langfuse
+    const account = generateAttemptEconomicsAccount(state.attempts, workstream);
+    assert.equal(account.source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+    assert.equal(account.attempts.length, 4);
+
+    // 5. Pre-journal fallback also works without credentials
+    const emptyWorkstream = join(root, "no-journal");
+    await mkdir(emptyWorkstream, { recursive: true });
+    assert.equal(getStageIntervalSource(emptyWorkstream).source, ATTEMPT_INTERVAL_SOURCE_INFERRED);
+    assert.equal(getStageIntervalSource(emptyWorkstream).hasLifecycle, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
