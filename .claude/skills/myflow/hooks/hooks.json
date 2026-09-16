@@ -1,0 +1,24 @@
+{
+  "hooks": [
+    {
+      "event": "PostToolUse",
+      "description": "Forward tool-use events to Langfuse for observability. Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_HOST in the environment before using.",
+      "type": "http",
+      "url": "${LANGFUSE_HOST}/api/public/otel/v1/traces",
+      "headers": {
+        "Authorization": "Basic ${LANGFUSE_PUBLIC_KEY}:${LANGFUSE_SECRET_KEY}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "event": "Stop",
+      "description": "Flush pending spans on session stop.",
+      "type": "http",
+      "url": "${LANGFUSE_HOST}/api/public/otel/v1/traces",
+      "headers": {
+        "Authorization": "Basic ${LANGFUSE_PUBLIC_KEY}:${LANGFUSE_SECRET_KEY}",
+        "Content-Type": "application/json"
+      }
+    }
+  ]
+}
