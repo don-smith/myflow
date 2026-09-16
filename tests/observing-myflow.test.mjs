@@ -581,3 +581,25 @@ test("skill contract keeps timing conservative, raw state private, and Close out
   assert.match(workstreamTemplate, /flow_item_type:.*unknown/i);
   assert.match(alignmentTemplate, /Flow Item type/i);
 });
+
+test("observer contract references local stage reviews and return assessment", async () => {
+  const [skill, contract] = await Promise.all([
+    readFile(new URL("../skills/observing-myflow/SKILL.md", import.meta.url), "utf8"),
+    readFile(new URL("../skills/observing-myflow/report-contract.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(skill, /stage-review/i);
+  assert.match(skill, /evaluate-stage/i);
+  assert.match(skill, /return assessment/i);
+  assert.match(skill, /late discovery/i);
+  assert.match(skill, /predicate/i);
+  assert.match(skill, /public projection/i);
+  assert.match(skill, /allowlist/i);
+  assert.match(contract, /myflow-stage-review\/v1/i);
+  assert.match(contract, /stage-review-public/i);
+  assert.match(contract, /predicate.*result/i);
+  assert.match(contract, /(?:return assessment|correction assessment)/i);
+  assert.match(contract, /late.?discovery/i);
+  assert.match(contract, /counterfactual/i);
+  assert.match(contract, /public projection/i);
+});

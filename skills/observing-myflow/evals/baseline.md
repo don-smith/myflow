@@ -31,3 +31,5 @@ Three fresh read-only agents attempted an incremental checkpoint, a Close recons
 5. Observe MyFlow rather than rerunning its specialist, review, or verification work.
 6. Separate facts, interpretations, and testable improvement hypotheses.
 7. Keep the analysis source-neutral so project-based Langfuse can later provide exact spans without changing reports.
+8. Evaluate stage outcomes mechanically from lifecycle facts and artifacts without model judgment.
+9. Keep free text and evidence references private; produce an allowlisted public projection separately.

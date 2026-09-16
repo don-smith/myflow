@@ -72,6 +72,24 @@ Use `--observation-root` instead of `--target` only for a controlled fixture or 
 
 Version one uses Pi JSONL, Git, and MyFlow artifacts. When project-based Langfuse supplies the same activity, prefer exact lifecycle spans, use JSONL for recovery, and deduplicate by session and event identity. Keep reports and metric names independent of the backend.
 
+## Local stage evaluation
+
+Produce deterministic, evidence-based stage reviews without Langfuse or model judgment:
+
+```bash
+node <skill-dir>/scripts/evaluate-stage.mjs \
+  --workstream-id <id> --stage <stage> --attempt-id <id> \
+  --source <skill> --idempotency-key <key>
+```
+
+The evaluator reads the lifecycle journal, accepted artifacts, and private feedback. It applies stage-specific mechanical predicates that check for required sections, lifecycle receipts, and developer acceptance where required. Each predicate returns `pass`, `fail`, `unknown`, or `not-applicable`. The overall outcome is `satisfied`, `unsatisfied`, `blocked`, `incomplete`, or `unknown`.
+
+Scope and Plan require recorded developer acceptance for `satisfied`. Unknown is preserved; it is not converted to failure.
+
+For a return assessment, pass `--return-episode-id` with the correction details. The evaluator records trigger source, change kind, nature, late-discovery tri-state, confidence, and counterevidence. `lateDiscovery=true` requires the complete counterfactual contract: earliest detecting stage, cheaper credible check, then-available information, feasibility, expected signal, cost class, false-positive risk, and quality guardrail.
+
+Each evaluation writes a private `myflow-stage-review/v1` record to the personal observation tree. A separate allowlisted public projection excludes comments, paths, evidence excerpts, prompts, commands, code, and identities. Historical reviews are preserved; a later return creates a new attempt and revision.
+
 ## Common mistakes
 
 | Mistake | Correction |

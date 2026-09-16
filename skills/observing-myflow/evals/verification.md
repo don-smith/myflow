@@ -50,3 +50,21 @@ The fixture suite now checks provider/model grouping, missing cost, boundary fil
 - Branch realization and semantic episode attribution remain observer responsibilities.
 - Project-based Langfuse telemetry is the intended richer event source once available.
 - The skill does not automatically modify `close`; it can be invoked with `finalize` during Close. Automatic Close orchestration requires a separately tested edit to the Close skill.
+
+## Phase 3: Local stage reviews and return assessment
+
+Executable tests cover:
+
+- `myflow-stage-review/v1` contract validation (required fields, allowed fields, predicate results, outcomes, return assessment).
+- Stage-specific mechanical predicate sets for Scope, Plan, Implement, Verify, and Close.
+- Developer acceptance requirement for Scope and Plan `satisfied` outcome.
+- Predicate `unknown` preservation (not converted to failure).
+- Blocked stage detection.
+- Every return nature: necessary-learning, changed-intent, delivery-defect, external-change, process-induced, unclassified.
+- Counterfactual validation rejecting late discovery when then-available information, lower cost, expected signal, false-positive risk, or quality guardrail is missing.
+- Allowlisted public projection excluding comments, paths, evidence excerpts, prompts, commands, code, and identities.
+- Historical review preservation (later return creates a new revision without rewriting prior results).
+- CLI integration for `evaluate-stage.mjs` with lifecycle journal, artifact, and feedback inputs.
+- Return assessment CLI arguments with counterfactual fields.
+- Idempotent private record storage.
+- Revision increment on subsequent evaluations of the same attempt.

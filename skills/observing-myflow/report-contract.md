@@ -322,3 +322,54 @@ Repeated evidence may be offered to `capturing-learnings`. A first occurrence is
 ## Evidence and privacy rules
 
 The private account may point to detailed evidence but should remain concise. The private analysis contains explicit attribution and interpretation inputs. The curated report includes only the minimum excerpt needed to support a material claim. The team-safe export contains derived aggregate values only. Keep all four outside the target worktree. If personal observation-retention policy conflicts with these defaults, stop and ask before publishing more data.
+
+## Local stage review contract
+
+### myflow-stage-review/v1
+
+An evidence-based stage review recorded in the private observation tree:
+
+```json
+{
+  "schemaVersion": "myflow-stage-review/v1",
+  "reviewId": "rev_<sha256>",
+  "createdAt": "ISO timestamp",
+  "repository": { "kind": "origin", "value": "..." },
+  "workstreamId": "workstream id",
+  "attemptId": "stable attempt id",
+  "attemptOrdinal": 1,
+  "canonicalStage": "Scope",
+  "revision": 1,
+  "inputs": {
+    "lifecycleEventCount": 3,
+    "lifecycleLastEventId": "evt_...",
+    "lifecycleDigest": "sha256",
+    "artifactDigests": [{ "path": "...", "digest": "..." }],
+    "feedbackStatus": "recorded",
+    "feedbackRef": "private-ref"
+  },
+  "evaluator": {
+    "evaluatorVersion": "0.1.0",
+    "ruleSetVersion": "0.1.0"
+  },
+  "predicates": [
+    { "id": "scope.outcome-defined", "result": "pass", "evidence": ["..."] }
+  ],
+  "outcome": "satisfied",
+  "feedbackCoverage": "recorded",
+  "returnAssessment": null,
+  "limitations": ["mechanical section checks only"]
+}
+```
+
+Predicate results are `pass`, `fail`, `unknown`, or `not-applicable`. Outcomes are `satisfied`, `unsatisfied`, `blocked`, `incomplete`, or `unknown`. Scope and Plan require recorded developer acceptance for `satisfied`.
+
+### Return assessment
+
+When `returnAssessment` is present, it records trigger source, change kind, nature, late-discovery tri-state, confidence, missing evidence, and counterevidence. Nature values: `necessary-learning`, `changed-intent`, `delivery-defect`, `external-change`, `process-induced`, `unclassified`. Late discovery: `true`, `false`, or `unknown`. Confidence: `high`, `medium`, `low`.
+
+`lateDiscovery=true` requires the complete counterfactual contract: earliest detecting stage, concrete earlier check, required information, evidence it existed, expected signal, cost class (`lower`, `similar`, `higher`), false-positive risk, and quality guardrail. Without all fields, `lateDiscovery` must be `unknown`.
+
+### Public projection
+
+`myflow-stage-review-public/v1` is an allowlisted subset of the private review. It excludes: repository identity, input digests, evidence arrays, private references, return assessment details (missingEvidence, counterevidence, counterfactual free text), and full limitation text. Allowed fields: reviewId, createdAt, workstreamId, attemptId, attemptOrdinal, canonicalStage, revision, evaluator, predicate IDs and results only, outcome, feedbackCoverage, returnAssessment (nature, lateDiscovery, confidence only), and limitationCount.
