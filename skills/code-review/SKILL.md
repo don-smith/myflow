@@ -9,7 +9,7 @@ Produce a bounded, independent review with an auditable gate.
 
 ## Pin the scope
 
-Run the installed `../myflow/scripts/resolve-repository-map.mjs` resolver and read mapped instructions. Require a scope spec and accepted plan or equivalent specification; Validate supplies its exact implementation `base..head` and accepted plan.
+Run the installed `../myflow/scripts/resolve-repository-map.mjs` resolver and read mapped instructions. Require a scope spec and accepted plan or equivalent specification; Validate supplies its exact implementation scope (`base..head`, or `empty-tree..head` when implementation starts at the root commit) and accepted plan.
 
 Execute the active adapter and retain its full output:
 
@@ -21,13 +21,13 @@ Record scope status, strategy, base, tip, range, dirty state, changed-files coun
 
 ## Run three independent lanes
 
-Launch these fresh-context reviewers in parallel:
+Launch exactly three required fresh-context reviewers in parallel:
 
 - **Correctness and Risk** — trace behavior through callers, tests, boundaries, regressions, and failure paths. Add security checks when trust, auth, permissions, secrets, input, or sensitive data change. Add dependency checks when manifests, locks, imports, versions, or external APIs change.
 - **Standards and Maintainability** — apply mapped rules, then inspect clarity, duplication, coupling, needless generality, tests, and maintainability. Repository rules override generic heuristics.
-- **Spec Fidelity** — compare every acceptance criterion, phase outcome, exclusion, and requested behavior in the accepted plan with the implementation; identify omissions, wrong behavior, and scope creep.
+- **Spec Fidelity** — compare every acceptance criterion, every phase outcome, and every exclusion, plus each requested behavior in the accepted plan, with the implementation; identify omissions, wrong behavior, and scope creep.
 
-If fresh subagent capability is unavailable, a lane fails to return, or any lane misses part of the manifest, block rather than silently pass.
+Each lane must return its own evidence from the supplied scope. Do not accept a pass verdict, checklist, or unsupported assurance as lane evidence. If fresh subagent capability is unavailable, a lane fails to return, or any lane misses part of the manifest, block rather than silently pass.
 
 ## Normalize and verify
 
@@ -37,7 +37,7 @@ Retain only actionable findings. Assign a stable ID (`CR-001`, `SM-001`, or `SF-
 - **P1** — incorrect behavior, regression, unmet requirement, or material operational/maintenance failure.
 - **P2** — bounded improvement without demonstrated incorrect behavior; P2 does not block.
 
-Every retained finding needs its stable ID, P0/P1/P2, changed `file:line` plus verbatim quote, failure mechanism, affected behavior or requirement, and smallest fix.
+Every retained finding needs its stable ID, P0/P1/P2, failure mechanism, affected behavior or requirement, smallest fix, and source lane. For an implementation defect, cite changed `file:line` plus a verbatim quote. For an omission, cite the accepted plan or spec `path:line` with a verbatim quote and the nearest expected implementation seam. Changed-code evidence is required only when related code exists.
 
 Send provisional P0/P1 claims to a separate fresh-context verifier for independent verification. It inspects the cited code and callers, establishes the mechanism, and returns `confirmed`, `falsified`, or `inconclusive` with evidence. Drop falsified claims, retain confirmed claims, and block on inconclusive P0/P1 or unavailable verification. Do not change severity merely to alter the gate.
 

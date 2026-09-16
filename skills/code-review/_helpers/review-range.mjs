@@ -14,8 +14,9 @@
 //   all                 — every current-branch change: committed since default base, staged, unstaged, and untracked
 //   <hash>              — single commit (~7+ hex chars)
 //   <A>..<B>            — exact base..head range; A is verified ancestor of B, swapped if reversed
-//   <h1>,<h2>,<h3>      — comma- or whitespace-separated commit list; helper finds endpoints
-//   <branch-name>       — assumed PR branch checked out at HEAD
+//   empty-tree..<B>     — root-inclusive range through B
+//   <h1>,<h2>,<h3>      — commit list on one ancestry chain; includes the oldest named commit
+//   <branch-name>       — committed changes from the branch merge base through its supplied tip
 //
 // Output (labeled key/value lines, then `---changed-files---` block):
 //
@@ -45,8 +46,9 @@
 //     parent-of-first-feature-commit (computed via git merge-base), so BASE=OLDEST.
 //     Do NOT compute BASE=OLDEST^ — that would skip a commit.
 //   - An explicit A..B is already a base..head range and must be preserved.
-//     For a single hash only, BASE=hash^ (or the empty tree for a root commit)
-//     so the hash's own changes are included.
+//     `empty-tree..B` is the explicit root-inclusive form. For a single hash
+//     only, BASE=hash^ (or the empty tree for a root commit) so the hash's own
+//     changes are included.
 //   - --first-parent is orthogonal to --no-merges: the former prunes second-parent
 //     subtrees from reachability; the latter drops merge commits themselves from
 //     the log. Both flags are independently controllable in the consumer's git log.
@@ -149,6 +151,7 @@ const argv = process.argv[2] ?? "";
 const scope = stripOuterQuotes(argv);
 const lower = scope.toLowerCase();
 const defaultBranch = result.default_branch;
+const emptyTree = safe(["hash-object", "-t", "tree", "/dev/null"]);
 
 const setFirstParent = (oldest, newest) => {
 	result.strategy = "first-parent";
@@ -200,7 +203,9 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 	setWorkingTree();
 } else if (scope.includes("..") && !scope.includes("...")) {
 	const [a, b] = scope.split("..");
-	if (refExists(a) && refExists(b)) {
+	if (a === "empty-tree" && refExists(b)) {
+		setExplicitRange(emptyTree, safe(["rev-parse", b]));
+	} else if (refExists(a) && refExists(b)) {
 		const aHash = safe(["rev-parse", a]);
 		const bHash = safe(["rev-parse", b]);
 		if (isAncestor(aHash, bHash)) setExplicitRange(aHash, bHash);
@@ -211,27 +216,31 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 	}
 } else if (/[,\s]/.test(scope)) {
 	const hashes = scope.split(/[,\s]+/).filter(Boolean);
-	const resolved = hashes.map((h) => safe(["rev-parse", h])).filter(Boolean);
-	if (resolved.length < 2) {
-		result.note = `commit list under-specified (need ≥2 valid hashes; got ${resolved.length})`;
+	const resolved = hashes.map((hash) => safe(["rev-parse", `${hash}^{commit}`])).filter(Boolean);
+	const unique = [...new Set(resolved)];
+	if (resolved.length !== hashes.length || unique.length < 2) {
+		result.note = `commit list under-specified (need ≥2 distinct valid commits; got ${unique.length})`;
 	} else {
-		const topo = safe(["rev-list", "--topo-order", ...resolved]).split("\n");
-		const present = new Set(resolved);
-		const ordered = topo.filter((h) => present.has(h));
-		if (ordered.length < 2) {
-			result.note = "commit list not on a single linear ancestry";
+		const oldest = unique.find((candidate) => unique.every((hash) => isAncestor(candidate, hash)));
+		const newest = unique.find((candidate) => unique.every((hash) => isAncestor(hash, candidate)));
+		if (!oldest || !newest) {
+			result.note = "commit list not on a single ancestry chain";
 		} else {
-			setFirstParent(ordered.at(-1), ordered[0]);
+			const base = safe(["rev-parse", `${oldest}^`]) || emptyTree;
+			setExplicitRange(base, newest);
+			result.oldest = oldest;
+			result.newest = newest;
 		}
 	}
 } else if (isHexHash(scope) && refExists(scope)) {
 	const hash = safe(["rev-parse", scope]);
-	const parent = safe(["rev-parse", `${hash}^`]) || safe(["hash-object", "-t", "tree", "/dev/null"], hash);
+	const parent = safe(["rev-parse", `${hash}^`]) || emptyTree;
 	setExplicitRange(parent, hash);
 } else if (refExists(scope)) {
-	const oldest = safe(["merge-base", defaultBranch, "HEAD"]);
-	if (oldest) setBranchAll(oldest, safe(["rev-parse", "HEAD"]));
-	else result.note = `merge-base ${defaultBranch}..HEAD failed for branch ${scope}`;
+	const tip = safe(["rev-parse", scope]);
+	const oldest = safe(["merge-base", defaultBranch, tip]);
+	if (oldest) setFirstParent(oldest, tip);
+	else result.note = `merge-base ${defaultBranch}..${scope} failed`;
 } else {
 	result.note = `scope spec not recognised: ${scope}`;
 }

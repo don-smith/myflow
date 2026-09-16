@@ -17,9 +17,9 @@ findings: {p0: N, p1: N, p2: N}
 tags: [code-review, verify]
 ---
 
-# Code Review — {scope}
+# Code review — {scope}
 
-## Provenance and Scope
+## Provenance and scope
 
 - Accepted plan: `{path or equivalent spec source}`
 - Scope status: `{ready | empty | invalid}`
@@ -31,7 +31,7 @@ tags: [code-review, verify]
   - `{path}`
 - Exclusions: {none or reasoned list}
 
-## Lane Evidence
+## Lane evidence
 
 | Fresh-context lane | Status | Coverage and evidence |
 |---|---|---|
@@ -39,20 +39,24 @@ tags: [code-review, verify]
 | Standards and Maintainability | {complete / blocked} | {mapped standards or unavailable; maintainability evidence} |
 | Spec Fidelity | {complete / blocked} | {accepted-plan criteria and exclusions checked} |
 
-## Retained Findings
+## Retained findings
 
-Repeat this block for each retained finding; write `None` when there are no findings.
+Repeat this block for each retained finding; write `None` when there are no findings. For an omission, the accepted plan or spec `path:line`, verbatim quote, and nearest expected implementation seam are mandatory. Changed-code evidence is required only when related code exists.
 
 ### {stable ID} — {P0 | P1 | P2}: {headline}
 
-- **Changed file:line:** `{path:line}`
-- **Quote:** `{verbatim changed code}`
-- **Failure mechanism:** {how the defect occurs}
+- **Evidence kind:** {implementation defect | omission}
+- **Accepted plan/spec file:line:** `{path:line, required for omission}`
+- **Spec quote:** `{verbatim accepted-plan/spec text, required for omission}`
+- **Nearest expected implementation seam:** `{path:line or path, required for omission}`
+- **Changed file:line:** `{path:line, required when related code exists}`
+- **Changed-code quote:** `{verbatim changed code, required when related code exists}`
+- **Failure mechanism:** {how the defect or omission occurs}
 - **Affected behavior or requirement:** {observable impact or accepted-plan citation}
 - **Smallest fix:** {minimal corrective action}
 - **Source lane:** {Correctness and Risk | Standards and Maintainability | Spec Fidelity}
 
-## Finding Verification
+## Finding verification
 
 | Stable ID (P0/P1) | Result | Independent evidence from code and callers |
 |---|---|---|
@@ -60,7 +64,7 @@ Repeat this block for each retained finding; write `None` when there are no find
 
 Falsified claims are dropped from retained findings. Inconclusive P0/P1 claims block the review.
 
-## Review Verdict
+## Review verdict
 
 **Review verdict:** `{pass | fail | blocked}`
 

@@ -88,6 +88,102 @@ test("single root commit scope includes the root commit", () => {
 	}
 });
 
+test("explicit empty-tree range includes a root implementation through its final commit", () => {
+	const repo = createRepo();
+	try {
+		writeFileSync(join(repo, "follow-up.txt"), "follow-up\n");
+		git(repo, ["add", "follow-up.txt"]);
+		git(repo, ["commit", "-qm", "follow-up"]);
+		const head = git(repo, ["rev-parse", "HEAD"]).trim();
+		const emptyTree = git(repo, ["hash-object", "-t", "tree", "/dev/null"]).trim();
+
+		const output = runHelper(repo, `empty-tree..${head}`);
+
+		assert.match(output, /strategy:\s+explicit-range/);
+		assert.match(output, new RegExp(`base:\\s+${emptyTree}`));
+		assert.match(output, new RegExp(`tip:\\s+${head}`));
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["base.txt", "follow-up.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("commit-list scope includes the oldest named commit on a linear chain", () => {
+	const repo = createRepo();
+	try {
+		const base = git(repo, ["rev-parse", "HEAD"]).trim();
+		writeFileSync(join(repo, "first.txt"), "first\n");
+		git(repo, ["add", "first.txt"]);
+		git(repo, ["commit", "-qm", "first named commit"]);
+		const oldest = git(repo, ["rev-parse", "HEAD"]).trim();
+		writeFileSync(join(repo, "second.txt"), "second\n");
+		git(repo, ["add", "second.txt"]);
+		git(repo, ["commit", "-qm", "second named commit"]);
+		const newest = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, `${newest},${oldest}`);
+
+		assert.match(output, new RegExp(`oldest:\\s+${oldest}`));
+		assert.match(output, new RegExp(`newest:\\s+${newest}`));
+		assert.match(output, new RegExp(`base:\\s+${base}`));
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["first.txt", "second.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("commit-list scope rejects divergent commits", () => {
+	const repo = createRepo();
+	try {
+		git(repo, ["checkout", "-qb", "left"]);
+		writeFileSync(join(repo, "left.txt"), "left\n");
+		git(repo, ["add", "left.txt"]);
+		git(repo, ["commit", "-qm", "left"]);
+		const left = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["checkout", "-qb", "right", "main"]);
+		writeFileSync(join(repo, "right.txt"), "right\n");
+		git(repo, ["add", "right.txt"]);
+		git(repo, ["commit", "-qm", "right"]);
+		const right = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, `${left},${right}`);
+
+		assert.match(output, /strategy:\s+unrecognised/);
+		assert.match(output, /scope_status:\s+invalid/);
+		assert.match(output, /note:\s+commit list not on a single ancestry chain/);
+		assert.deepEqual(changedFiles(output), []);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("named branch scope uses its tip and merge base while another branch is checked out", () => {
+	const repo = createRepo();
+	try {
+		const base = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["checkout", "-qb", "feature"]);
+		writeFileSync(join(repo, "feature.txt"), "feature\n");
+		git(repo, ["add", "feature.txt"]);
+		git(repo, ["commit", "-qm", "feature"]);
+		const featureTip = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["checkout", "-q", "main"]);
+		writeFileSync(join(repo, "main-only.txt"), "main only\n");
+		git(repo, ["add", "main-only.txt"]);
+		git(repo, ["commit", "-qm", "main only"]);
+
+		const output = runHelper(repo, "feature");
+
+		assert.match(output, new RegExp(`base:\\s+${base}`));
+		assert.match(output, new RegExp(`tip:\\s+${featureTip}`));
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["feature.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
 test("invalid scope is explicit and never masquerades as an empty pass", () => {
 	const repo = createRepo();
 	try {

@@ -82,6 +82,11 @@ test("Validate consumes workstream evidence and executes code review now", async
   ]) {
     assert.match(validate, new RegExp(phrase, "i"));
   }
+  assert.match(
+    validate,
+    /first implementation commit has no parent[^.]*empty-tree\.\.<final implementation commit>/i,
+  );
+  assert.match(validate, /pass that explicit scope form[^.]*code-review/i);
   assert.doesNotMatch(validate, /_shared|\.myflow\/artifacts|\/skill:revise|mandatory Stage 4 gate/i);
   assert.match(template, /Criterion Coverage/);
   assert.match(template, /Review Evidence/);
