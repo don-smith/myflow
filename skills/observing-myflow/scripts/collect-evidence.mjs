@@ -23,6 +23,10 @@ import {
   jsonlSourceCapabilities,
 } from "./lib/pi-jsonl-adapter.mjs";
 import { NORMALIZED_EVIDENCE_SCHEMA_VERSION } from "./lib/normalized-evidence.mjs";
+import {
+  getStageIntervalSource,
+  generateAttemptEconomicsAccount,
+} from "./lib/attempt-economics.mjs";
 
 const SCHEMA_VERSION = "myflow-observation-evidence/v1";
 const STATE_VERSION = "myflow-observation-state/v1";
@@ -464,10 +468,28 @@ function main() {
     artifactChangeBasis,
     normalizedEvidenceAvailable: false,
     langfuseAdapterReceipt: null,
+    stageIntervalSource: (() => {
+      try {
+        return getStageIntervalSource(options.target ? join(options.target, ".myflow", "workstreams", options.workstream) : null);
+      } catch {
+        return { source: "inferred", attemptCount: 0, episodeCount: 0, hasLifecycle: false };
+      }
+    })(),
+    attemptEconomics: (() => {
+      try {
+        if (!options.target) return null;
+        const wroot = join(options.target, ".myflow", "workstreams", options.workstream);
+        const account = generateAttemptEconomicsAccount(entries, wroot);
+        return account;
+      } catch {
+        return null;
+      }
+    })(),
     limitations: [
       "JSONL timestamps provide observable ordering and turnaround windows, not active agent time.",
       "Unknown gaps cannot be assigned to human wait, provider time, tool time, or idle time without lifecycle telemetry.",
       "Session and artifact evidence cannot replace code review, verification, or product correctness checks.",
+      "Reasoning tokens are a subset dimension; do not add them to output or total tokens separately.",
     ],
     private: { statePath, accountPath, snapshotPath: "", suggestedAnalysisPath: join(privateDir, "analysis", `${stamp}_${options.workstream}-analysis.json`) },
     curated: {

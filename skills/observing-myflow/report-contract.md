@@ -172,6 +172,21 @@ The derivation command includes events whose timestamps fall inside the half-ope
 
 Cost is never estimated. `recordedCostUsd` sums calls with provider-recorded cost. `costCoverage` gives recorded calls, missing calls, and their ratio. Assigned and unassigned recorded cost remain separate so stage attribution gaps are visible.
 
+## Attempt economics
+
+`myflow-attempt-economics/v1` derives stage intervals and repeated attempts from lifecycle events when a journal exists, preserving the artifact-timestamp fallback for pre-journal workstreams.
+
+When a lifecycle journal exists at `<workstream-root>/lifecycle/events.jsonl`:
+- Stage intervals come from `stage.entered`/`stage.completed` events.
+- Correction episode intervals come from `return.opened` through `return.closed`.
+- `stageReturnCount`, `activityReturnCount`, and `returnEpisodeCount` derive from episodes.
+
+Observations are attributed to attempts using non-overlapping half-open lifecycle intervals. Per attempt: calls, token dimensions, recordedCostUsd, costCoverage, provider/model grouping, tools, errors. Reasoning tokens are a subset dimension. Unknown cost is `null`; never estimate it. Silence is not active work.
+
+First-pass flow is a diagnostic. One-pass is not automatically better.
+
+The derivation command accepts `--lifecycle <workstream-root>` to derive return summaries from lifecycle episodes. Explicit analysis values take precedence.
+
 ## Team-safe export v2
 
 `myflow-team-flow/v2` replaces the old v1 team shape. Evidence and collector state remain at v1 because their additions are backward-compatible. The v2 export separates four layers:
@@ -232,7 +247,9 @@ A v2 export has this shape:
     "lateDiscoveryCount": 0,
     "returnLoopMs": null,
     "verificationLatencyMs": null,
-    "processFriction": {}
+    "processFriction": {},
+    "returnEpisodeCount": null,
+    "lifecycleSource": "inferred"
   },
   "developerExperience": {
     "selfReport": null,

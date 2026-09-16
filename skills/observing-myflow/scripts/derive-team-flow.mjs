@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import {
+  resolveStageIntervals,
+  deriveReturnSummaries,
+  ATTEMPT_INTERVAL_SOURCE_LIFECYCLE,
+  ATTEMPT_INTERVAL_SOURCE_INFERRED,
+} from "./lib/attempt-economics.mjs";
 
 const EVIDENCE_VERSION = "myflow-observation-evidence/v1";
 const ANALYSIS_VERSION = "myflow-observation-analysis/v1";
@@ -19,7 +25,7 @@ const USAGE_DIMENSIONS = [
 ];
 
 function usage() {
-  return `Usage: node derive-team-flow.mjs --evidence <snapshot.json> --analysis <analysis.json> --output <team-flow.json>\n`;
+  return `Usage: node derive-team-flow.mjs --evidence <snapshot.json> --analysis <analysis.json> --output <team-flow.json> [--lifecycle <workstream-root>]\n`;
 }
 
 function parseArgs(argv) {
@@ -27,11 +33,15 @@ function parseArgs(argv) {
     process.stdout.write(usage());
     process.exit(0);
   }
-  const options = {};
-  for (let index = 0; index < argv.length; index += 2) {
+  const options = { lifecycle: null };
+  for (let index = 0; index < argv.length; index++) {
     const option = argv[index];
-    const value = argv[index + 1];
+    if (option === "--lifecycle") {
+      options.lifecycle = resolve(argv[++index]);
+      continue;
+    }
     if (!["--evidence", "--analysis", "--output"].includes(option)) throw new Error(`Unknown option: ${option}`);
+    const value = argv[++index];
     if (!value) throw new Error(`${option} requires a value.`);
     options[option.slice(2)] = resolve(value);
   }
@@ -200,7 +210,7 @@ function efficiency(analysis) {
   return { value: activeTimeMs / (activeTimeMs + waitTimeMs), activeTimeMs, waitTimeMs, coverage: "active-and-wait-measured" };
 }
 
-function derive(evidence, analysis) {
+function derive(evidence, analysis, { lifecyclePath = null } = {}) {
   if (evidence.schemaVersion !== EVIDENCE_VERSION) throw new Error(`evidence.schemaVersion must be ${EVIDENCE_VERSION}.`);
   if (!Array.isArray(evidence.entries)) throw new Error("evidence.entries must be an array.");
   const { startedAtMs, closedAtMs, intervals } = validateAnalysis(analysis);
@@ -236,6 +246,38 @@ function derive(evidence, analysis) {
     : optionalMetric(analysis.observableTurnaroundMs, "analysis.observableTurnaroundMs");
   const execution = analysis.executionFlow ?? {};
 
+  // Derive return summaries from lifecycle when available
+  let lifecycleReturnSummaries = null;
+  if (lifecyclePath) {
+    const resolvedIntervals = resolveStageIntervals(lifecyclePath);
+    if (resolvedIntervals.source === ATTEMPT_INTERVAL_SOURCE_LIFECYCLE) {
+      lifecycleReturnSummaries = resolvedIntervals.returnSummaries;
+    }
+  }
+
+  // Merge lifecycle-derived return data with explicit analysis overrides.
+  // Analysis values take precedence; lifecycle fills gaps.
+  const returnSummaries = lifecycleReturnSummaries ?? {};
+  const reworkEpisodes =
+    execution.reworkEpisodes ??
+    returnSummaries.reworkEpisodes ??
+    returnSummaries.returnEpisodeCount ??
+    null;
+  const stageReturnCount =
+    execution.stageReturnCount ?? returnSummaries.stageReturnCount ?? null;
+  const returnLoopMs =
+    execution.returnLoopMs ?? returnSummaries.returnLoopMs ?? null;
+  const returnEpisodeCount =
+    execution.returnEpisodeCount ??
+    returnSummaries.returnEpisodeCount ??
+    null;
+
+  // Private episode detail: include when lifecycle is available
+  const privateEpisodeDetail =
+    returnSummaries.episodes && returnSummaries.episodes.length > 0
+      ? returnSummaries.episodes
+      : null;
+
   return {
     schemaVersion: TEAM_VERSION,
     analysisVersion: ANALYSIS_VERSION,
@@ -265,12 +307,17 @@ function derive(evidence, analysis) {
       stageResidenceMs: Object.fromEntries(Object.entries(stageResidenceMs).sort(([left], [right]) => left.localeCompare(right))),
       observableTurnaroundMs,
       unknownGapMs: optionalMetric(analysis.unknownGapMs, "analysis.unknownGapMs"),
-      reworkEpisodes: optionalMetric(execution.reworkEpisodes, "analysis.executionFlow.reworkEpisodes"),
-      stageReturnCount: optionalMetric(execution.stageReturnCount, "analysis.executionFlow.stageReturnCount"),
+      reworkEpisodes: optionalMetric(reworkEpisodes, "analysis.executionFlow.reworkEpisodes"),
+      stageReturnCount: optionalMetric(stageReturnCount, "analysis.executionFlow.stageReturnCount"),
       lateDiscoveryCount: optionalMetric(execution.lateDiscoveryCount, "analysis.executionFlow.lateDiscoveryCount"),
-      returnLoopMs: optionalMetric(execution.returnLoopMs, "analysis.executionFlow.returnLoopMs"),
+      returnLoopMs: optionalMetric(returnLoopMs, "analysis.executionFlow.returnLoopMs"),
       verificationLatencyMs: optionalMetric(execution.verificationLatencyMs, "analysis.executionFlow.verificationLatencyMs"),
       processFriction: aggregateValues(execution.processFriction, "analysis.executionFlow.processFriction"),
+      returnEpisodeCount: optionalMetric(returnEpisodeCount, "analysis.executionFlow.returnEpisodeCount"),
+      lifecycleSource: lifecycleReturnSummaries?.source ?? ATTEMPT_INTERVAL_SOURCE_INFERRED,
+      ...(privateEpisodeDetail
+        ? { privateEpisodeDetail }
+        : {}),
     },
     developerExperience: {
       selfReport: privateExperience(analysis.developerExperience?.selfReport, "analysis.developerExperience.selfReport"),
@@ -304,7 +351,7 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   const evidence = readJson(options.evidence, "evidence");
   const analysis = readJson(options.analysis, "analysis");
-  const output = derive(evidence, analysis);
+  const output = derive(evidence, analysis, { lifecyclePath: options.lifecycle });
   mkdirSync(dirname(options.output), { recursive: true });
   writeFileSync(options.output, `${JSON.stringify(output, null, 2)}\n`, { mode: 0o600 });
   process.stdout.write(`${JSON.stringify({ schemaVersion: output.schemaVersion, project: output.project, workstream: output.workstream, outputPath: options.output })}\n`);

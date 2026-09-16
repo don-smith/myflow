@@ -4,7 +4,27 @@ import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile, appendFile } fr
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
+import { createHash } from "node:crypto";
 import test from "node:test";
+import {
+  readLifecycleJournal,
+  reduceJournalEvents,
+  deriveAttemptIntervals,
+  deriveEpisodeIntervals,
+  deriveReturnSummaries,
+  deriveFirstPassFlow,
+  resolveStageIntervals,
+  getStageIntervalSource,
+  computeAttemptEconomics,
+  computeEpisodeEconomics,
+  generateAttemptEconomicsAccount,
+  ATTEMPT_INTERVAL_SOURCE_LIFECYCLE,
+  ATTEMPT_INTERVAL_SOURCE_INFERRED,
+} from "../skills/observing-myflow/scripts/lib/attempt-economics.mjs";
+import {
+  lifecycleEventId,
+  lifecycleAttemptId,
+} from "../skills/myflow/scripts/lib/lifecycle-contract.mjs";
 
 const execFileAsync = promisify(execFile);
 const collector = new URL("../skills/observing-myflow/scripts/collect-evidence.mjs", import.meta.url).pathname;
@@ -602,4 +622,391 @@ test("observer contract references local stage reviews and return assessment", a
   assert.match(contract, /late.?discovery/i);
   assert.match(contract, /counterfactual/i);
   assert.match(contract, /public projection/i);
+});
+
+test("observer contract references attempt economics and lifecycle derivation", async () => {
+  const [skill, contract] = await Promise.all([
+    readFile(new URL("../skills/observing-myflow/SKILL.md", import.meta.url), "utf8"),
+    readFile(new URL("../skills/observing-myflow/report-contract.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(skill, /attempt.?economics/i);
+  assert.match(skill, /lifecycle.*journal|journal.*lifecycle/i);
+  assert.match(skill, /half-open/i);
+  assert.match(skill, /first.?pass/i);
+  assert.match(skill, /inferred.*source|source.*inferred/i);
+  assert.match(contract, /attempt.?economics/i);
+  assert.match(contract, /attempt.*interval|interval.*attempt/i);
+  assert.match(contract, /returnEpisodeCount/i);
+  assert.match(contract, /lifecycleSource/i);
+  assert.match(contract, /silence.*not active work|not active work.*silence/i);
+});
+
+async function writeLifecycleJournal(workstreamRoot, events) {
+  const lifecycleDir = join(workstreamRoot, "lifecycle");
+  await mkdir(lifecycleDir, { recursive: true });
+
+  // Track ordinals per stage
+  const ordinalByStage = {};
+  const prevEvents = [];
+
+  for (let i = 0; i < events.length; i++) {
+    const event = { ...events[i] };
+    event.schemaVersion = event.schemaVersion ?? "myflow-lifecycle/v1";
+    event.repository = event.repository ?? { kind: "origin", value: "github.com/test/repo" };
+    event.workstreamId = event.workstreamId ?? "test-flow";
+    event.previousEventId = prevEvents.length > 0 ? prevEvents[prevEvents.length - 1].eventId : null;
+
+    // Compute attempt metadata
+    if (event.kind === "workstream.created" || event.kind === "workstream.closed") {
+      event.attemptId = null;
+      event.attemptOrdinal = null;
+    } else if (event.kind === "stage.entered") {
+      const stage = event.canonicalStage;
+      ordinalByStage[stage] = (ordinalByStage[stage] ?? 0) + 1;
+      event.attemptOrdinal = ordinalByStage[stage];
+      event.attemptId = lifecycleAttemptId({
+        repository: event.repository,
+        workstreamId: event.workstreamId,
+        canonicalStage: stage,
+        attemptOrdinal: event.attemptOrdinal,
+      });
+    } else {
+      // For all other events (stage.completed, return.*, etc.), use the last entered attempt
+      const lastEntered = [...prevEvents].reverse().find((e) => e.kind === "stage.entered");
+      if (lastEntered) {
+        event.attemptId = lastEntered.attemptId;
+        event.attemptOrdinal = lastEntered.attemptOrdinal;
+      } else {
+        event.attemptId = null;
+        event.attemptOrdinal = null;
+      }
+    }
+
+    // Auto-set originAttemptId for return.opened to match the current attempt
+    if (event.kind === "return.opened" && event.originAttemptId === null) {
+      event.originAttemptId = event.attemptId;
+    }
+
+    if (!event.eventId) {
+      event.eventId = lifecycleEventId(event);
+    }
+    prevEvents.push(event);
+  }
+  const lines = prevEvents.map((e) => `${JSON.stringify(e)}\n`).join("");
+  await writeFile(join(lifecycleDir, "events.jsonl"), lines);
+  return prevEvents;
+}
+
+test("attempt economics derives stage intervals from lifecycle journal", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-attempts-"));
+  const workstream = join(root, "test-flow");
+  const repo = { kind: "origin", value: "github.com/test/repo" };
+
+  try {
+    const events = await writeLifecycleJournal(workstream, [
+      { kind: "workstream.created", repository: repo, workstreamId: "test-flow", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "create", occurredAt: "2026-01-01T00:00:00.000Z", attemptId: null, attemptOrdinal: null },
+      { kind: "stage.entered", repository: repo, workstreamId: "test-flow", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-enter", occurredAt: "2026-01-01T00:00:01.000Z" },
+      { kind: "stage.completed", repository: repo, workstreamId: "test-flow", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-complete", occurredAt: "2026-01-01T00:10:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", repository: repo, workstreamId: "test-flow", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-enter", occurredAt: "2026-01-01T00:10:01.000Z" },
+      { kind: "stage.completed", repository: repo, workstreamId: "test-flow", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-complete", occurredAt: "2026-01-01T00:20:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", repository: repo, workstreamId: "test-flow", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-enter", occurredAt: "2026-01-01T00:20:01.000Z" },
+      { kind: "stage.completed", repository: repo, workstreamId: "test-flow", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-complete", occurredAt: "2026-01-01T00:30:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", repository: repo, workstreamId: "test-flow", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-enter", occurredAt: "2026-01-01T00:30:01.000Z" },
+    ]);
+
+    const journal = readLifecycleJournal(workstream);
+    assert.ok(journal, "expected lifecycle journal to exist");
+    assert.equal(journal.events.length, 8);
+
+    const state = reduceJournalEvents(journal.events);
+    assert.ok(state, "expected reducer to produce state");
+    assert.equal(state.attempts.length, 4);
+    assert.equal(state.returnEpisodeCount, 0);
+
+    const intervals = deriveAttemptIntervals(state);
+    assert.equal(intervals.length, 4);
+    assert.equal(intervals[0].canonicalStage, "Scope");
+    assert.equal(intervals[0].ordinal, 1);
+    assert.equal(intervals[0].source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+    assert.equal(intervals[3].canonicalStage, "Verify");
+    assert.equal(intervals[3].status, "open");
+    assert.equal(intervals[3].completedAt, null);
+
+    const summaries = deriveReturnSummaries(state);
+    assert.equal(summaries.source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+    assert.equal(summaries.stageReturnCount, 0);
+    assert.equal(summaries.returnEpisodeCount, 0);
+    assert.equal(summaries.episodes.length, 0);
+
+    const flow = deriveFirstPassFlow(state);
+    assert.equal(flow.isFirstPass, true);
+    assert.equal(flow.source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("attempt economics falls back to inferred source for pre-journal workstreams", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-nojournal-"));
+  const workstream = join(root, "test-flow");
+
+  try {
+    await mkdir(workstream, { recursive: true });
+
+    const journal = readLifecycleJournal(workstream);
+    assert.equal(journal, null);
+
+    const source = getStageIntervalSource(workstream);
+    assert.equal(source.source, ATTEMPT_INTERVAL_SOURCE_INFERRED);
+    assert.equal(source.hasLifecycle, false);
+    assert.equal(source.attemptCount, 0);
+
+    const resolved = resolveStageIntervals(workstream);
+    assert.equal(resolved.source, ATTEMPT_INTERVAL_SOURCE_INFERRED);
+
+    const account = generateAttemptEconomicsAccount([], workstream);
+    assert.equal(account.source, ATTEMPT_INTERVAL_SOURCE_INFERRED);
+    assert.ok(account.note.includes("inferred"));
+    assert.deepEqual(account.attempts, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Verify-to-Implement-to-Verify correction reports two Verify attempts and one correction episode", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-verify-return-"));
+  const workstream = join(root, "test-flow");
+  const repo = { kind: "origin", value: "github.com/test/repo" };
+
+  try {
+    const events = await writeLifecycleJournal(workstream, [
+      { kind: "workstream.created", repository: repo, workstreamId: "test-flow", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "create", occurredAt: "2026-01-01T00:00:00.000Z", attemptId: null, attemptOrdinal: null },
+      { kind: "stage.entered", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-enter", occurredAt: "2026-01-01T00:00:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-done", occurredAt: "2026-01-01T00:10:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-enter", occurredAt: "2026-01-01T00:10:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-done", occurredAt: "2026-01-01T00:20:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-enter", occurredAt: "2026-01-01T00:20:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-done", occurredAt: "2026-01-01T00:30:00.000Z", terminalReason: "advanced" },
+      // First Verify attempt
+      { kind: "stage.entered", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-1-enter", occurredAt: "2026-01-01T00:30:01.000Z" },
+      // Return opened: Verify detects implementation defect, routes to Implement
+      { kind: "return.opened", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "return-open", occurredAt: "2026-01-01T00:35:00.000Z", episodeId: "ep-1", detectingStage: "Verify", detectingActivity: "verification", initialOwningStage: "Implement", initialOwningActivity: "phase", originAttemptId: null, triggerSource: "verification-evidence", changeKind: "implementation", evidenceRefs: [] },
+      { kind: "stage.completed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-1-done", occurredAt: "2026-01-01T00:35:01.000Z", terminalReason: "superseded" },
+      // Owner readiness
+      { kind: "stage.entered", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-2-enter", occurredAt: "2026-01-01T00:35:02.000Z" },
+      { kind: "return.owner-ready", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "return-ready", occurredAt: "2026-01-01T00:40:00.000Z", episodeId: "ep-1" },
+      { kind: "stage.completed", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-2-done", occurredAt: "2026-01-01T00:45:00.000Z", terminalReason: "advanced" },
+      // Downstream resumption
+      { kind: "stage.entered", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-2-enter", occurredAt: "2026-01-01T00:45:01.000Z" },
+      { kind: "return.resumed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "return-resume", occurredAt: "2026-01-01T00:45:02.000Z", episodeId: "ep-1" },
+      { kind: "verification.completed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-2-pass", occurredAt: "2026-01-01T00:50:00.000Z", episodeId: "ep-1", verificationStatus: "passed" },
+      { kind: "return.closed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "return-close", occurredAt: "2026-01-01T00:50:01.000Z", episodeId: "ep-1" },
+      { kind: "stage.completed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-2-done", occurredAt: "2026-01-01T00:50:02.000Z", terminalReason: "advanced" },
+    ]);
+
+    const journal = readLifecycleJournal(workstream);
+    const state = reduceJournalEvents(journal.events);
+
+    // Two Verify attempts
+    // Scope, Plan, Implement(1), Verify(1), Implement(2), Verify(2) = 6
+    assert.equal(state.attempts.length, 6);
+    const verifyAttempts = state.attempts.filter((a) => a.canonicalStage === "Verify");
+    assert.equal(verifyAttempts.length, 2);
+    assert.equal(verifyAttempts[0].ordinal, 1);
+    assert.equal(verifyAttempts[0].status, "superseded");
+    assert.equal(verifyAttempts[1].ordinal, 2);
+    assert.equal(verifyAttempts[1].status, "advanced");
+
+    // One correction episode
+    assert.equal(state.returnEpisodeCount, 1);
+    assert.equal(state.stageReturnCount, 1); // Verify→Implement is a backward stage edge
+    assert.equal(state.returns.length, 1);
+    assert.equal(state.returns[0].status, "closed");
+
+    // Derive intervals
+    const intervals = deriveAttemptIntervals(state);
+    assert.equal(intervals.filter((i) => i.canonicalStage === "Verify").length, 2);
+
+    const episodeIntervals = deriveEpisodeIntervals(state);
+    assert.equal(episodeIntervals.length, 1);
+    assert.equal(episodeIntervals[0].episodeId, "ep-1");
+    assert.equal(episodeIntervals[0].detectingStage, "Verify");
+    assert.equal(episodeIntervals[0].status, "closed");
+    assert.equal(episodeIntervals[0].routes.length, 1);
+    assert.equal(episodeIntervals[0].routes[0].stage, "Implement");
+    assert.equal(episodeIntervals[0].canonicalBackwardEdges, 1);
+
+    // Return summaries
+    const summaries = deriveReturnSummaries(state);
+    assert.equal(summaries.stageReturnCount, 1);
+    assert.equal(summaries.returnEpisodeCount, 1);
+    assert.equal(summaries.reworkEpisodes, 1);
+    assert.ok(summaries.returnLoopMs > 0);
+    assert.equal(summaries.episodes.length, 1);
+    assert.equal(summaries.source, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+
+    // First-pass flow
+    const flow = deriveFirstPassFlow(state);
+    assert.equal(flow.isFirstPass, false);
+    assert.equal(flow.returnEpisodeCount, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("derivation with lifecycle derives return summaries from lifecycle episodes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-derive-lifecycle-"));
+  const repo = { kind: "origin", value: "github.com/test/repo" };
+  const workstream = join(root, "test-flow");
+
+  try {
+    // Write lifecycle journal with a return
+    await writeLifecycleJournal(workstream, [
+      { kind: "workstream.created", repository: repo, workstreamId: "test-flow", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "create", occurredAt: "2026-01-01T00:00:00.000Z", attemptId: null, attemptOrdinal: null },
+      { kind: "stage.entered", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-enter", occurredAt: "2026-01-01T00:00:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-1-done", occurredAt: "2026-01-01T00:05:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-enter", occurredAt: "2026-01-01T00:05:01.000Z" },
+      // Return: Plan returns to Scope
+      { kind: "return.opened", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "return-1", occurredAt: "2026-01-01T00:08:00.000Z", episodeId: "ep-scope", detectingStage: "Plan", detectingActivity: "planning", initialOwningStage: "Scope", initialOwningActivity: "scope", originAttemptId: null, triggerSource: "developer-report", changeKind: "outcome-or-acceptance", evidenceRefs: [] },
+      { kind: "stage.completed", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-1-done", occurredAt: "2026-01-01T00:08:01.000Z", terminalReason: "superseded" },
+      { kind: "stage.entered", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-2-enter", occurredAt: "2026-01-01T00:08:02.000Z" },
+      { kind: "return.owner-ready", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "return-ready", occurredAt: "2026-01-01T00:15:00.000Z", episodeId: "ep-scope" },
+      { kind: "stage.completed", canonicalStage: "Scope", owningActivity: "scope", source: "test", idempotencyKey: "scope-2-done", occurredAt: "2026-01-01T00:20:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-2-enter", occurredAt: "2026-01-01T00:20:01.000Z" },
+      { kind: "return.resumed", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "return-resume", occurredAt: "2026-01-01T00:20:02.000Z", episodeId: "ep-scope" },
+      { kind: "stage.completed", canonicalStage: "Plan", owningActivity: "planning", source: "test", idempotencyKey: "plan-2-done", occurredAt: "2026-01-01T00:30:00.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-enter", occurredAt: "2026-01-01T00:30:01.000Z" },
+      { kind: "stage.completed", canonicalStage: "Implement", owningActivity: "phase", source: "test", idempotencyKey: "impl-done", occurredAt: "2026-01-01T00:30:02.000Z", terminalReason: "advanced" },
+      { kind: "stage.entered", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-enter", occurredAt: "2026-01-01T00:30:03.000Z" },
+      { kind: "verification.completed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-pass", occurredAt: "2026-01-01T00:35:00.000Z", episodeId: "ep-scope", verificationStatus: "passed" },
+      { kind: "return.closed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "return-close", occurredAt: "2026-01-01T00:35:01.000Z", episodeId: "ep-scope" },
+      { kind: "stage.completed", canonicalStage: "Verify", owningActivity: "verification", source: "test", idempotencyKey: "verify-done", occurredAt: "2026-01-01T00:36:00.000Z", terminalReason: "advanced" },
+    ]);
+
+    const evidencePath = join(root, "evidence.json");
+    const analysisPath = join(root, "analysis.json");
+    const outputPath = join(root, "team-flow.json");
+
+    const evidence = {
+      schemaVersion: "myflow-observation-evidence/v1",
+      entries: [
+        { id: "a1", timestamp: "2026-01-01T00:02:00.000Z", role: "assistant", provider: "anthropic", model: "claude", usage: { uncachedInputTokens: 5, cacheReadTokens: 1, cacheWriteTokens: 1, outputTokens: 2, reasoningTokens: 1, totalTokens: 10, recordedCostUsd: 0.01 } },
+        { id: "a2", timestamp: "2026-01-01T00:22:00.000Z", role: "assistant", provider: "openai", model: "gpt", usage: { uncachedInputTokens: 3, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 1, reasoningTokens: 0, totalTokens: 4, recordedCostUsd: 0.02 } },
+      ],
+    };
+    const analysis = {
+      schemaVersion: "myflow-observation-analysis/v1",
+      project: "test", workstream: "test-flow",
+      startedAt: "2026-01-01T00:00:00.000Z", closedAt: "2026-01-01T00:36:00.000Z",
+      boundarySemantics: "scope-to-close",
+      classification: { risk: "low", depth: "lightweight", flowItemType: "Feature" },
+      stageIntervals: [
+        { stage: "Scope", startedAt: "2026-01-01T00:00:00.000Z", endedAt: "2026-01-01T00:05:00.000Z" },
+        { stage: "Plan", startedAt: "2026-01-01T00:05:00.000Z", endedAt: "2026-01-01T00:08:00.000Z" },
+        { stage: "Scope", startedAt: "2026-01-01T00:08:00.000Z", endedAt: "2026-01-01T00:20:00.000Z" },
+        { stage: "Plan", startedAt: "2026-01-01T00:20:00.000Z", endedAt: "2026-01-01T00:30:00.000Z" },
+        { stage: "Implement", startedAt: "2026-01-01T00:30:00.000Z", endedAt: "2026-01-01T00:30:02.000Z" },
+        { stage: "Verify", startedAt: "2026-01-01T00:30:02.000Z", endedAt: "2026-01-01T00:36:00.000Z" },
+      ],
+      executionFlow: {},
+      developerExperience: {},
+    };
+
+    await writeFile(evidencePath, `${JSON.stringify(evidence)}\n`);
+    await writeFile(analysisPath, `${JSON.stringify(analysis)}\n`);
+
+    const derivation = new URL("../skills/observing-myflow/scripts/derive-team-flow.mjs", import.meta.url).pathname;
+    const { stdout } = await execFileAsync("node", [
+      derivation,
+      "--evidence", evidencePath,
+      "--analysis", analysisPath,
+      "--output", outputPath,
+      "--lifecycle", workstream,
+    ]);
+    const output = JSON.parse(await readFile(outputPath, "utf8"));
+
+    assert.equal(output.schemaVersion, "myflow-team-flow/v2");
+    // Return summaries derived from lifecycle
+    assert.equal(output.executionFlow.stageReturnCount, 1);
+    assert.equal(output.executionFlow.returnEpisodeCount, 1);
+    assert.equal(output.executionFlow.reworkEpisodes, 1);
+    assert.ok(output.executionFlow.returnLoopMs > 0);
+    assert.equal(output.executionFlow.lifecycleSource, ATTEMPT_INTERVAL_SOURCE_LIFECYCLE);
+    // Private episode detail included
+    assert.ok(output.executionFlow.privateEpisodeDetail);
+    assert.equal(output.executionFlow.privateEpisodeDetail.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rollup preserves compatibility with new additive v2 fields", async () => {
+  const root = await mkdtemp(join(tmpdir(), "observing-myflow-rollup-v2-"));
+  const observationRoot = join(root, "observations");
+
+  const teamFlow = (workstream, startedAt, closedAt, extras = {}) => ({
+    schemaVersion: "myflow-team-flow/v2",
+    analysisVersion: "myflow-observation-analysis/v1",
+    project: "test", workstream,
+    classification: { risk: "low", depth: "lightweight", flowItemType: "Feature" },
+    boundaries: { startedAt, closedAt, boundarySemantics: "scope-to-close", intervalConvention: "half-open [startedAt, closedAt)" },
+    flowFrameworkContribution: {
+      flowItemType: "Feature", completionContribution: 1,
+      loadInterval: { startedAt, closedAt },
+      scopeToCloseCycleTimeMs: Date.parse(closedAt) - Date.parse(startedAt),
+      flowTimeMs: null,
+      efficiency: { value: null, activeTimeMs: null, waitTimeMs: null, coverage: "not-measured" },
+    },
+    executionFlow: {
+      stageReturnCount: 0, returnEpisodeCount: 0, lifecycleSource: "inferred", ...extras,
+    },
+    developerExperience: { selfReport: null, closeSatisfaction: null },
+    aiEconomics: {
+      calls: 1, uncachedInputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0,
+      outputTokens: 5, reasoningTokens: 0, totalTokens: 15,
+      recordedCostUsd: 0.01,
+      costCoverage: { recordedCalls: 1, missingCalls: 0, ratio: 1 },
+      attribution: { boundaryExcludedCalls: 0, assignedCalls: 1, unassignedCalls: 0,
+        assignedRecordedCostUsd: 0.01, unassignedRecordedCostUsd: null,
+        assignedCostCoverage: { recordedCalls: 1, missingCalls: 0, ratio: 1 },
+        unassignedCostCoverage: { recordedCalls: 0, missingCalls: 0, ratio: null } },
+      byStage: [{ stage: "Scope", calls: 1, uncachedInputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 5, reasoningTokens: 0, totalTokens: 15, recordedCostUsd: 0.01, costCoverage: { recordedCalls: 1, missingCalls: 0, ratio: 1 } }],
+      byProviderModel: [{ provider: "anthropic", model: "claude", calls: 1, uncachedInputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 5, reasoningTokens: 0, totalTokens: 15, recordedCostUsd: 0.01, costCoverage: { recordedCalls: 1, missingCalls: 0, ratio: 1 } }],
+    },
+    outcomes: {}, versions: {}, limitations: [],
+  });
+
+  try {
+    const wsA = join(observationRoot, "a", "curated");
+    await mkdir(wsA, { recursive: true });
+    // Standard v2 export without new fields
+    await writeFile(join(wsA, "20260101T000000Z_a-team-flow.json"), `${JSON.stringify(teamFlow("a", "2026-01-01T00:00:00.000Z", "2026-01-02T00:00:00.000Z"))}\n`);
+
+    const wsB = join(observationRoot, "b", "curated");
+    await mkdir(wsB, { recursive: true });
+    // v2 export WITH new additive fields
+    await writeFile(join(wsB, "20260102T000000Z_b-team-flow.json"), `${JSON.stringify(teamFlow("b", "2026-01-03T00:00:00.000Z", "2026-01-04T00:00:00.000Z", {
+      stageReturnCount: 2, returnEpisodeCount: 1, lifecycleSource: "lifecycle",
+      privateEpisodeDetail: [{ episodeId: "ep-1" }],
+    }))}\n`);
+
+    const outputPath = join(root, "rollup.json");
+    const rollupCmd = new URL("../skills/observing-myflow/scripts/rollup-flow-metrics.mjs", import.meta.url).pathname;
+    const { stdout: receipt } = await execFileAsync("node", [
+      rollupCmd,
+      "--observation-root", observationRoot,
+      "--window-start", "2026-01-01T00:00:00.000Z",
+      "--window-end", "2026-01-10T00:00:00.000Z",
+      "--output", outputPath,
+    ]);
+
+    const output = JSON.parse(await readFile(outputPath, "utf8"));
+    assert.equal(output.schemaVersion, "myflow-flow-rollup/v1");
+    assert.equal(output.selection.selectedWorkstreams, 2);
+    assert.equal(output.flowMetrics.velocity.completedItems, 2);
+    // Both exports counted in velocity despite new fields
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

@@ -48,10 +48,21 @@ The collector uses the repository-map resolver's global `target` identity. Use `
 node <skill-dir>/scripts/derive-team-flow.mjs \
   --evidence <snapshotPath> \
   --analysis <suggestedAnalysisPath> \
-  --output <suggestedTeamMetricsPath>
+  --output <suggestedTeamMetricsPath> \
+  [--lifecycle <workstream-root>]
 ```
 
 The command filters assistant usage to the half-open workstream boundary, assigns each included call to at most one stage, and reports unassigned calls. It retains uncached input, cache read and write, output, reasoning, total tokens, provider/model groups, recorded cost, and cost coverage. Reasoning tokens are a subset dimension; never add them to output or total tokens.
+
+When `--lifecycle` points to a workstream with an events.jsonl journal, the command derives `stageReturnCount`, `returnEpisodeCount`, and `returnLoopMs` from lifecycle episodes instead of requiring hand-entered counters. Explicit analysis values still take precedence. Include `privateEpisodeDetail` for correction-audit evidence; keep it private.
+
+### Attempt economics
+
+`attempt-economics.mjs` derives stage intervals and repeated attempts from lifecycle events when a journal exists. It attributes calls, token dimensions, provider-recorded cost, provider/model grouping, tools, errors, and calendar intervals to attempts and correction episodes using non-overlapping half-open intervals.
+
+Fallback: for pre-journal workstreams, the collector uses artifact-timestamp inference and marks its source as `inferred`. Never treat silence as active work or wait time. Reason tokens are a subset dimension. Unknown cost is preserved; do not estimate it.
+
+First-pass flow: a diagnostic alongside necessary-learning, changed-intent, Verify quality, and developer experience guardrails.
 4. Write the curated account to `suggestedReportPath`. Return the curated report and team-safe export paths to Close as evidence. Keep the private analysis and raw evidence private. Do not copy any observation file into the target worktree.
 
 ## Repository rollup
@@ -103,3 +114,5 @@ Each evaluation writes a private `myflow-stage-review/v1` record to the personal
 | Comparing workstreams with different windows | Generate rollups with the same explicit reporting window. |
 | Including the observer session | Use retained observer IDs. |
 | Writing Close observations into the target repository | Use the collector-provided personal repository paths. |
+| Treating silence as active work or wait time | Call it an unknown gap. Lifecycle intervals provide calendar boundaries, not active spans. |
+| Estimating missing cost | Preserve `null` recordedCostUsd. Zero is an assertion, not an absence. |

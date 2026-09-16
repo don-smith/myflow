@@ -84,3 +84,47 @@ Given a later deployment where project-based Langfuse telemetry supplies exact l
 - retain Pi JSONL as historical recovery evidence;
 - do not double-count events represented by both sources;
 - keep the analysis layer independent of the telemetry backend.
+
+## Attempt economics from lifecycle journal
+
+Given a workstream with a lifecycle journal containing Scope, Plan, Implement, and Verify stage events plus one correction episode (Verify→Implement→Verify):
+
+- derive stage intervals from lifecycle events, not artifact timestamps;
+- report two Verify attempts (ordinal 1 detected the issue, ordinal 2 passed);
+- report one correction episode with one canonical backward edge;
+- report only the correction interval's qualified economics;
+- mark the source as lifecycle, not inferred;
+- derive stageReturnCount=1, returnEpisodeCount=1 from lifecycle episodes;
+- reconcile attempt totals with assigned workstream totals;
+- preserve ambiguous, unassigned, source-missing, and boundary-excluded coverage.
+
+## Pre-journal compatibility
+
+Given a workstream with no lifecycle journal:
+
+- the collector and derivation fall back to artifact-timestamp inference;
+- source is marked as `inferred`;
+- stage intervals from analysis are used as-is;
+- existing JSONL-based signals remain compatible;
+- no attempt economics detail is available (empty attempts/episodes arrays).
+
+## V2 and rollup compatibility
+
+Given team-flow/v2 exports from both lifecycle-source and inferred-source workstreams:
+
+- `myflow-team-flow/v2` exports retain Velocity, Distribution, Load, cycle and canonical Flow Time, nullable efficiency, privacy, and economics behavior;
+- `myflow-flow-rollup/v1` exports select the latest compatible v2 per workstream;
+- new additive fields (`returnEpisodeCount`, `lifecycleSource`) do not break rollup selection or validation;
+- per-attempt developer rankings never enter team exports.
+
+## Verify-to-Implement-to-Verify correction economics
+
+Given a workstream with a Verify attempt that detects an implementation defect, returns to Implement, re-implements, and re-verifies:
+
+- lifecycle journal records two Verify attempts (Verify ordinal 1 detected, Verify ordinal 2 passed);
+- one correction episode with one canonical backward edge (Verify→Implement);
+- only the correction interval's observations qualify as correction economics;
+- the first Verify attempt's observations belong to that attempt, not the correction;
+- the second Verify attempt's observations belong to that attempt;
+- Implement observations inside the correction window are attributed to both the Implement attempt and the correction episode;
+- `stageReturnCount=1`, `returnEpisodeCount=1`.]
