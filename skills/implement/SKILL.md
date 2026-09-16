@@ -26,6 +26,14 @@ For every incomplete phase, create exactly one fresh-context implementation suba
 3. Consume that completion summary, then immediately launch the fresh-context child for the next incomplete phase. Do not stop for a progress report, confirmation, or context re-reading between green phases.
 4. The phase child fixes an implementation defect within its approved phase. If it finds the plan unexecutable/incorrect, return to Plan; if architecture or outcome changed, return to Design or Scope. Record the reason and do not conceal a correction as a completed phase.
 
+## Lifecycle boundary and deferred feedback
+
+Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` for every real state change, always with a stable `--idempotency-key`; never write lifecycle JSONL directly. On Implement entry, record `stage-entered --stage Implement --activity phase`. Around each plan phase, record `activity-entered` and `activity-completed`; record accepted checkpoint artifacts with `artifact-accepted`. Use `stage-blocked` and `stage-unblocked` for real blockers. Preserve completed attempts, phase commits, and accepted artifacts as history.
+
+If a defect routes work back, the detecting stage owns `return-opened`; Implement records `return-owner-ready` only after the corrective phase is green. A changed plan or architecture uses `return-rerouted` to the canonical owner. When downstream execution resumes after owner readiness, record `return-resumed` at the first affected stage.
+
+After the last phase activity completes, handle the private stage pulse before `stage-completed --terminal-reason advanced`. When Implement ends without live developer interaction, run `record-stage-feedback.mjs` with `--status pending --host-capability none`, then send only status pending and its private reference through `lifecycle-journal.mjs feedback-recorded`. Do not show a question during autonomous execution. Verify asks once at entry. If live interaction is already available, use the shared four-choice pulse instead. Feedback failure does not block the stage transition or entry to Verify.
+
 ## Enter Verify automatically
 
 After the final green phase commit, update `workstream.md` to make the accepted plan and implementation checkpoint the authoritative Verify input. Continue in the same parent session: resolve `../validate/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path. Proceed without developer action and do not stop after printing a command.

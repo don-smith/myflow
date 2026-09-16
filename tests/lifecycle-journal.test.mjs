@@ -80,6 +80,48 @@ async function reachVerify(context) {
   await advance(context, "Implement", "phase", "Verify", "verification");
 }
 
+test("deferred Implement feedback recorded at Verify entry stays on the closed Implement attempt", async () => {
+  const context = await fixture();
+  await createAndEnterScope(context);
+  await advance(context, "Scope", "scope", "Plan", "planning");
+  await advance(context, "Plan", "planning", "Implement", "phase");
+  const beforePending = await validateLifecycleJournal(context.journalPath);
+  const implementAttemptId = beforePending.state.currentAttemptId;
+
+  await context.append("feedback.recorded", {
+    canonicalStage: "Implement",
+    owningActivity: "phase",
+    feedbackStatus: "pending",
+    privateRef: "stage-feedback/events.jsonl#pending",
+  });
+  await advance(context, "Implement", "phase", "Verify", "verification");
+  await context.append("feedback.requested", {
+    canonicalStage: "Implement",
+    owningActivity: "phase",
+    targetAttemptId: implementAttemptId,
+  });
+  await context.append("feedback.recorded", {
+    canonicalStage: "Implement",
+    owningActivity: "phase",
+    targetAttemptId: implementAttemptId,
+    feedbackStatus: "recorded",
+    privateRef: "stage-feedback/events.jsonl#recorded",
+  });
+
+  const result = await validateLifecycleJournal(context.journalPath);
+  assert.equal(result.valid, true);
+  assert.equal(result.state.currentStage, "Verify");
+  assert.deepEqual(
+    result.state.feedback.map(({ attemptId, status }) => ({ attemptId, status })),
+    [
+      { attemptId: implementAttemptId, status: "pending" },
+      { attemptId: implementAttemptId, status: "requested" },
+      { attemptId: implementAttemptId, status: "recorded" },
+    ],
+  );
+  assert.equal(result.state.feedback.every(({ attemptId }) => attemptId === implementAttemptId), true);
+});
+
 test("contract defines canonical lifecycle vocabulary", () => {
   assert.equal(LIFECYCLE_SCHEMA_VERSION, "myflow-lifecycle/v1");
   assert.deepEqual(CANONICAL_STAGES, ["Scope", "Plan", "Implement", "Verify", "Close"]);
@@ -564,6 +606,7 @@ test("lifecycle CLI exposes validation and every semantic mutation without accep
     assert.match(cliSource, new RegExp(`\\"${command}\\"`));
   }
   assert.match(cliSource, /--owning-activity/);
+  assert.match(cliSource, /--attempt-id/);
   assert.doesNotMatch(cliSource, /--event-json/);
 
   const common = [

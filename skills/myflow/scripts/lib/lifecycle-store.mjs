@@ -117,6 +117,7 @@ async function buildEvent(input, state, previousEventId, existing) {
     repositoryRoot,
     artifactPath,
     lockOptions,
+    targetAttemptId,
     ...semanticInput
   } = input;
   const event = {
@@ -128,7 +129,7 @@ async function buildEvent(input, state, previousEventId, existing) {
   Object.assign(event, existing ? {
     attemptId: existing.attemptId,
     attemptOrdinal: existing.attemptOrdinal,
-  } : eventAttemptMetadata(state, event));
+  } : eventAttemptMetadata(state, { ...event, targetAttemptId }));
   event.eventId = lifecycleEventId(event);
   if (artifactPath !== undefined) event.artifactRef = await artifactReference(repositoryRoot, artifactPath);
   return event;

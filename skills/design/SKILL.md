@@ -38,6 +38,12 @@ A design artifact records the chosen solution shape and its consequences. It doe
    /skill:plan <design-artifact-path>
    ```
 
+## Lifecycle boundary
+
+Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values. Never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity design`; then record `activity-entered --stage Plan --activity design`. A resumed design activity in the same Plan attempt does not create another stage attempt.
+
+After the developer accepts the design, record `artifact-accepted` and `activity-completed`. Planning owns the later Plan completion and stage pulse. Record a real wait with `stage-blocked` and `stage-unblocked`. On a correction owned by Design, keep earlier attempts and accepted artifacts as history, record `return-owner-ready` when the architecture is ready, and let downstream planning record `return-resumed`. If Design proves that the outcome changed, use `return-rerouted` to Scope rather than changing ownership silently.
+
 ## Required design outcome
 
 A ready design artifact contains:

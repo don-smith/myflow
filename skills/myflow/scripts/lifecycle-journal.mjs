@@ -54,6 +54,7 @@ const OPTION_NAMES = new Map([
   ["--verification-status", "verificationStatus"],
   ["--feedback-status", "feedbackStatus"],
   ["--private-ref", "privateRef"],
+  ["--attempt-id", "targetAttemptId"],
   ["--execution-host", "executionHost"],
   ["--emitting-session", "emittingSessionId"],
   ["--grouping-session", "groupingSessionId"],

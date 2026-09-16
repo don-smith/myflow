@@ -61,6 +61,14 @@ If Plan discovers that a supposedly lightweight change needs a new seam, public 
 
 9. Present the plan and ask for acceptance. Only an accepted, `ready` plan authorizes autonomous implementation.
 
+## Lifecycle boundary
+
+Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values; never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity planning`. Record `activity-entered --stage Plan --activity planning` before planning work. Record real waits with `stage-blocked` and `stage-unblocked`.
+
+When the developer accepts the ready plan, record `artifact-accepted`, `activity-completed`, and `return-owner-ready` when this Plan attempt owns an active correction. Run the private stage pulse from the shared stage checkpoint once for the attempt. Feedback failure does not block `stage-completed --terminal-reason advanced`. Preserve all earlier attempts and accepted artifacts as history.
+
+If planning detects that architecture or outcome ownership changed, record `return-opened` or `return-rerouted` before completing the current attempt. Architecture routes to Plan/design; outcome or acceptance routes to Scope/scope; an unexecutable plan remains Plan/planning; implementation defects route to Implement/phase. Downstream entry records `return-resumed` after owner readiness.
+
 ## Review and correction
 
 Planning review checks that the plan faithfully realizes Scope/design decisions, phases are independently executable, and the verification map covers acceptance criteria. Code-quality review of implemented code belongs to Verify through `code-review`.

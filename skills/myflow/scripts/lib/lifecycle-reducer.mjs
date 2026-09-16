@@ -68,6 +68,22 @@ function assertAttemptMetadata(state, event) {
   if (event.kind === "workstream.created" || event.kind === "workstream.closed") return;
   const attempt = currentAttempt(state);
   if (event.kind === "stage.entered") return;
+  if (event.kind === "feedback.requested" || event.kind === "feedback.recorded") {
+    const target = state.attempts.find(({ attemptId }) => attemptId === event.attemptId);
+    if (!target || target.ordinal !== event.attemptOrdinal || target.canonicalStage !== event.canonicalStage) {
+      throw new Error(`${event.kind} target attempt metadata is invalid`);
+    }
+    if (target.attemptId !== state.currentAttemptId) {
+      if (
+        target.canonicalStage !== "Implement" ||
+        state.currentStage !== "Verify" ||
+        attempt?.canonicalStage !== "Verify"
+      ) {
+        throw new Error("closed-attempt feedback is allowed only for Implement at Verify entry");
+      }
+    }
+    return;
+  }
   if (!attempt) throw new Error(`${event.kind} requires an open stage attempt`);
   if (event.attemptId !== attempt.attemptId || event.attemptOrdinal !== attempt.ordinal) {
     throw new Error(`${event.kind} attempt metadata does not match the open attempt`);
@@ -92,6 +108,14 @@ export function eventAttemptMetadata(state, input) {
       }),
       attemptOrdinal: ordinal,
     };
+  }
+  if (
+    (input.kind === "feedback.requested" || input.kind === "feedback.recorded") &&
+    input.targetAttemptId
+  ) {
+    const target = state.attempts.find(({ attemptId }) => attemptId === input.targetAttemptId);
+    if (!target) throw new Error(`unknown feedback target attempt: ${input.targetAttemptId}`);
+    return { attemptId: target.attemptId, attemptOrdinal: target.ordinal };
   }
   const attempt = currentAttempt(state);
   if (!attempt) return { attemptId: null, attemptOrdinal: null };
@@ -392,14 +416,28 @@ export function applyLifecycleEvent(previousState, event) {
       episode.status = "closed";
       break;
     }
-    case "feedback.requested":
+    case "feedback.requested": {
+      if (state.feedback.some(({ attemptId, status }) => attemptId === event.attemptId && status === "requested")) {
+        throw new Error("feedback has already been requested for this attempt");
+      }
       state.feedback.push({
         attemptId: event.attemptId,
         status: "requested",
         requestedAt: event.occurredAt,
       });
       break;
-    case "feedback.recorded":
+    }
+    case "feedback.recorded": {
+      const finalResponse = state.feedback.find(
+        ({ attemptId, status }) => attemptId === event.attemptId && ["recorded", "skipped"].includes(status),
+      );
+      if (finalResponse) throw new Error("feedback has already been finalized for this attempt");
+      if (
+        event.feedbackStatus === "pending" &&
+        state.feedback.some(({ attemptId, status }) => attemptId === event.attemptId && status === "pending")
+      ) {
+        throw new Error("feedback is already pending for this attempt");
+      }
       state.feedback.push({
         attemptId: event.attemptId,
         status: event.feedbackStatus,
@@ -407,6 +445,7 @@ export function applyLifecycleEvent(previousState, event) {
         recordedAt: event.occurredAt,
       });
       break;
+    }
     case "workstream.closed": {
       if (state.currentAttemptId) throw new Error("workstream closure requires a terminal stage attempt");
       const finalAttempt = state.attempts.at(-1);

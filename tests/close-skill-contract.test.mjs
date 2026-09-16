@@ -13,6 +13,11 @@ test("Close is resolver-aware, proportionate, and resumable", async () => {
     "final closeout commit",
     "integration decision",
     "follow-up destination",
-  ]) assert.match(close, new RegExp(phrase, "i"));
+    "lifecycle-journal.mjs",
+    "stage-entered",
+    "stage-completed",
+    "workstream-closed",
+    "private stage pulse",
+  ]) assert.match(close, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
   assert.doesNotMatch(close, /_shared|repo-store|eight|AGENTS\.md|must be empty/i);
 });

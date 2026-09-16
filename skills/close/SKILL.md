@@ -32,6 +32,14 @@ Write/update the closeout summary with Verify verdict, what shipped, applicable 
 
 If closeout changes exist, use `commit` for one distinct final closeout commit after developer approval. Phase commits are never folded into it. Ask the developer whether to push, merge, create a PR, keep the branch, or defer delivery; follow mapped policy when it exists. Do not infer an integration policy.
 
+## Lifecycle boundary and private stage pulse
+
+Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` for every real state change, always with a stable `--idempotency-key`; never write lifecycle JSONL directly. On Close entry, record `stage-entered --stage Close --activity closeout`. Record real waits with `stage-blocked` and `stage-unblocked`. When the closeout summary is accepted, record `artifact-accepted`.
+
+If Close discovers an unowned verification gap or a defect that was missed, record `return-opened` with the owning stage, then `return-rerouted` to that owner. Implementation defects route to Implement/phase; an incorrect or unexecutable plan routes to Plan/planning; a changed architectural decision routes to Plan/design; a changed outcome or acceptance criterion routes to Scope/scope. Do not close the workstream with an open correction.
+
+Before recording the final stage transition, run the private stage pulse exactly once for this Close attempt. Write the response through `node <myflow-package-root>/skills/observing-myflow/scripts/record-stage-feedback.mjs`, then send only `recorded`, `skipped`, or `pending` and the private reference through `lifecycle-journal.mjs feedback-recorded`. The rating and note never enter the journal. Feedback failure does not block `stage-completed --terminal-reason advanced` or `workstream-closed`.
+
 ## Completion and correction
 
 A complete workstream has a passing validation report, linked passing review evidence with valid provenance, a recorded delivery decision, and no unowned follow-up. If new evidence exposes an implementation defect, return to Implement; route plan/design/outcome changes to their owning stage and retain the summary as resumable evidence.

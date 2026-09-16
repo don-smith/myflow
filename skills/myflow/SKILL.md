@@ -78,6 +78,16 @@ Leave the workstream in a clean, understandable, low-debt state. Close begins on
 
 **Artifacts:** repository-specific closeout updates and a resumable closeout summary when decisions, manual evidence, or follow-ups need to persist.
 
+## Lifecycle and stage pulse
+
+For durable workstreams, canonical skills record real workflow state through `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs`. Every mutation uses a stable `--idempotency-key`; skills never construct or append journal JSONL. Stage artifacts stay authoritative for decisions, while the journal preserves canonical attempts, accepted artifacts, supporting activities, blocks, and correction episodes as immutable history.
+
+Correction ownership does not change: `outcome-or-acceptance` routes to Scope/scope, `architecture` to Plan/design, `plan` to Plan/planning, and `implementation` to Implement/phase. The detecting stage records `return-opened`; an owner correction may use `return-rerouted`, then records `return-owner-ready`. Downstream stages record `return-resumed`; Verify records `verification-completed` and `return-closed` after passing re-verification. Do not rewrite earlier attempts or artifacts.
+
+Each eligible completed attempt gets one private stage pulse. The exact question is "Before we leave {stage}, how did this stage go from your point of view?" The choices are `smooth`, `some-friction`, `rough`, and `skip`. Structured interaction is preferred, with plain-text fallback. `record-stage-feedback.mjs` keeps ratings and optional notes in the personal observation tree; the lifecycle journal receives only coverage status and a private reference. The pulse is non-blocking. If Implement has no live developer interaction, record it as pending. Pending Implement feedback is requested once at Verify entry.
+
+The shared `skills/myflow/templates/stage-context-checkpoint.md` defines the command sequence, version and governing-skill digest capture, host capability values, and feedback failure behavior. Use stable idempotency keys for every lifecycle mutation.
+
 ## Cross-cutting skills
 
 These skills can be invoked at any suitable point:

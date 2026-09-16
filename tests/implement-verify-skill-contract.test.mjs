@@ -52,6 +52,22 @@ test("Implement records resolver-aware phase checkpoints before Verify", async (
   }
 });
 
+test("Implement defers its non-blocking feedback pulse to Verify entry", async () => {
+  const [implement, validate] = await Promise.all([
+    read("skills/implement/SKILL.md"),
+    read("skills/validate/SKILL.md"),
+  ]);
+
+  assert.match(implement, /record-stage-feedback\.mjs/);
+  assert.match(implement, /status pending/i);
+  assert.match(implement, /without live (?:developer )?interaction/i);
+  assert.match(validate, /pending Implement feedback/i);
+  assert.match(validate, /before substantive[^.\n]*Verify/i);
+  assert.match(validate, /feedback-requested/i);
+  assert.match(validate, /feedback-recorded/i);
+  assert.match(validate, /feedback failure[^.\n]*(?:does not|must not)[^.\n]*(?:stage transition|verification)/i);
+});
+
 test("Implement delegates every phase through a fresh context", async () => {
   const implement = await read("skills/implement/SKILL.md");
 

@@ -37,6 +37,9 @@ test("public workflow documentation agrees on resolver, stages, and telemetry", 
     assert.match(document, /linked passing review evidence/i);
   }
   assert.match(myflow, /only applicable/i);
+  assert.match(myflow, /lifecycle-journal\.mjs/);
+  assert.match(myflow, /private stage pulse/i);
+  assert.match(myflow, /pending[^.\n]*Implement[^.\n]*Verify entry/i);
   assert.doesNotMatch(myflow, /After documentation, status, learning, retrospective/i);
   assert.doesNotMatch(myflow, /Resolve all tabled items/i);
 });

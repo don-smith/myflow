@@ -50,6 +50,7 @@ export const CHANGE_KINDS = Object.freeze([
   "implementation",
   "unknown",
 ]);
+export const FEEDBACK_STATUSES = Object.freeze(["recorded", "skipped", "pending"]);
 
 const COMMON_FIELDS = new Set([
   "schemaVersion",
@@ -260,6 +261,12 @@ export function validateLifecycleEvent(event) {
     }
     if (!CHANGE_KINDS.includes(event.changeKind)) throw new Error("return.rerouted has an invalid change kind");
     if (!Array.isArray(event.evidenceRefs)) throw new Error("return.rerouted evidenceRefs must be an array");
+  }
+  if (event.kind === "feedback.recorded") {
+    if (!FEEDBACK_STATUSES.includes(event.feedbackStatus)) {
+      throw new Error(`feedbackStatus must be one of ${FEEDBACK_STATUSES.join(", ")}`);
+    }
+    requireString(event, "privateRef");
   }
   return event;
 }

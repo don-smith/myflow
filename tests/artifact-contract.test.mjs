@@ -47,6 +47,9 @@ test("shared templates support resumable stage state and lightweight plans", asy
   assert.match(checkpoint, /## Rehydration Manifest/);
   assert.match(checkpoint, /resolve-repository-map\.mjs/);
   assert.match(checkpoint, /repository-map\.md/);
+  assert.match(checkpoint, /Lifecycle receipt/i);
+  assert.match(checkpoint, /Feedback coverage/i);
+  assert.match(checkpoint, /record-stage-feedback\.mjs/);
   assert.match(plan, /resolve-repository-map\.mjs/);
   assert.match(workstream, /resolve-repository-map\.mjs/);
   assert.match(plan, /## Design Disposition/);
