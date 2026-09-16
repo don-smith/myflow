@@ -32,6 +32,9 @@ const createRepo = () => {
 test("all scope includes committed, tracked working-tree, and untracked files", () => {
 	const repo = createRepo();
 	try {
+		const main = git(repo, ["rev-parse", "main"]).trim();
+		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
+		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-qb", "feature"]);
 		writeFileSync(join(repo, "committed.txt"), "feature commit\n");
 		git(repo, ["add", "committed.txt"]);
@@ -42,11 +45,38 @@ test("all scope includes committed, tracked working-tree, and untracked files", 
 
 		const output = runHelper(repo, "all");
 
+		assert.match(output, /default_branch:\s+main/);
 		assert.match(output, /strategy:\s+branch-all/);
 		assert.match(output, /scope_status:\s+ready/);
 		assert.match(output, /dirty_state:\s+dirty/);
 		assert.match(output, /changed_files_count:\s+3/);
 		assert.deepEqual(changedFiles(output), ["committed.txt", "tracked.txt", "untracked.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("all scope preserves a remote-only default ref in a detached checkout", () => {
+	const repo = createRepo();
+	try {
+		const main = git(repo, ["rev-parse", "main"]).trim();
+		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
+		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+		git(repo, ["checkout", "-q", "--detach", main]);
+		git(repo, ["branch", "-D", "main"]);
+		writeFileSync(join(repo, "detached-feature.txt"), "detached feature\n");
+		git(repo, ["add", "detached-feature.txt"]);
+		git(repo, ["commit", "-qm", "detached feature"]);
+		const head = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, "all");
+
+		assert.match(output, /default_branch:\s+origin\/main/);
+		assert.match(output, /strategy:\s+branch-all/);
+		assert.match(output, new RegExp(`base:\\s+${main}`));
+		assert.match(output, new RegExp(`tip:\\s+${head}`));
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["detached-feature.txt"]);
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
 	}
@@ -69,6 +99,28 @@ test("explicit range preserves the supplied base and head", () => {
 		assert.match(output, new RegExp(`base:\\s+${base}`));
 		assert.match(output, new RegExp(`tip:\\s+${head}`));
 		assert.deepEqual(changedFiles(output), ["feature.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("explicit range rejects extra separators and empty endpoints", () => {
+	const repo = createRepo();
+	try {
+		const base = git(repo, ["rev-parse", "HEAD"]).trim();
+		writeFileSync(join(repo, "feature.txt"), "feature\n");
+		git(repo, ["add", "feature.txt"]);
+		git(repo, ["commit", "-qm", "feature"]);
+		const head = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		for (const scope of [`${base}..${head}..HEAD`, `${base}..`, `..${head}`]) {
+			const output = runHelper(repo, scope);
+
+			assert.match(output, /strategy:\s+unrecognised/);
+			assert.match(output, /scope_status:\s+invalid/);
+			assert.match(output, /note:\s+malformed explicit range/);
+			assert.deepEqual(changedFiles(output), []);
+		}
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
 	}

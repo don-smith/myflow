@@ -33,11 +33,13 @@ tags: [code-review, verify]
 
 ## Lane evidence
 
-| Fresh-context lane | Status | Coverage and evidence |
-|---|---|---|
-| Correctness and Risk | {complete / blocked} | {callers, tests, failure paths; conditional security/dependency checks and triggers} |
-| Standards and Maintainability | {complete / blocked} | {mapped standards or unavailable; maintainability evidence} |
-| Spec Fidelity | {complete / blocked} | {accepted-plan criteria and exclusions checked} |
+Record the run ID and agent identity actually used for each fresh review lane. Use locally available agents; no model matrix is required.
+
+| Fresh-context lane | Run ID | Agent identity | Status | Coverage and evidence |
+|---|---|---|---|---|
+| Correctness and Risk | {actual run ID} | {actual agent identity} | {complete / blocked} | {callers, tests, failure paths; conditional security/dependency checks and triggers} |
+| Standards and Maintainability | {actual run ID} | {actual agent identity} | {complete / blocked} | {mapped standards or unavailable; maintainability evidence} |
+| Spec Fidelity | {actual run ID} | {actual agent identity} | {complete / blocked} | {accepted-plan criteria and exclusions checked} |
 
 ## Retained findings
 
@@ -58,9 +60,11 @@ Repeat this block for each retained finding; write `None` when there are no find
 
 ## Finding verification
 
-| Stable ID (P0/P1) | Result | Independent evidence from code and callers |
-|---|---|---|
-| `{ID}` | {confirmed / falsified / inconclusive} | {evidence} |
+Record the run ID and agent identity actually used for independent P0/P1 verification.
+
+| Stable ID (P0/P1) | Run ID | Agent identity | Result | Independent evidence from code and callers |
+|---|---|---|---|---|
+| `{ID}` | {actual run ID} | {actual agent identity} | {confirmed / falsified / inconclusive} | {evidence} |
 
 Falsified claims are dropped from retained findings. Inconclusive P0/P1 claims block the review.
 

@@ -24,6 +24,11 @@ const assertOmissionEvidenceContract = (document) => {
   assert.match(document, /changed-code evidence[^.]*only when[^.]*code exists/is);
 };
 
+const assertReviewIdentityContract = (document) => {
+  assert.match(document, /run ID and agent identity actually used for each fresh review lane/i);
+  assert.match(document, /run ID and agent identity actually used for independent P0\/P1 verification/i);
+};
+
 test("code review pins complete scope through the active range helper", async () => {
   const [skill, packageJson] = await Promise.all([
     read("skills/code-review/SKILL.md"),
@@ -56,6 +61,30 @@ test("code review requires substantive evidence from all three fresh-context lan
   assert.match(skill, /dependency checks when/i);
   assert.match(skill, /subagent capability[^.]*unavailable[^.]*block/is);
   assert.doesNotMatch(skill, /two-axis|both sub-agents/i);
+});
+
+test("review skill and durable template require actual lane and verifier identities", async () => {
+  const documents = await Promise.all([
+    read("skills/code-review/SKILL.md"),
+    read("skills/code-review/templates/review.md"),
+  ]);
+
+  for (const document of documents) {
+    assertReviewIdentityContract(document);
+    assert.match(document, /locally available agents[^.]*no model matrix/is);
+
+    const withoutLaneIdentity = document.replace(
+      /[^.]*run ID and agent identity actually used for each fresh review lane\./i,
+      " Lane identity may be omitted.",
+    );
+    const withoutVerifierIdentity = document.replace(
+      /[^.]*run ID and agent identity actually used for independent P0\/P1 verification\./i,
+      " Verifier identity may be omitted.",
+    );
+
+    assert.throws(() => assertReviewIdentityContract(withoutLaneIdentity));
+    assert.throws(() => assertReviewIdentityContract(withoutVerifierIdentity));
+  }
 });
 
 test("review contract rejects negated, advisory, rubber-stamped, and incomplete instructions", async () => {
@@ -155,6 +184,7 @@ test("review skill and template use sentence-case headings without em dashes", a
   ]) {
     assert.match(template, new RegExp(`^${heading.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}$`, "m"));
   }
+  assert.doesNotMatch(skill, /—/);
   assert.doesNotMatch(template, /—/);
   assert.doesNotMatch(template, /^## (?:Provenance and Scope|Lane Evidence|Retained Findings|Finding Verification|Review Verdict)$/m);
 });

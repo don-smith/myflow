@@ -95,10 +95,14 @@ const refExists = (ref) => {
 };
 
 const resolveDefaultBranch = () => {
-	const head = safe(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
-	if (head) return head.replace(/^origin\//, "");
-	if (refExists("main")) return "main";
-	if (refExists("master")) return "master";
+	const remoteHead = safe(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
+	if (remoteHead) {
+		const localHead = remoteHead.replace(/^origin\//, "");
+		if (refExists(`refs/heads/${localHead}`)) return localHead;
+		if (refExists(remoteHead)) return remoteHead;
+	}
+	if (refExists("refs/heads/main")) return "main";
+	if (refExists("refs/heads/master")) return "master";
 	return "(unresolved)";
 };
 
@@ -201,18 +205,23 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 	setWorkingTree(safe(["rev-parse", "HEAD"]), safe(["rev-parse", "HEAD"]));
 } else if (lower === "staged" || lower === "working" || lower === "modified") {
 	setWorkingTree();
-} else if (scope.includes("..") && !scope.includes("...")) {
-	const [a, b] = scope.split("..");
-	if (a === "empty-tree" && refExists(b)) {
-		setExplicitRange(emptyTree, safe(["rev-parse", b]));
-	} else if (refExists(a) && refExists(b)) {
-		const aHash = safe(["rev-parse", a]);
-		const bHash = safe(["rev-parse", b]);
-		if (isAncestor(aHash, bHash)) setExplicitRange(aHash, bHash);
-		else if (isAncestor(bHash, aHash)) setExplicitRange(bHash, aHash);
-		else result.note = `neither ${a} nor ${b} is an ancestor of the other`;
+} else if (scope.includes("..")) {
+	const parts = scope.split("..");
+	if (parts.length !== 2 || parts.some((part) => !part) || scope.includes("...")) {
+		result.note = `malformed explicit range: ${scope}`;
 	} else {
-		result.note = `range endpoint(s) do not resolve: ${a}..${b}`;
+		const [a, b] = parts;
+		if (a === "empty-tree" && refExists(b)) {
+			setExplicitRange(emptyTree, safe(["rev-parse", b]));
+		} else if (refExists(a) && refExists(b)) {
+			const aHash = safe(["rev-parse", a]);
+			const bHash = safe(["rev-parse", b]);
+			if (isAncestor(aHash, bHash)) setExplicitRange(aHash, bHash);
+			else if (isAncestor(bHash, aHash)) setExplicitRange(bHash, aHash);
+			else result.note = `neither ${a} nor ${b} is an ancestor of the other`;
+		} else {
+			result.note = `range endpoint(s) do not resolve: ${a}..${b}`;
+		}
 	}
 } else if (/[,\s]/.test(scope)) {
 	const hashes = scope.split(/[,\s]+/).filter(Boolean);
