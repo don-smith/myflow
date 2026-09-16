@@ -56,7 +56,7 @@ Every non-trivial workstream has an executable plan. Its **design disposition** 
 
 **Orchestrator:** `implement`
 
-Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. Use `epiphany-tabling` only when a new observation should be preserved without expanding the current work.
+Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `validate` skill and executes it immediately; `/skill:validate` is recovery/rehydration guidance, not a user-operated gate. Use `epiphany-tabling` only when a new observation should be preserved without expanding the current work.
 
 **Artifact:** implementation checkpoint or updated plan state, plus the working tree.
 
@@ -64,7 +64,7 @@ Execute the accepted plan autonomously. Follow its test-first slices and verific
 
 **Orchestrator:** `validate`
 
-Verify the implementation against the plan and its success criteria. Run automated checks, inspect the implementation, and invoke `code-review`. When the work has human-facing or external behavior, prepare a manual-verification brief for the developer.
+Verify the implementation against the plan and its success criteria. Run automated checks, inspect the implementation, and load and execute the installed sibling `code-review` skill in the current run with the exact implementation range and accepted plan. Persist its provenance and result as a separate review artifact. When the work has human-facing or external behavior, prepare a manual-verification brief for the developer.
 
 **Artifact:** validation report and any repository-specific review evidence.
 
@@ -72,7 +72,7 @@ Verify the implementation against the plan and its success criteria. Run automat
 
 **Orchestrator:** `close`
 
-Leave the workstream in a clean, understandable, low-debt state. With the developer, select only applicable documentation, status, learning, retrospective, changelog, and delivery actions from Verify evidence and repository policy. Record every unresolved follow-up with a destination rather than forcing it into the current closeout. If applicable closeout changes exist, make a separate final closeout commit and determine integration without inferring a policy.
+Leave the workstream in a clean, understandable, low-debt state. Close begins only after inspecting linked passing review evidence whose plan and implementation-range provenance matches Verify; a top-level validation pass is insufficient. With the developer, select only applicable documentation, status, learning, retrospective, changelog, and delivery actions from Verify evidence and repository policy. Record every unresolved follow-up with a destination rather than forcing it into the current closeout. If applicable closeout changes exist, make a separate final closeout commit and determine integration without inferring a policy.
 
 **Artifacts:** repository-specific closeout updates and a resumable closeout summary when decisions, manual evidence, or follow-ups need to persist.
 

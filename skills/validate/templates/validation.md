@@ -28,7 +28,11 @@ implementation_checkpoint: {checkpoint path or plan state}
 
 ## Review Evidence
 
-- Review range: `{base}...{head}`
+- Review artifact: `{path to separate review artifact}`
+- Accepted plan: `{accepted plan path recorded by review}`
+- Review range base: `{exact first implementation commit parent}`
+- Review range head: `{exact final implementation commit}`
+- Review verdict: `{pass | fail | blocked}` — {gate basis}
 - Standards: `{pass | findings | unavailable}` — {evidence}
 - Spec: `{pass | findings | unavailable}` — {evidence}
 

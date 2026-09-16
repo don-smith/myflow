@@ -25,9 +25,11 @@ Onboard repository (when needed)
 | Onboarding | `onboard` | Discover repository-specific instructions, policies, locations, local capabilities, and unknowns. |
 | Scope | `scope` | Collaboratively establish intended outcome, acceptance criteria, risk, and appropriate workflow depth. |
 | Plan | `plan` | Produce implementation authority, using a standalone `design` artifact only when justified. |
-| Implement | `implement` | Autonomously execute accepted plan phases and commit each green phase. |
-| Verify | `validate` | Validate plan execution, invoke `code-review`, and prepare human manual verification. |
-| Close | `close` | Complete applicable documentation, learning, delivery, and final-closeout work collaboratively. |
+| Implement | `implement` | Autonomously execute accepted plan phases, commit each green phase, then continue to Verify in the same parent session. |
+| Verify | `validate` | Load and execute `code-review` with the exact implementation range and accepted plan, then prepare human manual verification. |
+| Close | `close` | Require linked passing review evidence, then complete applicable documentation, learning, delivery, and final-closeout work collaboratively. |
+
+After the final green phase, Implement reads the installed Validate skill and executes it immediately in the same parent session. `/skill:validate` is recovery/rehydration guidance only, not a user-operated gate. Close inspects linked passing review evidence and its plan/range provenance instead of trusting only a validation report's top-level verdict.
 
 `myflow` is the workflow map and navigation layer, not a competing stage.
 
@@ -78,9 +80,9 @@ Onboard repository (when needed)
 | Scope | Code-light, right-sized alignment; establish workstream ID; select specialists rather than force research; offer worktree/trunk path | **Aligned initial version.** Pilot and refine its worktree and depth decisions. |
 | Research / discover | Optional Scope specialists with discoverable evidence and explicit return to Scope/Plan | **Research aligned initial version.** `discover` still needs its interface review. |
 | Design / Plan | Design disposition always; lightweight plan path; full design only when structural; plan is executable authority | **Aligned initial version.** Pilot the lightweight and structural paths; refine templates from evidence. |
-| Implement | Consume accepted plan; resolver-aware checkpoint and commit each green phase; expose manual verification | **Aligned.** |
-| Verify | Validation, code review, conditional manual-verification brief; corrective loops to owner | **Aligned.** |
-| Close | Right-sized closeout, final closeout commit, delivery status, follow-up disposition | **Aligned.** |
+| Implement | Consume accepted plan; resolver-aware checkpoint and commit each green phase; expose manual verification; automatic same-parent Verify transition | **Aligned with automatic Verify transition.** |
+| Verify | Validation, immediate sibling-skill code review, durable review provenance, conditional manual-verification brief; corrective loops to owner | **Aligned with executable review composition.** |
+| Close | Require valid linked review evidence; right-sized closeout, final closeout commit, delivery status, follow-up disposition | **Aligned with evidence gate.** |
 | Architecture specialists and recovery/learning | Resolver-aware sources, reusable artifacts, design handoff, proportionate recovery | **Aligned initial sweep.** |
 | Observation and evaluation | Pull-based JSONL observation with repository-scoped personal state; compatible workstream exports and repository rollup; optional richer telemetry later | **Observer rollup aligned.** Comparative use and Langfuse telemetry remain follow-up work. |
 | Documentation | README/public overview agrees with active workflow | **Aligned with desk scenarios.** |

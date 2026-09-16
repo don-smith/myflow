@@ -39,7 +39,25 @@ test("MyFlow skills resolve repository maps from their installed package", async
   assert.match(implement, /installed MyFlow package/i);
 });
 
-test("Validate consumes workstream evidence and writes one complete Verify report", async () => {
+test("Implement enters Verify immediately in the same parent session", async () => {
+  const implement = await read("skills/implement/SKILL.md");
+
+  for (const phrase of [
+    "same parent session",
+    "../validate/SKILL.md",
+    "relative to this installed",
+    "read",
+    "execute",
+    "immediately",
+    "recovery/rehydration only",
+  ]) {
+    assert.match(implement, new RegExp(phrase, "i"));
+  }
+  assert.doesNotMatch(implement, /Start Verify with:\s*```text\s*\/skill:validate/i);
+  assert.doesNotMatch(implement, /ask (?:the )?developer to (?:invoke|run|start).*validate/i);
+});
+
+test("Validate consumes workstream evidence and executes code review now", async () => {
   const [validate, template, review] = await Promise.all([
     read("skills/validate/SKILL.md"),
     read("skills/validate/templates/validation.md"),
@@ -50,7 +68,14 @@ test("Validate consumes workstream evidence and writes one complete Verify repor
     "resolve-repository-map.mjs",
     "workstream.md",
     "workstreams/<workstream-id>/verify/",
-    "code-review",
+    "../code-review/SKILL.md",
+    "relative to this installed",
+    "read",
+    "execute",
+    "immediately",
+    "current run",
+    "exact implementation range",
+    "accepted plan as the spec",
     "manual-verification brief",
     "implementation defect returns to Implement",
     "plan returns to Plan",
@@ -60,8 +85,31 @@ test("Validate consumes workstream evidence and writes one complete Verify repor
   assert.doesNotMatch(validate, /_shared|\.myflow\/artifacts|\/skill:revise|mandatory Stage 4 gate/i);
   assert.match(template, /Criterion Coverage/);
   assert.match(template, /Review Evidence/);
+  assert.match(template, /Review artifact/);
+  assert.match(template, /Accepted plan/);
+  assert.match(template, /Review range base/);
+  assert.match(template, /Review range head/);
+  assert.match(template, /Review verdict/);
   assert.match(template, /Manual Verification Brief/);
   assert.match(template, /Owner-Correct Next Action/);
   assert.match(review, /resolve-repository-map\.mjs/);
   assert.match(review, /unavailable/i);
+});
+
+test("Close requires linked passing review evidence, not only a validation pass string", async () => {
+  const close = await read("skills/close/SKILL.md");
+
+  for (const phrase of [
+    "linked review artifact",
+    "read the review artifact",
+    "accepted plan",
+    "implementation range",
+    "review verdict",
+    "missing",
+    "failing",
+    "blocked",
+  ]) {
+    assert.match(close, new RegExp(phrase, "i"));
+  }
+  assert.match(close, /Do not trust (?:only )?the validation report(?:'s)? top-level verdict/i);
 });

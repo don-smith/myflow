@@ -28,6 +28,13 @@ test("public workflow documentation agrees on resolver, stages, and telemetry", 
     for (const stage of ["Onboard", "Scope", "Plan", "Implement", "Verify", "Close"]) {
       assert.match(section, new RegExp(`\\| ${stage} \\|`));
     }
+    assert.match(section, /same parent session/i);
+    assert.match(section, /linked passing review evidence/i);
+  }
+  for (const document of [readme, contract, status, myflow]) {
+    assert.match(document, /same parent session/i);
+    assert.match(document, /recovery\/rehydration/i);
+    assert.match(document, /linked passing review evidence/i);
   }
   assert.match(myflow, /only applicable/i);
   assert.doesNotMatch(myflow, /After documentation, status, learning, retrospective/i);

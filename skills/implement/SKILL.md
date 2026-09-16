@@ -24,15 +24,13 @@ For every incomplete phase, create exactly one fresh-context implementation suba
 3. Consume that completion summary, then immediately launch the fresh-context child for the next incomplete phase. Do not stop for a progress report, confirmation, or context re-reading between green phases.
 4. The phase child fixes an implementation defect within its approved phase. If it finds the plan unexecutable/incorrect, return to Plan; if architecture or outcome changed, return to Design or Scope. Record the reason and do not conceal a correction as a completed phase.
 
-## Handoff to Verify
+## Enter Verify automatically
 
-After the final green phase commit, update `workstream.md` to make the accepted plan and implementation checkpoint the authoritative Verify input. Start Verify with:
+After the final green phase commit, update `workstream.md` to make the accepted plan and implementation checkpoint the authoritative Verify input. Continue in the same parent session: resolve `../validate/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path. Proceed without developer action and do not stop after printing a command.
 
-```text
-/skill:validate <accepted-plan-path>
-```
+`/skill:validate <accepted-plan-path>` is recovery/rehydration only, for a new session resuming an interrupted transition. It is not the normal Implement-to-Verify gate.
 
-Verify writes its report under `<workstream-root>/workstreams/<workstream-id>/verify/` when the mapped workstream root is not already the repository root (normally `.myflow/workstreams/<workstream-id>/verify/`). It owns validation, review evidence, and the conditional manual-verification brief. Do not create the final closeout commit in Implement.
+Verify writes its report under `<workstream-root>/workstreams/<workstream-id>/verify/` when the mapped workstream root is not already the repository root (normally `.myflow/workstreams/<workstream-id>/verify/`). It owns validation, linked review evidence, and the conditional manual-verification brief. Do not create the final closeout commit in Implement.
 
 ## Guardrails
 

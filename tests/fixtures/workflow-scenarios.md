@@ -32,8 +32,8 @@ Stage handoffs:
 | Onboard | Resolver-selected map and, when needed, onboarding report/evaluation | Scope creates the workstream alignment. |
 | Scope | `scope/` alignment with outcome, acceptance criteria, and lightweight depth | Plan writes the executable lightweight plan. |
 | Plan | `plan/` lightweight executable plan and verification map | Implement completes its phase and checkpoint. |
-| Implement | Green phase commit and implementation checkpoint | Verify consumes the plan, commits, and checkpoint. |
-| Verify | `verify/` validation report, review evidence, and conditional manual brief | Close consumes a passing report after required manual evidence. |
+| Implement | Green phase commit and implementation checkpoint | The same parent session immediately loads and executes Validate; `/skill:validate` is recovery/rehydration guidance only. |
+| Verify | `verify/` validation report, linked passing review evidence, and conditional manual brief | Close inspects the linked passing review evidence after required manual evidence. |
 | Close | Applicable closeout summary and recorded delivery decision | End the workstream or route a follow-up to new Scope. |
 
 Correction: an implementation defect returns to Implement; an incorrect plan returns to Plan; changed outcome returns to Scope.
@@ -53,8 +53,8 @@ Stage handoffs:
 | Onboard | Resolver-selected map and repository discovery record | Scope establishes the structural workstream. |
 | Scope | `scope/` alignment, full-depth decision, and selected specialists | Specialists/Design settle material architectural decisions. |
 | Plan | `plan/` full executable plan, design disposition, phases, and verification map | Implement executes and commits each green phase. |
-| Implement | Phase commits and updated plan/checkpoint with remaining manual checks | Verify checks plan execution and review evidence. |
-| Verify | `verify/` report, code-review evidence, and required manual brief | Close begins only after a passing report and required manual evidence. |
+| Implement | Phase commits and updated plan/checkpoint with remaining manual checks | The same parent session immediately loads and executes Validate; `/skill:validate` is recovery/rehydration guidance only. |
+| Verify | `verify/` report, linked passing review evidence, and required manual brief | Close begins only after inspecting linked passing review evidence and required manual evidence. |
 | Close | Proportionate `close/` summary, delivery decision, and routed follow-ups | End the workstream or begin new Scope for each follow-up. |
 
 Correction: an implementation defect returns to Implement; an incorrect plan returns to Plan; changed architecture returns to Design; changed acceptance criteria return to Scope.

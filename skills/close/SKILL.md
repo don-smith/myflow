@@ -11,8 +11,9 @@ Close consumes Verify evidence; it does not repeat validation or force ceremonia
 ## Rehydrate
 
 1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read the selected map when found.
-2. Read `workstream.md`, the validation report, accepted plan, and current Git state. A failing/blocked report returns to its owner rather than entering Close.
-3. Determine the closeout path: `<workstream-root>/<workstream-id>/close/<timestamp>_<topic>.md` (normally `.myflow/workstreams/<workstream-id>/close/`).
+2. Read `workstream.md`, the validation report, accepted plan, and current Git state. Do not trust only the validation report's top-level verdict. Follow its linked review artifact and read the review artifact before entering Close.
+3. Confirm the linked review artifact exists, names the same accepted plan and implementation range as the validation report/checkpoint, contains the required review evidence, and has a passing review verdict. Missing provenance/evidence or a missing, failing, or blocked review prevents Close and returns to Verify or the recorded corrective owner.
+4. Determine the closeout path: `<workstream-root>/<workstream-id>/close/<timestamp>_<topic>.md` (normally `.myflow/workstreams/<workstream-id>/close/`).
 
 ## Determine proportionate actions
 
@@ -33,4 +34,4 @@ If closeout changes exist, use `commit` for one distinct final closeout commit a
 
 ## Completion and correction
 
-A complete workstream has a passing validation report, a recorded delivery decision, and no unowned follow-up. If new evidence exposes an implementation defect, return to Implement; route plan/design/outcome changes to their owning stage and retain the summary as resumable evidence.
+A complete workstream has a passing validation report, linked passing review evidence with valid provenance, a recorded delivery decision, and no unowned follow-up. If new evidence exposes an implementation defect, return to Implement; route plan/design/outcome changes to their owning stage and retain the summary as resumable evidence.

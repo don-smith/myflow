@@ -81,9 +81,9 @@ Where frontmatter is used, `kind`, `workstream`, `stage`, `status`, creation/upd
 | Onboarding | Repository map; run report; pending evaluation | Confirmed sources, material unknowns, readiness, safe next action | Scope or a recommended specialist |
 | Scope | Alignment artifact | Intent, audience/outcome, non-goals, observable acceptance criteria, risk/classification, constraints, and selected depth | Design disposition and Plan, optionally through selected specialists |
 | Plan | Executable plan; standalone design only when justified | Design disposition, implementation phases, verification map, commit strategy, manual checks, and rehydration | Fresh session → Implement |
-| Implement | Updated plan checkpoint or implementation summary; phase commits | Completed phases and commit hashes, checks/evidence, deviations, remaining manual verification, current working tree state | Verify |
-| Verify | Validation report, code-review evidence, and manual-verification brief where needed | Verdict, criterion coverage, automated evidence, defects/deviations, and human checks still required | Close, or a corrective loop |
-| Close | Repository-specific delivery/status/documentation updates and a closeout summary when needed | What shipped, closeout decisions, final commit/integration state, resolved tabled items, and follow-up destinations | End workstream or begin a new Scope |
+| Implement | Updated plan checkpoint or implementation summary; phase commits | Completed phases and commit hashes, checks/evidence, deviations, remaining manual verification, current working tree state; the same parent session immediately loads Validate (`/skill:validate` is recovery/rehydration only) | Verify |
+| Verify | Validation report, linked review artifact, and manual-verification brief where needed | Verdict, criterion coverage, automated evidence, exact implementation range, accepted-plan provenance, defects/deviations, and human checks still required | Close, or a corrective loop |
+| Close | Repository-specific delivery/status/documentation updates and a closeout summary when needed | Linked passing review evidence, what shipped, closeout decisions, final commit/integration state, resolved tabled items, and follow-up destinations | End workstream or begin a new Scope |
 
 ### Scope acceptance criteria versus Plan verification
 
@@ -119,7 +119,8 @@ The user and Scope decide the depth in situ. A stage may increase depth when evi
 4. **Use an implementation checkpoint between phases.** Each green plan phase is committed. The checkpoint records its commit hash, automated evidence, outstanding manual verification, and next phase.
 5. **Use handoffs only mid-stage.** A handoff names the current stage and artifact, summarizes the live working set, and never becomes a competing specification.
 6. **Route corrections to their owner.** An implementation defect returns to Implement; an unexecutable or incorrect plan returns to Plan; a changed architectural decision returns to Design; a changed outcome or acceptance criterion returns to Scope. Re-run downstream verification after correction.
-7. **Do not close on unverified work.** Verify completes automated validation and code review, then presents required manual verification to the human before Close. Repository-specific policy may add gates.
+7. **Enter Verify without a user gate.** After the final green phase, the same parent session reads the installed Validate skill and executes it immediately. `/skill:validate` is recovery/rehydration guidance only.
+8. **Do not close on unverified work.** Verify completes automated validation and code review, writes a separate review artifact with plan/range provenance, then presents required manual verification to the human. Close inspects linked passing review evidence rather than trusting the validation report's top-level verdict. Repository-specific policy may add gates.
 
 ## Lightweight plan template
 

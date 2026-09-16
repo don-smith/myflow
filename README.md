@@ -51,9 +51,11 @@ Onboard repository (when needed)
 | Onboarding | `onboard` | Repository map, discovery report, and evaluation record |
 | Scope | `scope` | Alignment artifact, risk/depth decision, selected specialists |
 | Plan | `plan` | Lightweight or full executable plan with a verification map |
-| Implement | `implement` | Green phase commits and implementation checkpoint |
-| Verify | `validate` | Validation report, review evidence, and manual-verification brief |
-| Close | `close` | Applicable documentation, delivery, learning, and closeout updates |
+| Implement | `implement` | Green phase commits, implementation checkpoint, and automatic Verify transition |
+| Verify | `validate` | Validation report, linked review evidence, and manual-verification brief |
+| Close | `close` | Evidence-gated documentation, delivery, learning, and closeout updates |
+
+After the final green phase, the same parent session loads the installed Validate skill and executes it immediately. `/skill:validate` is recovery/rehydration guidance only, not a command the developer must remember to run. Validate loads and executes the sibling code-review skill with the exact implementation range and accepted plan. Close inspects linked passing review evidence and matching provenance instead of trusting only a top-level validation pass.
 
 `design` is a collaborative Plan step used for material structural decisions; it is not mandatory for lightweight work. `research`, `prototype`, architecture specialists, domain modeling, and TDD are selected only when the work needs them.
 
