@@ -101,6 +101,71 @@ For a return assessment, pass `--return-episode-id` with the correction details.
 
 Each evaluation writes a private `myflow-stage-review/v1` record to the personal observation tree. A separate allowlisted public projection excludes comments, paths, evidence excerpts, prompts, commands, code, and identities. Historical reviews are preserved; a later return creates a new attempt and revision.
 
+## Synthetic review publication
+
+Publish an allowlisted local stage review to one stable synthetic Langfuse trace per attempt with versioned revisions, separate scores, and durable delivery state. Publication is explicit and dry-run by default.
+
+### Score compatibility
+
+Inventory existing `myflow.friction.*`, `myflow.work.*`, and `myflow.flow.*` score names before creating new configs:
+
+```bash
+node <skill-dir>/scripts/publish-stage-review.mjs --score-compatibility
+```
+
+Save the compatibility receipt privately. New Phase 6 score names use distinct prefixes and do not overwrite existing names.
+
+### Dry-run (default)
+
+```bash
+node <skill-dir>/scripts/publish-stage-review.mjs \
+  --review-path <stage-review.json> \
+  --workstream-id <id>
+```
+
+The command validates the review, projects the synthetic trace and scores, runs the allowlist check, and prints a receipt. No network access occurs.
+
+### Explicit publication
+
+Requires `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and optionally `LANGFUSE_BASE_URL`:
+
+```bash
+node <skill-dir>/scripts/publish-stage-review.mjs \
+  --review-path <stage-review.json> \
+  --workstream-id <id> \
+  --publish \
+  [--confirm] [--ingestion-delay-ms <ms>]
+```
+
+Use `--confirm` for read-after-ingestion confirmation. Use `--create-score-configs` as a separate explicit operation to create missing score configs before publishing.
+
+### Published scores
+
+| Score name | Data type | When published |
+|---|---|---|
+| `myflow.developer.stage-experience` | CATEGORICAL | Feedback recorded and valid experience |
+| `myflow.stage.outcome` | CATEGORICAL | Always |
+| `myflow.stage.returned` | BOOLEAN | Always |
+| `myflow.return.nature` | CATEGORICAL | Return assessment present |
+| `myflow.return.late-discovery` | CATEGORICAL | Return assessment present |
+| `myflow.return.owner-stage` | CATEGORICAL | Return assessment present with owner stage |
+| `myflow.return.loop-minutes` | NUMERIC | Return economics with qualified loop time |
+| `myflow.return.calls` | NUMERIC | Return economics with call count |
+| `myflow.return.total-tokens` | NUMERIC | Return economics with token count |
+| `myflow.return.recorded-cost-usd` | NUMERIC | Return economics with recorded cost |
+| `myflow.return.cost-coverage` | NUMERIC | Return economics with cost coverage |
+
+### Durable outbox
+
+The publisher stores entries in a private outbox (`publication-outbox/events.jsonl`) with state `pending`, `sent-unconfirmed`, `confirmed`, or `conflicted`. Each trace, observation, and score uses a deterministic ID. Confirm writes by read-after-ingestion delay. Duplicate and conflict detection keep report generation read-only.
+
+### Operational controls
+
+- Credential environment variables: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (defaults to cloud).
+- Kill switch: unset both credential variables.
+- Evaluator egress: the synthetic publisher sends only allowlisted fields. No raw prompts, responses, reasoning, tool arguments, code, paths, credentials, or free-text feedback are included.
+- Rollback: unpublished entries remain in `pending` state. Delete the outbox directory and Langfuse data to undo.
+
 ## Common mistakes
 
 | Mistake | Correction |

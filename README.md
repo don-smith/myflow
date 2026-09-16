@@ -73,6 +73,25 @@ node skills/observing-myflow/scripts/rollup-flow-metrics.mjs \
 
 The rollup reports Velocity, Distribution, historical and current Load, separate cycle and canonical Flow Time summaries, Flow Efficiency coverage, and AI economics. For longitudinal comparisons, keep the repository, schema version, completion rule, and window length fixed. Missing classifications, efficiency evidence, current exports, and recorded cost remain visible as coverage gaps.
 
+Stage reviews can be evaluated locally and published as synthetic Langfuse traces with deterministic scores. Publication is explicit, dry-run by default, and uses structured allowlist enforcement:
+
+```bash
+# Dry-run (default): validate and print the synthetic projection.
+node skills/observing-myflow/scripts/publish-stage-review.mjs \
+  --review-path <review.json> --workstream-id <id>
+
+# Check score compatibility with existing names.
+node skills/observing-myflow/scripts/publish-stage-review.mjs \
+  --score-compatibility
+
+# Publish to configured Langfuse project (requires LANGFUSE_PUBLIC_KEY
+# and LANGFUSE_SECRET_KEY).
+node skills/observing-myflow/scripts/publish-stage-review.mjs \
+  --review-path <review.json> --workstream-id <id> --publish
+```
+
+Published score names use the `myflow.developer.*` and `myflow.return.*` prefixes alongside `myflow.stage.*`. No aggregate quality grade or model judge ships. Raw prompts, responses, code, paths, and credentials are excluded from synthetic payloads by a structured allowlist.
+
 A fresh session runs `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, then reads its selected map, `workstream.md`, and the authoritative stage artifact. Small work may use the lightweight path; structural work adds Design and a full plan. Verify owns review/manual evidence, and Close records only applicable delivery and follow-up decisions.
 
 The detailed workflow and alignment status are maintained in:

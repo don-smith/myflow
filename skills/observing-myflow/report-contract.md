@@ -430,3 +430,64 @@ When `returnAssessment` is present, it records trigger source, change kind, natu
 ### Public projection
 
 `myflow-stage-review-public/v1` is an allowlisted subset of the private review. It excludes: repository identity, input digests, evidence arrays, private references, return assessment details (missingEvidence, counterevidence, counterfactual free text), and full limitation text. Allowed fields: reviewId, createdAt, workstreamId, attemptId, attemptOrdinal, canonicalStage, revision, evaluator, predicate IDs and results only, outcome, feedbackCoverage, returnAssessment (nature, lateDiscovery, confidence only), and limitationCount.
+
+## Synthetic review publication contract
+
+### myflow-review-projection/v1
+
+A synthetic Langfuse trace projected from an allowlisted local stage review. One stable logical trace represents each stage attempt. Each input-digest or evaluator-version change creates a distinct evaluator observation revision.
+
+- **Trace root name**: `myflow-stage-review`
+- **Trace identity**: deterministic SHA-256 of `repository:workstreamId:attemptId`
+- **Observation identity**: deterministic SHA-256 of `traceId:evaluatorVersion:inputDigest:revision`
+- **Score identity**: deterministic SHA-256 of `observationId:scoreName`
+- **Observation type**: `EVALUATOR`
+
+### Published score names
+
+| Score name | Data type | Description |
+|---|---|---|
+| `myflow.developer.stage-experience` | CATEGORICAL | smooth, some-friction, rough (when recorded) |
+| `myflow.stage.outcome` | CATEGORICAL | satisfied, unsatisfied, blocked, incomplete, unknown |
+| `myflow.stage.returned` | BOOLEAN | Whether a return assessment exists |
+| `myflow.return.nature` | CATEGORICAL | necessary-learning, changed-intent, delivery-defect, external-change, process-induced, unclassified |
+| `myflow.return.late-discovery` | CATEGORICAL | yes, no, unknown |
+| `myflow.return.owner-stage` | CATEGORICAL | Canonical stage owning the correction |
+| `myflow.return.loop-minutes` | NUMERIC | Correction loop duration when qualified |
+| `myflow.return.calls` | NUMERIC | AI call count in correction episode |
+| `myflow.return.total-tokens` | NUMERIC | Token total in correction episode |
+| `myflow.return.recorded-cost-usd` | NUMERIC | Provider-recorded cost when known |
+| `myflow.return.cost-coverage` | NUMERIC | Ratio of calls with recorded cost |
+
+No aggregate grade or combined quality score exists. Return diagnostic scores are numeric and qualified; absent values are not published.
+
+### Payload allowlist
+
+Before any network access, each trace, observation, and score payload is validated against:
+
+- Top-level field name allowlist (only known Langfuse API fields).
+- Maximum serialized size (64 KB per payload).
+- Forbidden content patterns: absolute paths, code blocks, credential-shaped strings, prompt/command assignments, code snippets, long quoted excerpts.
+
+Payloads containing forbidden content are rejected. The allowlist does not recurse into metadata field names; forbidden-pattern scanning covers content privacy.
+
+### Durable outbox
+
+Each publication attempt writes a `myflow-publication-outbox/v1` record to the private observation tree at `publication-outbox/events.jsonl`. States:
+
+- `pending`: entry created, not yet sent
+- `sent-unconfirmed`: HTTP POST completed, read-back not yet successful
+- `confirmed`: read-after-ingestion delay returned the observation
+- `conflicted`: duplicate or conflicting observation detected
+
+Each state transition creates a new outbox entry with a unique entry ID. The outbox records trace ID, observation ID, score IDs, projection digest, timestamps, retry count, and last error.
+
+### Operational controls
+
+- **Credentials**: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and optionally `LANGFUSE_BASE_URL`.
+- **Kill switch**: unset both credential variables; publication returns a credential error.
+- **Dry-run default**: `--publish` is required for writes. Without it, projection and validation run without network access.
+- **Explicit score-config creation**: a separate `--create-score-configs` operation. Publishing does not auto-create missing configs.
+- **Read-after-write confirmation**: `--confirm` re-reads the observation after `--ingestion-delay-ms` (default 3,000 ms).
+- **Evaluator egress**: only the allowlisted projection payload is sent. No raw prompts, responses, reasoning, tool arguments/results, code, paths, credentials, or free-text feedback are included.
+- **Rollback**: unpublished entries remain in `pending` state with no side effects. Delete the outbox directory and any published Langfuse data to undo.
