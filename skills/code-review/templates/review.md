@@ -5,11 +5,12 @@ repository: {repository identity}
 branch: {branch}
 head_commit: {current HEAD}
 accepted_plan: {path or equivalent spec source}
-scope_spec: {input passed to review-range.mjs}
+scope_spec: {exact input passed to review-range.mjs}
 scope_status: {ready | empty | invalid}
-scope_strategy: {branch-all | first-parent | explicit-range | working-tree}
-range_base: {exact base or n/a}
-range_head: {exact head or n/a}
+scope_strategy: {branch-all | first-parent | explicit-range | commit-list | working-tree}
+resolved_commits: {ordered comma-separated full commit IDs for commit-list, or n/a}
+range_base: {exact base or orientation base for commit-list, or n/a}
+range_head: {exact head or orientation tip for commit-list, or n/a}
 dirty_state: {clean | dirty}
 changed_files_count: {N}
 review_verdict: {pass | fail | blocked}
@@ -23,8 +24,12 @@ tags: [code-review, verify]
 
 - Accepted plan: `{path or equivalent spec source}`
 - Scope status: `{ready | empty | invalid}`
-- Range base: `{hash or n/a}`
-- Range head: `{hash or n/a}`
+- Scope strategy: `{branch-all | first-parent | explicit-range | commit-list | working-tree}`
+- Exact scope spec: `{input passed to review-range.mjs}`
+- Resolved commit set: `{ordered comma-separated full commit IDs, or n/a}`
+- Range base: `{hash, orientation base, or n/a}`
+- Range head: `{hash, orientation tip, or n/a}`
+- Commit-list provenance: retain the exact scope spec and resolved commit set; range base/head alone is insufficient.
 - Dirty state: `{clean | dirty}`; {included or explicit exclusion}
 - Adapter command: `node "${SKILL_DIR}/_helpers/review-range.mjs" "{scope spec}"`
 - In-scope files ({N}):

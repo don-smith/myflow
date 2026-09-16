@@ -75,6 +75,15 @@ const assertDeterministicReviewGate = (document) => {
   );
 };
 
+const assertExactCommitSetContract = (document) => {
+  assertPositiveContract(
+    document,
+    /commit-list[^.\n]*(?:retain|record|copy|compare|match|require)[^.\n]*exact scope spec[^.\n]*resolved commit set/i,
+    /commit-list[^.\n]*(?:do not|does not|must not|never)[^.\n]*(?:retain|record|copy|compare|match|require)[^.\n]*exact scope spec[^.\n]*resolved commit set/i,
+  );
+  assert.match(document, /range base(?:\/head| and head)[^.\n]*alone[^.\n]*insufficient/i);
+};
+
 test("code review pins complete scope through the active range helper", async () => {
   const [skill, packageJson] = await Promise.all([
     read("skills/code-review/SKILL.md"),
@@ -96,6 +105,32 @@ test("code review pins complete scope through the active range helper", async ()
   assert.match(skill, /changed[- ]files/i);
   assert.match(skill, /read[^.]*patch_path[^.]*reviewer/is);
   assert.match(packageJson, /skills\/code-review\/_helpers\/review-range\.test\.mjs/);
+});
+
+test("commit-list provenance is exact across Code-review, Validate, and Close contracts", async () => {
+  const documents = await Promise.all([
+    read("skills/code-review/SKILL.md"),
+    read("skills/code-review/templates/review.md"),
+    read("skills/validate/SKILL.md"),
+    read("skills/validate/templates/validation.md"),
+    read("skills/close/SKILL.md"),
+  ]);
+
+  for (const document of documents) {
+    assertExactCommitSetContract(document);
+    const mutant = document.replace(
+      /commit-list([^.]*)exact scope spec([^.]*)resolved commit set/i,
+      "commit-list$1range base and head$2contiguous range",
+    );
+    assert.throws(() => assertExactCommitSetContract(mutant));
+  }
+
+  const reviewTemplate = documents[1];
+  assert.match(reviewTemplate, /^resolved_commits:/m);
+  assert.match(reviewTemplate, /scope_strategy[^\n]*commit-list/i);
+  const validationTemplate = documents[3];
+  assert.match(validationTemplate, /Review scope spec/i);
+  assert.match(validationTemplate, /Review resolved commit set/i);
 });
 
 test("code review requires substantive evidence from all three fresh-context lanes", async () => {

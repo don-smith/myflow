@@ -32,8 +32,12 @@ Apply this mapping exactly: confirmed P0/P1 produces validation verdict `fail`; 
 
 - Review artifact: `{path to separate review artifact}`
 - Accepted plan: `{accepted plan path recorded by review}`
-- Review range base: `{exact first implementation commit parent, or exact Git empty-tree hash for root-inclusive scope}`
-- Review range head: `{exact final implementation commit}`
+- Review scope strategy: `{explicit-range | commit-list | other strategy}`
+- Review scope spec: `{exact input passed to review-range.mjs}`
+- Review resolved commit set: `{ordered comma-separated full commit IDs for commit-list, or n/a}`
+- Review range base: `{exact first implementation commit parent, exact Git empty-tree hash for root-inclusive scope, orientation base for commit-list, or n/a}`
+- Review range head: `{exact final implementation commit, orientation tip for commit-list, or n/a}`
+- Commit-list provenance: copy the exact scope spec and resolved commit set; range base/head alone is insufficient.
 - Review verdict: `{pass | fail | blocked}` — {gate basis}
 - Correctness and Risk: `{complete | blocked}` — {evidence}
 - Standards and Maintainability: `{complete | blocked}` — {evidence or documented standards unavailable}
