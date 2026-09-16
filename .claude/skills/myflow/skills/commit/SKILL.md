@@ -1,0 +1,89 @@
+---
+name: commit
+description: Create structured atomic commits. Use when the user asks to commit, or when Implement has completed a plan phase whose automated success criteria are green.
+disable-model-invocation: true
+argument-hint: [message]
+allowed-tools: Bash(git *), Read, Glob, Grep
+---
+
+# Commit Changes
+
+You are tasked with creating git commits for repository changes.
+
+## Input
+
+`$ARGUMENTS` — optional commit message hint. Empty/literal → infer from history and `git diff`.
+
+## Metadata
+
+```!
+node "${SKILL_DIR}/../_shared/git-changes.mjs"
+echo "---recent-subjects---"
+git log --pretty=%s -n 20 2>/dev/null || true
+```
+
+`---recent-subjects---` — up to 20 most recent commit subject lines, used in Step 2 to match the repository's existing commit-message style. Empty on a no-HEAD initial repo.
+
+## Context:
+- **In-session**: If there's conversation history, use it to understand what was built/changed
+- **Standalone**: If no context available, rely entirely on git state and file inspection
+
+## Plan-phase commits
+
+When `implement` invokes this skill immediately after a completed plan phase, the accepted plan pre-authorizes **one atomic commit for that phase**. The usual user-confirmation step is skipped only in this context:
+
+- verify the phase's automated success criteria and required checks are green;
+- stage only files assigned to that phase, never unrelated working-tree changes;
+- stop and surface the discrepancy if a changed file cannot be assigned to the phase, a required check failed, or a secret is suspected; and
+- infer a repository-style commit subject from the completed phase and its delivered behavior.
+
+Show the resulting commit hash and subject, resolver-selected map path, automated evidence, deviations, outstanding manual verification, and next phase/Verify action in the implementation checkpoint. Manual-verification criteria remain for Stage 4 and do not block the phase commit.
+
+For direct user invocations and Close's final closeout commit, retain the normal confirmation process below.
+
+## Process:
+
+0. **Check git availability:**
+   - If `in_repo:` in the Metadata block is `no`, tell the user: "This directory is not a git repository. Run `git init` to initialize one." Stop — do not proceed.
+
+1. **Think about what changed:**
+   - **If in-session**: Review the conversation history to understand what was accomplished.
+   - The Metadata block gives you the file list and per-file diffstat (insertions/deletions). For files with a small diffstat (≲5 lines), the line counts alone are enough to write the message — skip `git diff`. Run `git diff <path>` only for files where the change is large or the intent isn't obvious from filename + line counts.
+   - For untracked directories shown in status (e.g. `?? path/`), assume their contents are the change unless the directory has many files; do NOT `cat`/`head` files to verify obvious purpose.
+   - Consider whether changes should be one commit or multiple logical commits.
+
+2. **Plan your commit(s):**
+   - Identify which files belong together
+   - Draft clear, descriptive commit messages
+   - Use imperative mood in commit messages
+   - **Match the subject style observed in `---recent-subjects---`** — same prefix convention (e.g. `feat:` / `fix(scope):` / `docs:` for Conventional Commits, gitmoji, bare sentence-case, ticket-prefixed, etc.), same length budget, same casing. If the sample is empty (initial repo) or mixed, default to imperative sentence-case with no prefix.
+   - Focus on why the changes were made, not just what
+   - Check for sensitive information (API keys, credentials) before committing
+
+3. **Confirm the commit plan unless this is a pre-authorized plan-phase commit:**
+   - List the files you plan to add for each commit
+   - Show the commit message(s) you'll use
+   - For a plan-phase commit meeting every condition above, proceed without a separate confirmation.
+   - Otherwise, use the `ask_user_question` tool to confirm the commit plan. Question: "{N} commit(s) with {M} files. Proceed?". Header: "Commit". Options: "Commit (Recommended)" (Create the commit(s) as planned); "Adjust" (Change the grouping or commit messages); "Review files" (Show me the full diff before committing).
+
+4. **Execute after confirmation, or directly for a pre-authorized plan-phase commit:**
+   - Use `git add` with specific files (never use `-A` or `.`)
+   - Create commits with your planned messages
+   - Show the result with `git log --oneline -n X` (where X = number of commits you just created)
+
+## Important:
+
+- **NEVER add co-author information or Claude attribution**
+- Commits should be authored solely by the user
+- Do not include any "Generated with Claude" messages
+- Do not add "Co-Authored-By" lines
+- Write commit messages as if the user wrote them
+
+## Remember:
+
+- Adapt your approach: use conversation context if available, otherwise infer from git state
+- In-session: you have full context of what was done; Standalone: infer from git analysis
+- Group related changes by purpose (feature, fix, refactor, docs)
+- Keep commits atomic: one logical change per commit
+- Split into multiple commits if: different features, mixing bugs with features, or unrelated concerns
+- The user trusts your judgment - they asked you to commit
