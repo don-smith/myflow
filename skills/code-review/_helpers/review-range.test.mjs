@@ -159,6 +159,34 @@ test("commit-list scope rejects divergent commits", () => {
 	}
 });
 
+test("commit-list scope rejects divergent commits even with a common ancestor and merge descendant", () => {
+	const repo = createRepo();
+	try {
+		const ancestor = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["checkout", "-qb", "left"]);
+		writeFileSync(join(repo, "left.txt"), "left\n");
+		git(repo, ["add", "left.txt"]);
+		git(repo, ["commit", "-qm", "left"]);
+		const left = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["checkout", "-qb", "right", "main"]);
+		writeFileSync(join(repo, "right.txt"), "right\n");
+		git(repo, ["add", "right.txt"]);
+		git(repo, ["commit", "-qm", "right"]);
+		const right = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["merge", "-q", "--no-ff", "left", "-m", "merge"]);
+		const merge = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, `${ancestor},${left},${right},${merge}`);
+
+		assert.match(output, /strategy:\s+unrecognised/);
+		assert.match(output, /scope_status:\s+invalid/);
+		assert.match(output, /note:\s+commit list not on a single ancestry chain/);
+		assert.deepEqual(changedFiles(output), []);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
 test("named branch scope uses its tip and merge base while another branch is checked out", () => {
 	const repo = createRepo();
 	try {

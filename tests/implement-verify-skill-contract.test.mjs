@@ -4,6 +4,22 @@ import test from "node:test";
 
 const read = (path) => readFile(path, "utf8");
 
+const assertRequiredExecuteNowClause = (document, target) => {
+  const clauses = document.split(/\n|(?<=[.!?])\s+/).filter((clause) => target.test(clause));
+  assert.ok(
+    clauses.some(
+      (clause) =>
+        /\bread\b/i.test(clause) &&
+        /\bexecute\b/i.test(clause) &&
+        /\b(?:immediately|current run)\b/i.test(clause) &&
+        !/\b(?:do not|don't|must not|may|might|can|could|should|optionally|when useful|when convenient)\b/i.test(
+          clause,
+        ),
+    ),
+    `expected a mandatory execute-now clause for ${target}`,
+  );
+};
+
 test("Implement records resolver-aware phase checkpoints before Verify", async () => {
   const implement = await read("skills/implement/SKILL.md");
   for (const phrase of [
@@ -53,8 +69,27 @@ test("Implement enters Verify immediately in the same parent session", async () 
   ]) {
     assert.match(implement, new RegExp(phrase, "i"));
   }
+  assertRequiredExecuteNowClause(implement, /\.\.\/validate\/SKILL\.md/i);
   assert.doesNotMatch(implement, /Start Verify with:\s*```text\s*\/skill:validate/i);
   assert.doesNotMatch(implement, /ask (?:the )?developer to (?:invoke|run|start).*validate/i);
+});
+
+test("Implement-to-Validate contract rejects negated and advisory-only execution clauses", async () => {
+  const implement = await read("skills/implement/SKILL.md");
+  const clause =
+    "resolve `../validate/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path";
+
+  const mutants = [
+    implement.replace(clause, `do not ${clause}`),
+    implement.replace(clause, `you may ${clause} when useful`),
+  ];
+
+  for (const mutant of mutants) {
+    for (const token of ["../validate/SKILL.md", "read", "execute", "immediately"]) {
+      assert.match(mutant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+    }
+    assert.throws(() => assertRequiredExecuteNowClause(mutant, /\.\.\/validate\/SKILL\.md/i));
+  }
 });
 
 test("Validate consumes workstream evidence and executes code review now", async () => {
@@ -93,12 +128,35 @@ test("Validate consumes workstream evidence and executes code review now", async
   assert.match(template, /Review artifact/);
   assert.match(template, /Accepted plan/);
   assert.match(template, /Review range base/);
+  assert.match(
+    template,
+    /Review range base:[^\n]*first implementation commit parent[^\n]*empty-tree hash[^\n]*root-inclusive scope/i,
+  );
   assert.match(template, /Review range head/);
   assert.match(template, /Review verdict/);
   assert.match(template, /Manual Verification Brief/);
   assert.match(template, /Owner-Correct Next Action/);
   assert.match(review, /resolve-repository-map\.mjs/);
   assert.match(review, /unavailable/i);
+  assertRequiredExecuteNowClause(validate, /\.\.\/code-review\/SKILL\.md/i);
+});
+
+test("Validate-to-code-review contract rejects negated and advisory-only execution clauses", async () => {
+  const validate = await read("skills/validate/SKILL.md");
+  const clause =
+    "Resolve `../code-review/SKILL.md` relative to this installed `skills/validate/SKILL.md`, read it, and execute it immediately in the current run";
+
+  const mutants = [
+    validate.replace(clause, `Do not ${clause.toLowerCase()}`),
+    validate.replace(clause, `You may ${clause.toLowerCase()} when useful`),
+  ];
+
+  for (const mutant of mutants) {
+    for (const token of ["../code-review/SKILL.md", "read", "execute", "immediately", "current run"]) {
+      assert.match(mutant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+    }
+    assert.throws(() => assertRequiredExecuteNowClause(mutant, /\.\.\/code-review\/SKILL\.md/i));
+  }
 });
 
 test("Close requires linked passing review evidence, not only a validation pass string", async () => {

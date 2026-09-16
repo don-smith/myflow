@@ -221,11 +221,14 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 	if (resolved.length !== hashes.length || unique.length < 2) {
 		result.note = `commit list under-specified (need ≥2 distinct valid commits; got ${unique.length})`;
 	} else {
-		const oldest = unique.find((candidate) => unique.every((hash) => isAncestor(candidate, hash)));
-		const newest = unique.find((candidate) => unique.every((hash) => isAncestor(hash, candidate)));
-		if (!oldest || !newest) {
+		const hasTotalAncestryOrder = unique.every((left, index) =>
+			unique.slice(index + 1).every((right) => isAncestor(left, right) || isAncestor(right, left)),
+		);
+		if (!hasTotalAncestryOrder) {
 			result.note = "commit list not on a single ancestry chain";
 		} else {
+			const oldest = unique.find((candidate) => unique.every((hash) => isAncestor(candidate, hash)));
+			const newest = unique.find((candidate) => unique.every((hash) => isAncestor(hash, candidate)));
 			const base = safe(["rev-parse", `${oldest}^`]) || emptyTree;
 			setExplicitRange(base, newest);
 			result.oldest = oldest;

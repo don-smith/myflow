@@ -30,7 +30,7 @@ implementation_checkpoint: {checkpoint path or plan state}
 
 - Review artifact: `{path to separate review artifact}`
 - Accepted plan: `{accepted plan path recorded by review}`
-- Review range base: `{exact first implementation commit parent}`
+- Review range base: `{exact first implementation commit parent, or exact Git empty-tree hash for root-inclusive scope}`
 - Review range head: `{exact final implementation commit}`
 - Review verdict: `{pass | fail | blocked}` — {gate basis}
 - Correctness and Risk: `{complete | blocked}` — {evidence}

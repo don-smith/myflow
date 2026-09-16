@@ -3,7 +3,7 @@ name: code-review
 description: Use when reviewing a branch, commit range, pull request, or work-in-progress change against its specification and repository standards.
 ---
 
-# Code Review
+# Code review
 
 Produce a bounded, independent review with an auditable gate.
 

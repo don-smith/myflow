@@ -137,11 +137,16 @@ test("public workflow contract names the substantive review gate", async () => {
   }
 });
 
-test("review template uses sentence-case headings", async () => {
-  const template = await read("skills/code-review/templates/review.md");
+test("review skill and template use sentence-case headings without em dashes", async () => {
+  const [skill, template] = await Promise.all([
+    read("skills/code-review/SKILL.md"),
+    read("skills/code-review/templates/review.md"),
+  ]);
 
+  assert.match(skill, /^# Code review$/m);
+  assert.doesNotMatch(skill, /^# Code Review$/m);
   for (const heading of [
-    "# Code review — {scope}",
+    "# Code review: {scope}",
     "## Provenance and scope",
     "## Lane evidence",
     "## Retained findings",
@@ -150,6 +155,7 @@ test("review template uses sentence-case headings", async () => {
   ]) {
     assert.match(template, new RegExp(`^${heading.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}$`, "m"));
   }
+  assert.doesNotMatch(template, /—/);
   assert.doesNotMatch(template, /^## (?:Provenance and Scope|Lane Evidence|Retained Findings|Finding Verification|Review Verdict)$/m);
 });
 

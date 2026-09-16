@@ -17,7 +17,7 @@ findings: {p0: N, p1: N, p2: N}
 tags: [code-review, verify]
 ---
 
-# Code review — {scope}
+# Code review: {scope}
 
 ## Provenance and scope
 
@@ -25,7 +25,7 @@ tags: [code-review, verify]
 - Scope status: `{ready | empty | invalid}`
 - Range base: `{hash or n/a}`
 - Range head: `{hash or n/a}`
-- Dirty state: `{clean | dirty}` — {included or explicit exclusion}
+- Dirty state: `{clean | dirty}`; {included or explicit exclusion}
 - Adapter command: `node "${SKILL_DIR}/_helpers/review-range.mjs" "{scope spec}"`
 - In-scope files ({N}):
   - `{path}`
@@ -43,7 +43,7 @@ tags: [code-review, verify]
 
 Repeat this block for each retained finding; write `None` when there are no findings. For an omission, the accepted plan or spec `path:line`, verbatim quote, and nearest expected implementation seam are mandatory. Changed-code evidence is required only when related code exists.
 
-### {stable ID} — {P0 | P1 | P2}: {headline}
+### {stable ID}: {P0 | P1 | P2}: {headline}
 
 - **Evidence kind:** {implementation defect | omission}
 - **Accepted plan/spec file:line:** `{path:line, required for omission}`
@@ -70,7 +70,7 @@ Falsified claims are dropped from retained findings. Inconclusive P0/P1 claims b
 
 - Confirmed P0: {N}
 - Confirmed P1: {N}
-- Retained P2: {N} — does not block
+- Retained P2: {N}; does not block
 - Missing mandatory evidence: {none or list}
 - Gate basis: {confirmed P0/P1 fail; missing mandatory evidence blocks; otherwise pass}
 - Validation report link: `{path to report, or pending path for Validate to fill}`
