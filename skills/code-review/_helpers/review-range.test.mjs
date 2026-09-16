@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -10,14 +10,26 @@ const helper = new URL("./review-range.mjs", import.meta.url);
 const git = (cwd, args) =>
 	execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
 
-const runHelper = (cwd, scope) =>
-	execFileSync(process.execPath, [helper.pathname, scope], { cwd, encoding: "utf-8" });
+const runHelper = (cwd, scope, options = {}) =>
+	execFileSync(process.execPath, [helper.pathname, scope], {
+		cwd,
+		encoding: "utf-8",
+		env: { ...process.env, ...options.env },
+	});
 
 const changedFilesBody = (output) => output.split("---changed-files---\n", 2)[1];
 
 const changedFiles = (output) => {
-	const body = changedFilesBody(output).trim();
-	return body ? body.split("\n") : [];
+	const body = changedFilesBody(output);
+	if (!body) return [];
+	const lines = body.endsWith("\n") ? body.slice(0, -1).split("\n") : body.split("\n");
+	return lines.filter(Boolean).map((line) => {
+		try {
+			return JSON.parse(line);
+		} catch {
+			return line;
+		}
+	});
 };
 
 const outputField = (output, name) => {
@@ -56,7 +68,7 @@ test("all scope includes committed, tracked working-tree, and untracked files", 
 		const output = runHelper(repo, "all");
 		const patch = patchEvidence(output);
 
-		assert.match(output, /default_branch:\s+main/);
+		assert.match(output, /default_branch:\s+origin\/main/);
 		assert.match(output, /strategy:\s+branch-all/);
 		assert.match(output, /scope_status:\s+ready/);
 		assert.match(output, /dirty_state:\s+dirty/);
@@ -114,7 +126,7 @@ test("all scope includes files introduced by a clean merge", () => {
 		const output = runHelper(repo, "all");
 
 		assert.match(output, /scope_status:\s+ready/);
-		assert.deepEqual(changedFiles(output), ["merged.txt", "main.txt"]);
+		assert.deepEqual(changedFiles(output), ["main.txt", "merged.txt"]);
 		assert.match(patchEvidence(output), /diff --git a\/merged\.txt b\/merged\.txt/);
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
@@ -407,7 +419,7 @@ test("named branch scope includes files introduced by a clean merge", () => {
 		const output = runHelper(repo, "integration");
 
 		assert.match(output, /scope_status:\s+ready/);
-		assert.deepEqual(changedFiles(output), ["merged.txt", "integration.txt"]);
+		assert.deepEqual(changedFiles(output), ["integration.txt", "merged.txt"]);
 		assert.match(patchEvidence(output), /diff --git a\/merged\.txt b\/merged\.txt/);
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
@@ -474,6 +486,146 @@ test("changed-files cap counts UTF-8 bytes and reserves the truncation footer", 
 		assert.match(body, /\(\.\.\. \d+ more files truncated \.\.\.\)\n$/);
 		assert.ok(Buffer.byteLength(body, "utf8") <= 40 * 1024);
 	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("all and named-branch scopes omit reverted paths that have no endpoint patch", () => {
+	const repo = createRepo();
+	try {
+		const main = git(repo, ["rev-parse", "main"]).trim();
+		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
+		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+		git(repo, ["checkout", "-qb", "feature"]);
+		writeFileSync(join(repo, "reverted.txt"), "temporary\n");
+		git(repo, ["add", "reverted.txt"]);
+		git(repo, ["commit", "-qm", "temporary change"]);
+		git(repo, ["rm", "-q", "reverted.txt"]);
+		git(repo, ["commit", "-qm", "revert temporary change"]);
+		writeFileSync(join(repo, "lasting.txt"), "lasting\n");
+		git(repo, ["add", "lasting.txt"]);
+		git(repo, ["commit", "-qm", "lasting change"]);
+
+		for (const scope of ["all", "feature"]) {
+			const output = runHelper(repo, scope);
+			assert.match(output, /scope_status:\s+ready/);
+			assert.deepEqual(changedFiles(output), ["lasting.txt"]);
+			assert.match(patchEvidence(output), /diff --git a\/lasting\.txt b\/lasting\.txt/);
+			assert.doesNotMatch(patchEvidence(output), /reverted\.txt/);
+		}
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("full SHA-256 commit IDs resolve as commit scope when supported by Git", (t) => {
+	const repo = mkdtempSync(join(tmpdir(), "review-range-sha256-"));
+	try {
+		try {
+			git(repo, ["init", "-q", "--object-format=sha256", "-b", "main"]);
+		} catch {
+			t.skip("local Git does not support git init --object-format=sha256");
+			return;
+		}
+		git(repo, ["config", "user.email", "test@example.com"]);
+		git(repo, ["config", "user.name", "Test"]);
+		writeFileSync(join(repo, "sha256.txt"), "sha256\n");
+		git(repo, ["add", "sha256.txt"]);
+		git(repo, ["commit", "-qm", "sha256 commit"]);
+		const commit = git(repo, ["rev-parse", "HEAD"]).trim();
+		assert.equal(commit.length, 64);
+
+		const output = runHelper(repo, commit);
+		assert.match(output, /strategy:\s+explicit-range/);
+		assert.match(output, new RegExp(`tip:\\s+${commit}`));
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["sha256.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("changed-file manifests preserve leading, trailing, and newline path bytes", () => {
+	const repo = createRepo();
+	try {
+		const paths = [" leading.txt", "trailing.txt ", "line\nbreak.txt"];
+		for (const path of paths) writeFileSync(join(repo, path), `${JSON.stringify(path)}\n`);
+		git(repo, ["add", "-A"]);
+
+		const output = runHelper(repo, "staged");
+		assert.match(output, /scope_status:\s+ready/);
+		assert.equal(outputField(output, "changed_files_count"), "3");
+		assert.deepEqual(changedFiles(output), [" leading.txt", "line\nbreak.txt", "trailing.txt "]);
+		for (const path of paths) assert.ok(changedFilesBody(output).includes(JSON.stringify(path)));
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("origin HEAD takes precedence over a stale local default branch", () => {
+	const repo = createRepo();
+	try {
+		const staleMain = git(repo, ["rev-parse", "main"]).trim();
+		git(repo, ["checkout", "-qb", "upstream"]);
+		writeFileSync(join(repo, "upstream.txt"), "upstream\n");
+		git(repo, ["add", "upstream.txt"]);
+		git(repo, ["commit", "-qm", "upstream change"]);
+		const remoteMain = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["update-ref", "refs/remotes/origin/main", remoteMain]);
+		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+		git(repo, ["checkout", "-qb", "feature"]);
+		writeFileSync(join(repo, "feature.txt"), "feature\n");
+		git(repo, ["add", "feature.txt"]);
+		git(repo, ["commit", "-qm", "feature change"]);
+
+		const output = runHelper(repo, "all");
+		assert.match(output, /default_branch:\s+origin\/main/);
+		assert.match(output, new RegExp(`base:\\s+${remoteMain}`));
+		assert.doesNotMatch(output, new RegExp(`base:\\s+${staleMain}`));
+		assert.deepEqual(changedFiles(output), ["feature.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("patch generation streams more than 1 MiB without losing tail evidence", () => {
+	const repo = createRepo();
+	try {
+		const tail = "TAIL-EVIDENCE-7d558768";
+		writeFileSync(join(repo, "large.txt"), `${"x".repeat(1024 * 1024 + 128 * 1024)}\n${tail}\n`);
+		git(repo, ["add", "large.txt"]);
+		git(repo, ["commit", "-qm", "large patch"]);
+
+		const output = runHelper(repo, "commit");
+		const patch = patchEvidence(output);
+		assert.match(output, /scope_status:\s+ready/);
+		assert.ok(Buffer.byteLength(patch) > 1024 * 1024);
+		assert.match(patch, new RegExp(tail));
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("patch generation failure makes scope invalid instead of ready", () => {
+	const repo = createRepo();
+	const bin = mkdtempSync(join(tmpdir(), "review-range-git-wrapper-"));
+	try {
+		writeFileSync(join(repo, "changed.txt"), "changed\n");
+		git(repo, ["add", "changed.txt"]);
+		git(repo, ["commit", "-qm", "changed"]);
+		const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
+		const wrapper = join(bin, "git");
+		writeFileSync(
+			wrapper,
+			`#!/bin/sh\ncase "$*" in\n  "diff --no-ext-diff --binary -U30"*) exit 2 ;;\nesac\nexec ${JSON.stringify(realGit)} "$@"\n`,
+		);
+		chmodSync(wrapper, 0o755);
+
+		const output = runHelper(repo, "commit", { env: { PATH: `${bin}:${process.env.PATH}` } });
+		assert.match(output, /scope_status:\s+invalid/);
+		assert.match(output, /note:\s+patch generation failed/i);
+	} finally {
+		rmSync(bin, { recursive: true, force: true });
 		rmSync(repo, { recursive: true, force: true });
 	}
 });

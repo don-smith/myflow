@@ -13,7 +13,9 @@ Execute only an accepted plan. The orchestrator works autonomously through every
 
 1. Run the resolver from the installed MyFlow package, not from the target checkout: `node <myflow-package-root>/skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`. Derive `<myflow-package-root>` from this loaded skill's absolute location (the directory above `skills/`); read the selected map when found.
 2. Read the accepted plan, `workstream.md`, linked design/specialist evidence, and `git status --short`.
-3. Confirm the plan is `ready`, identify the first incomplete phase, and record the resolver-selected map path in the implementation checkpoint.
+3. Confirm the plan is `ready`, identify the first incomplete phase or an authorized corrective phase, and record the resolver-selected map path in the implementation checkpoint.
+
+When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify.
 
 ## Per-phase delegation loop
 

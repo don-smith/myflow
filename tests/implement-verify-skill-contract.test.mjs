@@ -20,6 +20,23 @@ const assertRequiredExecuteNowClause = (document, target) => {
   );
 };
 
+const assertCorrectivePhaseContract = (document) => {
+  const clauses = document.split(/\n|(?<=[.!?])\s+/);
+  assert.ok(
+    clauses.some(
+      (clause) =>
+        /failed Verify/i.test(clause) &&
+        /all original phases are complete/i.test(clause) &&
+        /one bounded corrective phase/i.test(clause) &&
+        /linked findings/i.test(clause) &&
+        !/(?:do not|does not|must not|never|may|might|can|could|should|optionally)/i.test(clause),
+    ),
+    "expected a mandatory failed-Verify corrective-phase clause",
+  );
+  assert.match(document, /fresh-context implementation subagent[^.]*corrective phase/is);
+  assert.match(document, /corrective phase[^.]*commit[^.]*checkpoint[^.]*immediately[^.]*complete Verify/is);
+};
+
 test("Implement records resolver-aware phase checkpoints before Verify", async () => {
   const implement = await read("skills/implement/SKILL.md");
   for (const phrase of [
@@ -53,6 +70,33 @@ test("MyFlow skills resolve repository maps from their installed package", async
 
   assert.doesNotMatch(implement, /node skills\/myflow\/scripts\/resolve-repository-map\.mjs/);
   assert.match(implement, /installed MyFlow package/i);
+});
+
+test("failed Verify creates one bounded corrective phase after original phases complete", async () => {
+  const [implement, myflow, boundary] = await Promise.all([
+    read("skills/implement/SKILL.md"),
+    read("skills/myflow/SKILL.md"),
+    read("docs/artifact-and-stage-boundary-contract.md"),
+  ]);
+
+  for (const document of [implement, myflow, boundary]) assertCorrectivePhaseContract(document);
+});
+
+test("corrective-phase contract rejects token-preserving negation and advisory wording", async () => {
+  const implement = await read("skills/implement/SKILL.md");
+  assertCorrectivePhaseContract(implement);
+  const clause = implement
+    .split(/\n|(?<=[.!?])\s+/)
+    .find((candidate) => /failed Verify/i.test(candidate) && /one bounded corrective phase/i.test(candidate));
+  assert.ok(clause);
+
+  for (const mutantClause of [`Do not ${clause}`, `You may ${clause} when useful`]) {
+    const mutant = implement.replace(clause, mutantClause);
+    for (const token of ["failed Verify", "all original phases are complete", "one bounded corrective phase", "linked findings"]) {
+      assert.match(mutant, new RegExp(token, "i"));
+    }
+    assert.throws(() => assertCorrectivePhaseContract(mutant));
+  }
 });
 
 test("Implement enters Verify immediately in the same parent session", async () => {
@@ -139,6 +183,32 @@ test("Validate consumes workstream evidence and executes code review now", async
   assert.match(review, /resolve-repository-map\.mjs/);
   assert.match(review, /unavailable/i);
   assertRequiredExecuteNowClause(validate, /\.\.\/code-review\/SKILL\.md/i);
+});
+
+test("Validate maps review verdicts and frontmatter status deterministically", async () => {
+  const [validate, template] = await Promise.all([
+    read("skills/validate/SKILL.md"),
+    read("skills/validate/templates/validation.md"),
+  ]);
+
+  const assertMapping = (document) => {
+    assert.match(document, /confirmed P0\/P1[^.\n]*validation verdict[^.\n]*fail/i);
+    assert.match(document, /missing mandatory scope or evidence[^.\n]*unavailable lane[^.\n]*inconclusive verifier[^.\n]*validation verdict[^.\n]*blocked/i);
+    assert.match(document, /frontmatter status[^.\n]*ready[^.\n]*only[^.\n]*pass[^.\n]*blocked[^.\n]*fail[^.\n]*blocked/i);
+  };
+
+  for (const document of [validate, template]) {
+    assertMapping(document);
+    const mutants = [
+      document.replace(/confirmed P0\/P1([^.\n]*validation verdict[^.\n]*)fail/i, "confirmed P0/P1$1blocked"),
+      document.replace(
+        /missing mandatory scope or evidence([^.\n]*validation verdict[^.\n]*)blocked/i,
+        "missing mandatory scope or evidence$1fail",
+      ),
+      document.replace(/frontmatter status([^.\n]*)ready([^.\n]*)only([^.\n]*)pass/i, "frontmatter status$1blocked$2only$3pass"),
+    ];
+    for (const mutant of mutants) assert.throws(() => assertMapping(mutant));
+  }
 });
 
 test("Validate-to-code-review contract rejects negated and advisory-only execution clauses", async () => {

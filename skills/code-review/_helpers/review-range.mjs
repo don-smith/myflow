@@ -12,7 +12,7 @@
 //   working             — files with unstaged changes only (git diff)
 //   modified            — every tracked file differing from HEAD (git diff HEAD; staged + unstaged, no untracked)
 //   all                 — every current-branch change: committed since default base, staged, unstaged, and untracked
-//   <hash>              — single commit (~7+ hex chars)
+//   <hash>              — single SHA-1 or SHA-256 commit (abbreviated or full)
 //   <A>..<B>            — exact base..head range; A is verified ancestor of B, swapped if reversed
 //   empty-tree..<B>     — root-inclusive range through B
 //   <h1>,<h2>,<h3>      — commit list on one ancestry chain; includes the oldest named commit
@@ -21,7 +21,7 @@
 // Output (labeled key/value lines, then `---changed-files---` block):
 //
 //   default_branch: <name>|(unresolved)
-//   strategy:       first-parent|working-tree|explicit-range|unrecognised
+//   strategy:       branch-all|first-parent|working-tree|explicit-range|unrecognised
 //   oldest:         <hash>|(n/a)
 //   newest:         <hash>|(n/a)
 //   base:           <hash>|(n/a)
@@ -32,9 +32,9 @@
 //   scope_status:   ready|empty|invalid
 //   dirty_state:    clean|dirty
 //   changed_files_count: <N>
-//   note:           <reason>          (only when strategy=unrecognised)
+//   note:           <reason>          (when scope_status=invalid)
 //   ---changed-files---
-//   <deduplicated file list, capped at 2000 entries OR 40 KB whichever first>
+//   <deduplicated JSON-string path entries, capped at 2000 entries OR 40 KB whichever first>
 //
 // ChangedFiles cap: 2000 lines OR 40 KB. Footer `(... N more files truncated ...)`
 // when hit. Per R-1, helper output is sized for the Pi-bash-tool consumer; this
@@ -55,8 +55,8 @@
 //   - Always exit 0 (R-8) — unrecognised scope returns strategy=unrecognised with
 //     `note:` so the LLM can ask the user via ask_user_question rather than fail.
 
-import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { closeSync, openSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 
 const CHANGED_FILES_LINE_CAP = 2000;
@@ -97,11 +97,7 @@ const refExists = (ref) => {
 
 const resolveDefaultBranch = () => {
 	const remoteHead = safe(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
-	if (remoteHead) {
-		const localHead = remoteHead.replace(/^origin\//, "");
-		if (refExists(`refs/heads/${localHead}`)) return localHead;
-		if (refExists(remoteHead)) return remoteHead;
-	}
+	if (remoteHead && refExists(remoteHead)) return remoteHead;
 	if (refExists("refs/heads/main")) return "main";
 	if (refExists("refs/heads/master")) return "master";
 	return "(unresolved)";
@@ -113,25 +109,33 @@ const stripOuterQuotes = (s) =>
 		.replace(/['"]$/, "")
 		.trim();
 
-const dedupChangedFiles = (raw) => {
-	const seen = new Set();
-	const lines = raw.split("\n");
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (trimmed) seen.add(trimmed);
+let scopeFailure = "";
+
+const pathList = (args) => {
+	try {
+		const raw = execFileSync("git", args, {
+			encoding: "utf-8",
+			stdio: ["ignore", "pipe", "ignore"],
+		});
+		return raw.endsWith("\0") ? raw.slice(0, -1).split("\0") : raw ? raw.split("\0") : [];
+	} catch {
+		scopeFailure ||= "changed-file manifest generation failed";
+		return [];
 	}
-	return [...seen];
 };
+
+const dedupChangedFiles = (...lists) => [...new Set(lists.flat())];
+const renderPath = (path) => JSON.stringify(path);
 
 const formatChangedFiles = (files) => {
 	const included = [];
 	for (const file of files) {
 		if (included.length >= CHANGED_FILES_LINE_CAP) break;
-		const candidate = [...included, `${file}\n`];
+		const candidate = [...included, `${renderPath(file)}\n`];
 		const remaining = files.length - candidate.length;
 		const footer = remaining > 0 ? `(... ${remaining} more files truncated ...)\n` : "";
 		if (Buffer.byteLength(candidate.join("") + footer, "utf8") > CHANGED_FILES_BYTE_CAP) break;
-		included.push(`${file}\n`);
+		included.push(`${renderPath(file)}\n`);
 	}
 
 	let footer =
@@ -145,21 +149,6 @@ const formatChangedFiles = (files) => {
 	}
 	return included.join("") + footer;
 };
-
-const capture = (args) => {
-	try {
-		return execFileSync("git", args, {
-			encoding: "utf-8",
-			stdio: ["ignore", "pipe", "pipe"],
-		});
-	} catch (error) {
-		return typeof error?.stdout === "string" ? error.stdout : "";
-	}
-};
-
-const diff = (...args) => capture(["diff", "--no-ext-diff", "--binary", "-U30", ...args]);
-
-const patchSection = (label, patch) => (patch ? `# code-review: ${label}\n${patch}` : "");
 
 const result = {
 	default_branch: resolveDefaultBranch(),
@@ -215,7 +204,12 @@ const setWorkingTree = (oldest = "(n/a)", newest = "(n/a)") => {
 	result.fp_flag = "(empty)";
 };
 
-const isHexHash = (s) => /^[0-9a-f]{4,40}$/i.test(s);
+const objectFormat = safe(["rev-parse", "--show-object-format"]) || "sha1";
+const objectIdLength = objectFormat === "sha256" ? 64 : 40;
+const resolveCommitId = (candidate) => {
+	if (!new RegExp(`^[0-9a-f]{4,${objectIdLength}}$`, "i").test(candidate)) return "";
+	return safe(["rev-parse", "--verify", `${candidate}^{commit}`]);
+};
 
 if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || lower === "all")) {
 	result.strategy = "unrecognised";
@@ -269,8 +263,8 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 			result.newest = newest;
 		}
 	}
-} else if (isHexHash(scope) && refExists(scope)) {
-	const hash = safe(["rev-parse", scope]);
+} else if (resolveCommitId(scope)) {
+	const hash = resolveCommitId(scope);
 	const parent = safe(["rev-parse", `${hash}^`]) || emptyTree;
 	setExplicitRange(parent, hash);
 } else if (refExists(scope)) {
@@ -282,42 +276,30 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 	result.note = `scope spec not recognised: ${scope}`;
 }
 
-// ChangedFiles per strategy.
+// ChangedFiles per strategy. Committed manifests use the same endpoint diff as
+// their patch, so a path changed and restored before the tip is not advertised.
 if (result.strategy === "branch-all") {
-	// A complete branch review is a union of committed, cached, unstaged, and
-	// untracked names. Keep cached and unstaged separate: their net HEAD-to-
-	// worktree view can cancel even though both layers contain reviewable edits.
-	const committed = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
-	const cached = safe(["diff", "--cached", "--name-only"]);
-	const unstaged = safe(["diff", "--name-only"]);
-	const untracked = safe(["ls-files", "--others", "--exclude-standard"]);
-	result.changedFiles = dedupChangedFiles(`${committed}\n${cached}\n${unstaged}\n${untracked}`);
-} else if (result.strategy === "first-parent") {
-	const raw = safe(["log", result.range, "--first-parent", "--name-only", "--pretty=format:"]);
-	result.changedFiles = dedupChangedFiles(raw);
-} else if (result.strategy === "explicit-range") {
-	const raw = safe(["diff", "--name-only", result.range]);
-	result.changedFiles = dedupChangedFiles(raw);
+	// Keep cached and unstaged separate: their net HEAD-to-worktree view can
+	// cancel even though both layers contain reviewable edits.
+	const committed = pathList(["diff", "--name-only", "-z", result.range]);
+	const cached = pathList(["diff", "--cached", "--name-only", "-z"]);
+	const unstaged = pathList(["diff", "--name-only", "-z"]);
+	const untracked = pathList(["ls-files", "--others", "--exclude-standard", "-z"]);
+	result.changedFiles = dedupChangedFiles(committed, cached, unstaged, untracked);
+} else if (result.strategy === "first-parent" || result.strategy === "explicit-range") {
+	result.changedFiles = pathList(["diff", "--name-only", "-z", result.range]);
 } else if (result.strategy === "working-tree") {
 	if (lower === "staged") {
-		const raw = safe(["diff", "--cached", "--name-only"]);
-		result.changedFiles = dedupChangedFiles(raw);
+		result.changedFiles = pathList(["diff", "--cached", "--name-only", "-z"]);
 	} else if (lower === "modified") {
 		// modified: every tracked file that differs from HEAD (staged + unstaged,
-		// no untracked). Matches `git diff HEAD` semantics — what would be
-		// committed by `git add -u && git commit`.
-		const raw = safe(["diff", "HEAD", "--name-only"]);
-		result.changedFiles = dedupChangedFiles(raw);
+		// no untracked). Matches `git diff HEAD` semantics.
+		result.changedFiles = pathList(["diff", "HEAD", "--name-only", "-z"]);
 	} else {
-		// working: unstaged only (matches git's "working tree" definition and
-		// the skill's `git diff -U30` patch command — both exclude staged).
-		const raw = safe(["diff", "--name-only"]);
-		result.changedFiles = dedupChangedFiles(raw);
+		result.changedFiles = pathList(["diff", "--name-only", "-z"]);
 	}
 }
 
-const scopeStatus =
-	result.strategy === "unrecognised" ? "invalid" : result.changedFiles.length === 0 ? "empty" : "ready";
 const dirtyState = safe(["status", "--porcelain=v1", "--untracked-files=normal"]) ? "dirty" : "clean";
 
 // Worktree-safe tempfile location. In a git worktree (or submodule) `.git` is a
@@ -330,22 +312,49 @@ const patchPath = resolve(
 	safe(["rev-parse", "--git-path", "code-review-patch.diff"], ".git/code-review-patch.diff"),
 );
 
-let patch = "";
-if (result.strategy === "branch-all") {
-	patch += patchSection("committed changes", diff(result.range));
-	patch += patchSection("cached changes relative to HEAD", diff("--cached"));
-	patch += patchSection("unstaged changes relative to index", diff());
-	for (const file of dedupChangedFiles(safe(["ls-files", "--others", "--exclude-standard"]))) {
-		patch += patchSection(`untracked file ${file}`, diff("--no-index", "--", "/dev/null", file));
+let patchFd;
+try {
+	patchFd = openSync(patchPath, "w");
+	const writeLabel = (label) => writeSync(patchFd, `# code-review: ${label}\n`);
+	const streamDiff = (args, acceptedStatuses = [0]) => {
+		const child = spawnSync("git", ["diff", "--no-ext-diff", "--binary", "-U30", ...args], {
+			stdio: ["ignore", patchFd, "ignore"],
+		});
+		if (child.error || !acceptedStatuses.includes(child.status)) {
+			scopeFailure = "patch generation failed";
+		}
+	};
+
+	if (result.strategy === "branch-all") {
+		writeLabel("committed changes");
+		streamDiff([result.range]);
+		writeLabel("cached changes relative to HEAD");
+		streamDiff(["--cached"]);
+		writeLabel("unstaged changes relative to index");
+		streamDiff([]);
+		for (const file of pathList(["ls-files", "--others", "--exclude-standard", "-z"])) {
+			writeLabel(`untracked file ${renderPath(file)}`);
+			streamDiff(["--no-index", "--", "/dev/null", file], [0, 1]);
+		}
+	} else if (result.strategy === "first-parent" || result.strategy === "explicit-range") {
+		streamDiff([result.range]);
+	} else if (result.strategy === "working-tree") {
+		if (lower === "staged") streamDiff(["--cached"]);
+		else if (lower === "modified") streamDiff(["HEAD"]);
+		else streamDiff([]);
 	}
-} else if (result.strategy === "first-parent" || result.strategy === "explicit-range") {
-	patch = diff(result.range);
-} else if (result.strategy === "working-tree") {
-	if (lower === "staged") patch = diff("--cached");
-	else if (lower === "modified") patch = diff("HEAD");
-	else patch = diff();
+} catch {
+	scopeFailure = "patch generation failed";
+} finally {
+	if (patchFd !== undefined) closeSync(patchFd);
 }
-writeFileSync(patchPath, patch, "utf8");
+
+const scopeStatus =
+	result.strategy === "unrecognised" || scopeFailure
+		? "invalid"
+		: result.changedFiles.length === 0
+			? "empty"
+			: "ready";
 
 const lines = [
 	`default_branch: ${result.default_branch}`,
@@ -361,8 +370,8 @@ const lines = [
 	`dirty_state:    ${dirtyState}`,
 	`changed_files_count: ${result.changedFiles.length}`,
 ];
-if (result.strategy === "unrecognised" && result.note) {
-	lines.push(`note:           ${result.note}`);
+if (scopeFailure || result.note) {
+	lines.push(`note:           ${scopeFailure || result.note}`);
 }
 lines.push("---changed-files---");
 process.stdout.write(`${lines.join("\n")}\n${formatChangedFiles(result.changedFiles)}`);

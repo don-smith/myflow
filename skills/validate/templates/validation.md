@@ -2,7 +2,7 @@
 kind: myflow-validation
 workstream: {workstream-id}
 stage: Verify
-status: ready
+status: {ready for pass; blocked for fail or blocked}
 created_at: {iso_timestamp}
 updated_at: {iso_timestamp}
 repository_map: {resolved repository-map path from resolve-repository-map.mjs}
@@ -11,6 +11,8 @@ implementation_checkpoint: {checkpoint path or plan state}
 ---
 
 # Validation: {workstream title}
+
+Apply this mapping exactly: confirmed P0/P1 produces validation verdict `fail`; missing mandatory scope or evidence, unavailable lane, or inconclusive verifier produces validation verdict `blocked`. Frontmatter status is `ready` only for `pass` and `blocked` for `fail` or `blocked`.
 
 ## Verdict
 

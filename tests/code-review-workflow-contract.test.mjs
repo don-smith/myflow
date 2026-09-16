@@ -5,7 +5,11 @@ import test from "node:test";
 const read = (path) => readFile(path, "utf8");
 
 const assertSubstantiveLaneContract = (skill) => {
-  assert.match(skill, /Launch exactly three required fresh-context reviewers in parallel:/i);
+  assertPositiveContract(
+    skill,
+    /Launch exactly three required fresh-context reviewers in parallel:/i,
+    /(?:do not|does not|must not|never) Launch exactly three required fresh-context reviewers in parallel:/i,
+  );
   assert.match(skill, /Each lane must return its own evidence from the supplied scope/i);
   assert.match(skill, /Do not accept a pass verdict, checklist, or unsupported assurance as lane evidence/i);
   assert.match(
@@ -55,6 +59,19 @@ const assertIndependentVerificationContract = (document) => {
     document,
     /(?:send|require)[^.\n]*P0\/P1[^.\n]*independent verification/i,
     /(?:do not|does not|must not|never) (?:send|require)[^.\n]*P0\/P1[^.\n]*independent verification/i,
+  );
+};
+
+const assertDeterministicReviewGate = (document) => {
+  assertPositiveContract(
+    document,
+    /confirmed P0\/P1[^.;\n]*(?:produces|→|is)[^.;\n]*fail/i,
+    /confirmed P0\/P1[^.;\n]*(?:produces|→|is)[^.;\n]*blocked/i,
+  );
+  assertPositiveContract(
+    document,
+    /(?:missing mandatory (?:scope or )?evidence|incomplete scope)[^.;\n]*(?:unavailable|required fresh review unavailable|inconclusive)[^.;\n]*(?:produces|→|is|make)[^.;\n]*blocked/i,
+    /(?:missing mandatory (?:scope or )?evidence|incomplete scope)[^.;\n]*(?:unavailable|required fresh review unavailable|inconclusive)[^.;\n]*(?:produces|→|is|make)[^.;\n]*fail/i,
   );
 };
 
@@ -128,6 +145,10 @@ test("review contract rejects negated, advisory, rubber-stamped, and incomplete 
     skill.replace(
       "Launch exactly three required fresh-context reviewers in parallel:",
       "You may skip a review lane and launch fresh-context reviewers when useful:",
+    ),
+    skill.replace(
+      "Launch exactly three required fresh-context reviewers in parallel:",
+      "Do not Launch exactly three required fresh-context reviewers in parallel:",
     ),
     skill.replace(
       "Each lane must return its own evidence from the supplied scope.",
@@ -239,6 +260,27 @@ test("review skill and template use sentence-case headings without em dashes", a
   assert.doesNotMatch(skill, /—/);
   assert.doesNotMatch(template, /—/);
   assert.doesNotMatch(template, /^## (?:Provenance and Scope|Lane Evidence|Retained Findings|Finding Verification|Review Verdict)$/m);
+});
+
+test("review fail and blocked outcomes cannot be swapped or weakened", async () => {
+  const documents = await Promise.all([
+    read("skills/code-review/SKILL.md"),
+    read("skills/code-review/templates/review.md"),
+  ]);
+
+  for (const document of documents) {
+    assertDeterministicReviewGate(document);
+    const swappedFail = document.replace(/confirmed P0\/P1([^.;\n]*)(?:fail)/i, "confirmed P0/P1$1blocked");
+    const swappedBlocked = document.replace(
+      /((?:missing mandatory (?:scope or )?evidence|incomplete scope)[^.;\n]*(?:unavailable|required fresh review unavailable|inconclusive)[^.;\n]*)(?:blocked)/i,
+      "$1fail",
+    );
+    for (const mutant of [swappedFail, swappedBlocked]) {
+      assert.match(mutant, /confirmed P0\/P1/i);
+      assert.match(mutant, /blocked/i);
+      assert.throws(() => assertDeterministicReviewGate(mutant));
+    }
+  }
 });
 
 test("review gate and durable artifact are explicit", async () => {

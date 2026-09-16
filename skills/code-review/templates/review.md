@@ -76,5 +76,5 @@ Falsified claims are dropped from retained findings. Inconclusive P0/P1 claims b
 - Confirmed P1: {N}
 - Retained P2: {N}; does not block
 - Missing mandatory evidence: {none or list}
-- Gate basis: {confirmed P0/P1 fail; missing mandatory evidence blocks; otherwise pass}
+- Gate basis: confirmed P0/P1 produces `fail`; missing mandatory evidence, incomplete scope, required fresh review unavailable, or inconclusive verification produces `blocked`; otherwise `pass`.
 - Validation report link: `{path to report, or pending path for Validate to fill}`
