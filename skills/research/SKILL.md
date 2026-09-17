@@ -12,7 +12,7 @@ Research is an optional specialist, not a mandatory workflow stage. Use it when 
 
 1. Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder, read its selected map when found, then read `workstream.md` and the supplied upstream artifact fully.
 2. Extract the workstream ID, research question, and decision it informs. Ask for a focused question if the input does not state one.
-3. Resolve the workstream root from the map (default `.myflow/workstreams`).
+3. Resolve the workstream root: the map when it names one, otherwise the `workstreams` directory the artifact-store resolver reports as `workstreamRoot`.
 4. Follow the repository's mapped instruction, secret-handling, and telemetry policy. Do not send sensitive source, credentials, or repository identifiers to external tools without approval.
 
 ## Investigation

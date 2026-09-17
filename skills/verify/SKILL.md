@@ -13,15 +13,19 @@ Verify execution against the supplied accepted plan. This is Stage 4; it consume
 1. Require a plan path, or locate the authoritative plan from the current `workstream.md`; do not search legacy flat artifact directories.
 2. Run the resolver from the installed MyFlow package: `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, resolving the script path relative to this installed `skills/verify/SKILL.md`. Read its selected map when found.
 3. Read the plan, `workstream.md`, implementation checkpoint/phase commits, linked design evidence, and current Git state. Record the resolved map path.
-4. Derive the report path as `<workstream-root>/<workstream-id>/verify/<timestamp>_<topic>.md` (normally `.myflow/workstreams/<workstream-id>/verify/`) and a separate review-artifact path in the same directory.
+4. Derive the report path as `<workstream-root>/<workstream-id>/verify/<timestamp>_<topic>.md` and a separate review-artifact path in the same directory.
 
-## Lifecycle entry and deferred Implement pulse
+## Stage boundary
 
-Use `node ../myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values; never write lifecycle JSONL directly. Record `stage-entered --stage Verify --activity verification` on entry.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-Before substantive Verify work, inspect lifecycle feedback coverage. If the completed Implement attempt is pending, show its one deferred question using the exact four choices in the shared stage checkpoint. Record `feedback-requested` with `--attempt-id <implement-attempt-id>`, then call `node ../myflow/scripts/record-stage-feedback.mjs` for that same Implement attempt. Record the result with `feedback-recorded --attempt-id <implement-attempt-id>` and only the returned status and private reference. Structured interaction is preferred and plain-text is the fallback. A feedback failure does not block verification or the stage transition; leave pending coverage visible and continue.
+- On entry: `enter --stage Verify --activity verification --workstream <workstream-id>`. Its receipt reports pending Implement feedback. Ask that one deferred question before substantive Verify work, then rerun the same `enter` with `--feedback <answer>` to record it against the Implement attempt. Feedback failure does not block verification or the stage transition; leave pending coverage visible and continue.
+- Switching to review: `enter --activity review`, which completes the verification activity.
+- When the validation report and the linked review artifact are accepted: `accept --artifact <path>` for each.
+- Before leaving Verify: ask the stage question, then `exit --feedback <answer>`. Use `--terminal-reason superseded` when evidence sends the work back instead of forward.
+- For a correction: `return`. Verify records `--event closed` after a passing re-verification.
 
-After deferred feedback, record `activity-entered --stage Verify --activity verification`. Switch to review by completing that activity, then recording `activity-entered --activity review`; complete every open activity before stage completion. Use `stage-blocked` and `stage-unblocked` for real blockers.
+Record `verification-completed` with its actual status, and any real wait with `stage-blocked` and `stage-unblocked`, through `node ../myflow/scripts/lifecycle-journal.mjs`. Read `../myflow/references/stage-boundary.md` for the question wording and choices, the deferral rule, and what happens when a step fails. Preserve prior attempts, accepted artifacts, and review reports as history.
 
 ## Verify
 
@@ -33,25 +37,9 @@ After deferred feedback, record `activity-entered --stage Verify --activity veri
 - Prepare a manual-verification brief only when the plan names human-facing, external, or otherwise non-automatable checks. Mark it `not required` otherwise.
 - Write one complete report using `templates/validation.md`: verdict, criterion coverage, automated evidence, linked review evidence, deviations, manual-verification brief, explicit exclusions, and owner-correct next action.
 
-## Lifecycle completion and corrections
-
-Record the Verify report with `artifact-accepted`, then record `verification-completed` with its actual status. After a passing re-verification, record `return-closed` for the active correction episode. Run the private Verify stage pulse once, complete the open activity, and use `stage-completed --terminal-reason advanced` only for a Close-ready result. Feedback failure remains non-blocking.
-
-When evidence requires correction, record `return-opened` before `stage-completed --terminal-reason superseded`. Keep trigger source separate from ownership: outcome or acceptance routes to Scope/scope, architecture to Plan/design, an incorrect plan to Plan/planning, and an implementation defect to Implement/phase. Use `return-rerouted` if evidence changes that owner. Preserve prior attempts, accepted artifacts, and review reports as history. The owner records `return-owner-ready`; the first downstream stage records `return-resumed`.
-
 ## Corrective loops
 
 An implementation defect returns to Implement. An incorrect or unexecutable plan returns to Plan. A changed architectural decision returns to Design. A changed outcome/acceptance criterion returns to Scope. Record the correction owner and re-run downstream verification after it is corrected.
-
-## Lifecycle boundary, pending feedback, and private stage pulse
-
-Use `node ../myflow/scripts/lifecycle-journal.mjs` for every real state change, always with a stable `--idempotency-key`; never write lifecycle JSONL directly. On Verify entry, record `stage-entered --stage Verify --activity verification`. Record real waits with `stage-blocked` and `stage-unblocked`. After the validation report and linked review artifact are accepted, record `artifact-accepted`, `verification-completed`, and `activity-completed`.
-
-If a correction is needed, the detecting stage owns `return-opened`. Verify records a discovered defect with `return-opened` then `return-rerouted` when ownership shifts. An implementation defect routes to Implement/phase; an incorrect or unexecutable plan routes to Plan/planning; a changed architectural decision routes to Plan/design; a changed outcome or acceptance criterion routes to Scope/scope. When Verify re-enters after owner readiness, record `return-resumed`. When the re-verified attempt passes, record `return-closed`.
-
-Request pending Implement feedback before substantive Verify work. Run the four-choice stage pulse from the shared stage checkpoint exactly once for the closed Implement attempt. This is the deferred request the Implement lifecycle documented. Record `feedback-requested` when the question is shown, then send only the status and its private reference through `feedback-recorded`. If live interaction is unavailable, record status pending and proceed. Feedback failure does not block verification or the stage transition.
-
-After the validation verdict is ready, run the private stage pulse for the current Verify attempt. Write the response through `node ../myflow/scripts/record-stage-feedback.mjs`, then send only `recorded`, `skipped`, or `pending` and the private reference through `lifecycle-journal.mjs feedback-recorded`. The rating and note never enter the journal. Feedback failure does not block `stage-completed --terminal-reason advanced`. Preserve earlier attempts and accepted artifacts as history.
 
 ## Completion
 

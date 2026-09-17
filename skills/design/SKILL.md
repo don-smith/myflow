@@ -13,7 +13,7 @@ A design artifact records the chosen solution shape and its consequences. It doe
 ## Input and preconditions
 
 1. Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder, read its selected map when `found`, and record the resolved path. Then read the workstream's `workstream.md` and the supplied alignment/research artifact fully.
-2. Confirm the artifact's workstream ID and resolve the workstream root from the map (default `.myflow/workstreams`).
+2. Confirm the artifact's workstream ID and resolve the workstream root: the map when it names one, otherwise the `workstreams` directory the artifact-store resolver reports as `workstreamRoot`.
 3. If Scope selected `lightweight` work and no material architectural question remains, do not manufacture a design artifact. State the locked/localized design disposition for Plan and hand on to the `plan` skill with `<alignment-path>`.
 4. If the input lacks a workstream, acceptance criteria, or a question that needs architecture, return to Scope rather than guessing.
 
@@ -39,11 +39,16 @@ A design artifact records the chosen solution shape and its consequences. It doe
    The `plan` skill with <design-artifact-path>
    ```
 
-## Lifecycle boundary
+## Stage boundary
 
-Use `node ../myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values. Never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity design`; then record `activity-entered --stage Plan --activity design`. A resumed design activity in the same Plan attempt does not create another stage attempt.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key and syncs the workstream; never write lifecycle JSONL directly.
 
-After the developer accepts the design, record `artifact-accepted` and `activity-completed`. Planning owns the later Plan completion and stage pulse. Record a real wait with `stage-blocked` and `stage-unblocked`. On a correction owned by Design, keep earlier attempts and accepted artifacts as history, record `return-owner-ready` when the architecture is ready, and let downstream planning record `return-resumed`. If Design proves that the outcome changed, use `return-rerouted` to Scope rather than changing ownership silently.
+- On entry: `enter --stage Plan --activity design --workstream <workstream-id>`. A resumed design activity in the same Plan attempt does not create another stage attempt.
+- When the developer accepts the design: `accept --artifact <path>`.
+- Design does not exit the Plan stage. Planning owns `exit` and the stage question; entering the planning activity completes the design activity.
+- When Design owns a correction: `return`, with `--event owner-ready` when the architecture is ready. If Design proves the outcome changed, reroute to Scope rather than changing ownership silently.
+
+Read `../myflow/references/stage-boundary.md` for the question wording and choices, the correction options, and what happens when a step fails. Keep earlier attempts and accepted artifacts as history.
 
 ## Record the decision when it qualifies
 

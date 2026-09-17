@@ -28,13 +28,16 @@ Take that fresh context the way `../myflow/references/capabilities.md` describes
 3. Consume that completion summary, then immediately launch the fresh-context child for the next incomplete phase. Do not stop for a progress report, confirmation, or context re-reading between green phases.
 4. The phase child fixes an implementation defect within its approved phase. If it finds the plan unexecutable/incorrect, return to Plan; if architecture or outcome changed, return to Design or Scope. Record the reason and do not conceal a correction as a completed phase.
 
-## Lifecycle boundary and deferred feedback
+## Stage boundary
 
-Use `node ../myflow/scripts/lifecycle-journal.mjs` for every real state change, always with a stable `--idempotency-key`; never write lifecycle JSONL directly. On Implement entry, record `stage-entered --stage Implement --activity phase`. Around each plan phase, record `activity-entered` and `activity-completed`; record accepted checkpoint artifacts with `artifact-accepted`. Use `stage-blocked` and `stage-unblocked` for real blockers. Preserve completed attempts, phase commits, and accepted artifacts as history.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-If a defect routes work back, the detecting stage owns `return-opened`; Implement records `return-owner-ready` only after the corrective phase is green. A changed plan or architecture uses `return-rerouted` to the canonical owner. When downstream execution resumes after owner readiness, record `return-resumed` at the first affected stage.
+- On entry and at the start of every phase: `enter --stage Implement --activity phase --workstream <workstream-id> --label <phase>`. The first call opens the attempt; each later call completes the previous phase's activity and opens the next.
+- For an accepted checkpoint artifact: `accept --artifact <path>`.
+- After the last phase: `exit --feedback pending`. Implement runs without live developer interaction, so it shows no question and records coverage as pending; Verify asks it once at entry. When live interaction is already available, pass the developer's answer instead.
+- When a correction routes work back: `return`. The detecting stage opens the episode; Implement records `--event owner-ready` only after the corrective phase is green.
 
-After the last phase activity completes, handle the private stage pulse before `stage-completed --terminal-reason advanced`. When Implement ends without live developer interaction, run `record-stage-feedback.mjs` with `--status pending --host-capability none`, then send only status pending and its private reference through `lifecycle-journal.mjs feedback-recorded`. Do not show a question during autonomous execution. Verify asks once at entry. If live interaction is already available, use the shared four-choice pulse instead. Feedback failure does not block the stage transition or entry to Verify.
+Read `../myflow/references/stage-boundary.md` for the deferral rule, the question wording and choices, and what happens when a step fails: feedback failure never blocks the stage transition or entry to Verify. Preserve completed attempts, phase commits, and accepted artifacts as history.
 
 ## Enter Verify automatically
 
@@ -42,7 +45,7 @@ After the final green phase commit, update `workstream.md` to make the accepted 
 
 Invoking the `verify` skill by hand with the accepted-plan path is recovery/rehydration only, for a new session resuming an interrupted transition. It is not the normal Implement-to-Verify gate.
 
-Verify writes its report under `<workstream-root>/workstreams/<workstream-id>/verify/` when the mapped workstream root is not already the repository root (normally `.myflow/workstreams/<workstream-id>/verify/`). It owns validation, linked review evidence, and the conditional manual-verification brief. Do not create the final closeout commit in Implement.
+Verify writes its report under `<workstream-root>/workstreams/<workstream-id>/verify/` when the mapped workstream root is not already the repository root. It owns validation, linked review evidence, and the conditional manual-verification brief. Do not create the final closeout commit in Implement.
 
 ## Guardrails
 

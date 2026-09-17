@@ -13,7 +13,7 @@ Plan is collaborative. Do not edit product source code.
 ## Input and preconditions
 
 1. Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder, read its selected map when `found`, and record the resolved path. Then read `workstream.md` and the supplied alignment or design artifact fully.
-2. Follow the artifact's workstream ID and resolve the workstream root from the map (default `.myflow/workstreams`).
+2. Follow the artifact's workstream ID and resolve the workstream root: the map when it names one, otherwise the `workstreams` directory the artifact-store resolver reports as `workstreamRoot`.
 3. Read all linked specialist artifacts whose findings affect decisions, phase boundaries, or verification.
 4. Stop and return to Scope when intent, acceptance criteria, non-goals, or risk classification changed. Stop and return to Design when a material architectural choice remains unresolved.
 
@@ -60,13 +60,16 @@ If Plan discovers that a supposedly lightweight change needs a new seam, public 
 
 9. Present the plan and ask for acceptance. Only an accepted, `ready` plan authorizes autonomous implementation.
 
-## Lifecycle boundary
+## Stage boundary
 
-Use `node ../myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values; never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity planning`. Record `activity-entered --stage Plan --activity planning` before planning work. Record real waits with `stage-blocked` and `stage-unblocked`.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-When the developer accepts the ready plan, record `artifact-accepted`, `activity-completed`, and `return-owner-ready` when this Plan attempt owns an active correction. Run the private stage pulse from the shared stage checkpoint once for the attempt. Feedback failure does not block `stage-completed --terminal-reason advanced`. Preserve all earlier attempts and accepted artifacts as history.
+- Before planning work: `enter --stage Plan --activity planning --workstream <workstream-id>`. This opens the Plan attempt when design did not, and completes an open design activity.
+- When the developer accepts the ready plan: `accept --artifact <path>`.
+- Before leaving Plan: ask the stage question, then `exit --feedback <answer>`.
+- When planning detects that architecture or outcome ownership changed: `return`, before completing the current attempt. Record `--event owner-ready` when this Plan attempt owns an active correction.
 
-If planning detects that architecture or outcome ownership changed, record `return-opened` or `return-rerouted` before completing the current attempt. Architecture routes to Plan/design; outcome or acceptance routes to Scope/scope; an unexecutable plan remains Plan/planning; implementation defects route to Implement/phase. Downstream entry records `return-resumed` after owner readiness.
+Read `../myflow/references/stage-boundary.md` for the question wording and choices, the correction options, and what happens when a step fails. Preserve all earlier attempts and accepted artifacts as history.
 
 ## Review and correction
 

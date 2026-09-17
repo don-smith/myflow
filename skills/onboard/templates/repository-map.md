@@ -51,7 +51,7 @@ This is a compact index of repository-specific workflow knowledge. Linked source
 
 - Resolved repository-map path: `{absolute path selected by resolve-repository-map.mjs}`
 - Repository map storage: `{repository-local | personal global origin identity | personal global common-Git-dir identity | explicit override}`
-- Workstream artifact root: `{path | default .myflow/workstreams}`
+- Workstream artifact root: `{path | the workstreamRoot the artifact-store resolver reports}`
 - Workstream ID convention: `{branch-derived slug | ticket ID | other | unknown}`
 - Branch/worktree policy: `{policy, including whether Scope may offer an isolated worktree | unknown}`
 - Artifact tracking / retention policy: `{policy | unknown}`

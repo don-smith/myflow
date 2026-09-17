@@ -46,7 +46,7 @@ test("Implement records resolver-aware phase checkpoints before Verify", async (
     "automated evidence",
     "outstanding manual verification",
     "next phase",
-    "workstreams/<workstream-id>/verify/",
+    "<workstream-id>/verify/",
   ]) {
     assert.match(implement, new RegExp(phrase, "i"));
   }
@@ -58,14 +58,16 @@ test("Implement defers its non-blocking feedback pulse to Verify entry", async (
     read("skills/verify/SKILL.md"),
   ]);
 
-  assert.match(implement, /record-stage-feedback\.mjs/);
-  assert.match(implement, /status pending/i);
+  assert.match(implement, /stage-boundary\.mjs/);
+  assert.match(implement, /exit --feedback pending/);
+  assert.match(implement, /coverage as pending/i);
   assert.match(implement, /without live (?:developer )?interaction/i);
   assert.match(verify, /pending Implement feedback/i);
   assert.match(verify, /before substantive[^.\n]*Verify/i);
-  assert.match(verify, /feedback-requested/i);
-  assert.match(verify, /feedback-recorded/i);
+  assert.match(verify, /rerun the same `enter` with `--feedback <answer>`/);
   assert.match(verify, /feedback failure[^.\n]*(?:does not|must not)[^.\n]*(?:stage transition|verification)/i);
+  // The wording, choices, and failure rules are stated once, in the reference both skills cite.
+  for (const document of [implement, verify]) assert.match(document, /references\/stage-boundary\.md/);
 });
 
 test("Implement delegates every phase through a fresh context", async () => {
@@ -162,7 +164,7 @@ test("Verify consumes workstream evidence and executes code review now", async (
   for (const phrase of [
     "resolve-repository-map.mjs",
     "workstream.md",
-    "workstreams/<workstream-id>/verify/",
+    "<workstream-id>/verify/",
     "../code-review/SKILL.md",
     "relative to this installed",
     "read",

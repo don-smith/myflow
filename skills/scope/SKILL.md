@@ -20,7 +20,7 @@ For non-trivial work, Scope creates or updates:
   scope/<timestamp>_<topic>.md
 ```
 
-The default workstream root is `.myflow/workstreams`; the resolver-selected repository map may provide a repository-specific root and branch/worktree policy.
+The workstream root is the `workstreams` directory the artifact-store resolver reports as `workstreamRoot`; the resolver-selected repository map may provide a repository-specific root and branch/worktree policy.
 
 A truly trivial, uninterrupted change may remain in conversation. It is not resumable. If it expands or pauses, create a lightweight plan before continuing.
 
@@ -125,16 +125,16 @@ For a non-trivial workstream:
 
 The alignment artifact must include: intent, desired outcome, non-goals, acceptance criteria, optional Flow Item type, risk level/triggers, classification, selected depth, decisions/provenance, open questions, selected specialists, and suggested next action.
 
-## Lifecycle boundary
+## Stage boundary
 
-Use `node ../myflow/scripts/lifecycle-journal.mjs` with a stable `--idempotency-key` for every mutation. Never write lifecycle JSONL directly.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-- After creating `workstream.md`, record `workstream-created`, then `stage-entered --stage Scope --activity scope`. Keep both receipts.
-- Record each selected research or prototype interval with `activity-entered` and `activity-completed`. Record a real wait with `stage-blocked` and its resumption with `stage-unblocked`.
-- When the developer accepts the alignment artifact, record `artifact-accepted`, then complete any open activity. Run the private stage pulse from the shared stage checkpoint. After feedback succeeds, send only its status and private reference through `feedback-recorded`. Feedback failure does not block `stage-completed --terminal-reason advanced`.
-- On a returned Scope attempt, preserve prior attempts and artifacts. Record `return-owner-ready` only when the outcome and acceptance criteria are ready for downstream work.
+- After creating `workstream.md`: `enter --stage Scope --activity scope --workstream <workstream-id>`. The first entry creates the workstream. Enter a selected research or prototype interval the same way, with `--activity research` or `--activity prototype`.
+- When the developer accepts the alignment artifact: `accept --artifact <path>`.
+- Before leaving Scope: ask the stage question, then `exit --feedback <answer>`.
+- When Scope owns a correction that downstream work has already started: `return`. Record `return --event owner-ready` only when the outcome and acceptance criteria are ready for downstream work.
 
-If Scope detects a correction while downstream work has already begun, use `return-opened` or `return-rerouted` with the existing owner rules. Outcome or acceptance changes belong to Scope/scope; architecture belongs to Plan/design; a bad plan belongs to Plan/planning; implementation defects belong to Implement/phase.
+Read `../myflow/references/stage-boundary.md` for the question wording and choices, the correction options, and what happens when a step fails. Preserve earlier attempts and accepted artifacts as history.
 
 ## 7. Present the handoff
 

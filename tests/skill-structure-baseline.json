@@ -2,15 +2,6 @@
   "rule1-frontmatter": [],
   "rule2-references": [],
   "rule3-skill-references": [],
-  "rule4-agent-syntax": [
-    "skills/close/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/design/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/implement/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/onboard/templates/repository-map.md: agent-specific syntax: .myflow/workstreams",
-    "skills/plan/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/research/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/scope/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/verify/SKILL.md: agent-specific syntax: .myflow/workstreams"
-  ],
+  "rule4-agent-syntax": [],
   "rule5-core-set": []
 }

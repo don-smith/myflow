@@ -18,7 +18,7 @@ export const HOST_CAPABILITIES = Object.freeze(["structured", "plain-text", "non
 
 // The skill that governs each canonical stage. Records written before the Verify
 // skill was renamed name `validate` here; they are history and stay readable.
-const SKILL_BY_STAGE = Object.freeze({
+export const SKILL_BY_STAGE = Object.freeze({
   Scope: "scope",
   Plan: "plan",
   Implement: "implement",
