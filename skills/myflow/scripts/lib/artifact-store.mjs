@@ -27,7 +27,6 @@ export const STORE_GITIGNORE = `# MyFlow artifact store: ignore everything, then
 !*/
 !/.gitignore
 !/README.md
-!/repos/**
 !/repositories/*/*/*/repository-map.md
 !/repositories/*/*/*/onboarding/**
 !/repositories/*/*/*/workstreams/**
@@ -45,7 +44,7 @@ export const STORE_GITIGNORE = `# MyFlow artifact store: ignore everything, then
 const STORE_README = `# MyFlow artifact store
 
 Managed by \`myflow artifacts\`. Workstream artifacts, repository maps,
-onboarding records, legacy artifacts, and \`repos/\` are synced. Machine
+onboarding records, and legacy artifacts are synced. Machine
 configuration (\`config/\`) and raw observations stay on this machine.
 
 Keep any remote for this store private: artifacts can contain code excerpts
@@ -82,7 +81,6 @@ export function isAllowlistedStorePath(relativePath) {
     return false;
   }
   if (segments.length === 1) return segments[0] === ".gitignore" || segments[0] === "README.md";
-  if (segments[0] === "repos") return true;
   if (segments[0] !== "repositories") return false;
   const identityLength = segments[1] === "local" ? 2 : 3;
   const rest = segments.slice(1 + identityLength);
@@ -361,7 +359,7 @@ async function listDirectories(path) {
 /** Every allowlisted top-level target present in the store folder. */
 async function allowlistedRoots(home) {
   const roots = [];
-  for (const name of [".gitignore", "README.md", "repos"]) if (existsSync(join(home, name))) roots.push(name);
+  for (const name of [".gitignore", "README.md"]) if (existsSync(join(home, name))) roots.push(name);
   const repositories = join(home, "repositories");
   const identities = [];
   for (const host of await listDirectories(repositories)) {

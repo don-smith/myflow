@@ -141,7 +141,7 @@ test("raw observations are refused while workstream feedback syncs", async () =>
   assert.equal(isAllowlistedStorePath(`${prefix}/alpha/feedback/events.jsonl`), true);
   assert.equal(isAllowlistedStorePath("repositories/local/abc/workstreams/alpha/scope/a.md"), true);
   assert.equal(isAllowlistedStorePath(`repositories/${IDENTITY.join("/")}/repository-map.md`), true);
-  assert.equal(isAllowlistedStorePath("repos/memory.md"), true);
+  assert.equal(isAllowlistedStorePath("repos/memory.md"), false);
   assert.equal(isAllowlistedStorePath(`repositories/${IDENTITY.join("/")}/observations/alpha/raw.jsonl`), false);
   assert.equal(isAllowlistedStorePath("config/myflow.json"), false);
   assert.equal(isAllowlistedStorePath(`${prefix}/alpha/../../observations/x`), false);
@@ -405,10 +405,11 @@ test("a global install with no configuration behaves as home without a remote", 
 
 test("init archives a foreign store Git directory before adopting the folder", async () => {
   const context = await fixture({ remote: false });
-  await mkdir(join(context.home, "repos"), { recursive: true });
-  await writeFile(join(context.home, "repos", "memory.md"), "memory\n");
+  const legacyArtifacts = `repositories/${IDENTITY.join("/")}/legacy-artifacts`;
+  await mkdir(join(context.home, legacyArtifacts), { recursive: true });
+  await writeFile(join(context.home, legacyArtifacts, "memory.md"), "memory\n");
   await git(context.home, context.env, "init", "--quiet", "-b", "main");
-  await git(context.home, context.env, "add", "repos/memory.md");
+  await git(context.home, context.env, "add", `${legacyArtifacts}/memory.md`);
   await git(context.home, context.env, "commit", "--quiet", "-m", "safety net");
 
   const result = await init({
@@ -422,7 +423,7 @@ test("init archives a foreign store Git directory before adopting the folder", a
   await stat(result.archivedGit);
   assert.equal(await git(context.home, context.env, "config", "--get", "myflow.store"), "true");
   assert.equal((await git(context.home, context.env, "log", "--format=%s")).includes("safety net"), false);
-  assert.ok((await git(context.home, context.env, "ls-tree", "-r", "--name-only", "main")).split("\n").includes("repos/memory.md"));
+  assert.ok((await git(context.home, context.env, "ls-tree", "-r", "--name-only", "main")).split("\n").includes(`${legacyArtifacts}/memory.md`));
 
   // Adopting again is idempotent and does not archive the MyFlow store.
   const again = await init({ cwd: context.repo, env: context.env, location: "home", remote: null });

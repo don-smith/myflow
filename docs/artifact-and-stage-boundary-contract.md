@@ -59,7 +59,7 @@ Artifact location and backup are each developer's choice, stored in `<MYFLOW_HOM
 
 Without configuration, the location follows the running install: scripts invoked from inside the current Git repository select `checkout`, and scripts installed anywhere else select `home` with no remote. The invoked path is judged before symlinks are resolved. When the configured home is not writable, for example in a sandboxed agent, the resolver falls back to `checkout` and reports `storeFallback: true`; run `myflow artifacts import` later from an environment that can write the store.
 
-Only allowlisted paths are ever committed to the home store: `repos/`, and per repository `repository-map.md`, `onboarding/`, `workstreams/`, and `legacy-artifacts/`. `config/` and raw `observations/` stay on the machine. The store's `.gitignore` and the sync command both enforce this.
+Only allowlisted paths are ever committed to the home store: per repository `repository-map.md`, `onboarding/`, `workstreams/`, and `legacy-artifacts/`. `config/` and raw `observations/` stay on the machine. The store's `.gitignore` and the sync command both enforce this.
 
 | Command | Behaviour |
 |---|---|
