@@ -70,6 +70,7 @@ export const ALLOWED_FRONTMATTER_KEYS = [
 /** Syntax that binds a skill to one agent. */
 const AGENT_SYNTAX_PATTERNS = [
   { label: "/skill:", pattern: /\/skill:/ },
+  { label: "/myflow:", pattern: /\/myflow:/ },
   { label: "${SKILL_DIR}", pattern: /\$\{SKILL_DIR\}/ },
   { label: "${CLAUDE_", pattern: /\$\{CLAUDE_/ },
   { label: "shell-injection fence", pattern: /^```!/m },
@@ -82,11 +83,34 @@ const AGENT_SYNTAX_PATTERNS = [
 ];
 
 /**
- * The one documented exception to rule 4: the `myflow` router carries a table of every
- * supported agent's invocation syntax, so a skill's prose never has to. Nothing else may
- * name a host's own syntax, and the exemption is per file and per label.
+ * Rule 4 forbids a skill instructing in one host's syntax. A table keyed by agent is the
+ * opposite: it maps every supported host, which is what lets the prose stay host-neutral.
+ * Such a table is host-neutral by construction, so its rows are not scanned — in any skill,
+ * with no file named here. Prose, code, and any other table remain subject to the rule.
  */
-const AGENT_SYNTAX_EXEMPTIONS = new Map([["skills/myflow/SKILL.md", new Set(["/skill:"])]]);
+const agentKeyedTableRows = (document) => {
+  const lines = document.split("\n");
+  const rows = [];
+  let inTable = false;
+  for (const line of lines) {
+    const isRow = /^\s*\|/.test(line);
+    if (!isRow) {
+      inTable = false;
+      continue;
+    }
+    if (!inTable) inTable = /^\s*\|\s*(agent|host)\b/i.test(line);
+    if (inTable) rows.push(line);
+  }
+  return rows;
+};
+
+const withoutAgentKeyedTables = (document) => {
+  const excluded = new Set(agentKeyedTableRows(document));
+  return document
+    .split("\n")
+    .map((line) => (excluded.has(line) ? "" : line))
+    .join("\n");
+};
 
 const RULES = {
   frontmatter: "rule1-frontmatter",
@@ -321,10 +345,9 @@ export async function lintSkillTree(root, options = {}) {
 
       const spans = inlineCodeSpans(document);
 
-      const exempt = AGENT_SYNTAX_EXEMPTIONS.get(filePath);
+      const instructional = withoutAgentKeyedTables(document);
       for (const { label, pattern } of AGENT_SYNTAX_PATTERNS) {
-        if (exempt?.has(label)) continue;
-        if (pattern.test(document)) add(RULES.agentSyntax, filePath, `agent-specific syntax: ${label}`);
+        if (pattern.test(instructional)) add(RULES.agentSyntax, filePath, `agent-specific syntax: ${label}`);
       }
 
       const tokens = [
@@ -459,6 +482,42 @@ test("a violation introduced into a scratch copy of the tree makes the lint fail
   ]) {
     assert.ok(after.has(expected), `lint must report: ${expected}`);
   }
+});
+
+test("host syntax is a violation in prose and documentation in an agent-keyed table", async (t) => {
+  const scratch = await mkdtemp(join(tmpdir(), "myflow-skill-structure-"));
+  t.after(() => rm(scratch, { recursive: true, force: true }));
+  await cp(cleanFixture, scratch, { recursive: true });
+
+  const options = { core: ["clean-stage", "clean-support"], parked: ["parked-example"] };
+  const stage = join(scratch, "skills", "clean-stage", "SKILL.md");
+  const original = await readFile(stage, "utf8");
+
+  const table = [
+    "\n## Invoking a skill\n",
+    "| Agent | Invocation |",
+    "|---|---|",
+    "| Claude Code | `/myflow:<skill>` |",
+    "| Pi | `/skill:<skill>` |",
+    "",
+  ].join("\n");
+
+  await writeFile(stage, original.concat(table));
+  const documented = await lintSkillTree(scratch, options);
+  assert.deepEqual(
+    documented.filter((violation) => violation.rule === RULES.agentSyntax),
+    [],
+    "a table mapping every host names no single host's syntax",
+  );
+
+  await writeFile(stage, original.concat("\n## Next\n\nRun `/myflow:plan` to continue.\n"));
+  const instructed = new Set(
+    (await lintSkillTree(scratch, options)).map((violation) => `${violation.rule}: ${violation.key}`),
+  );
+  assert.ok(
+    instructed.has("rule4-agent-syntax: skills/clean-stage/SKILL.md: agent-specific syntax: /myflow:"),
+    "instructing in one host's syntax stays a violation, including the host the developer runs",
+  );
 });
 
 test("a missing core skill and a retired skill reference are reported", async (t) => {
