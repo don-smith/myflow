@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
+
+import { myflowHome, repositoryStoreDirectory } from "./myflow-home.mjs";
 
 function git(cwd, arguments_) {
   return execFileSync("git", arguments_, {
@@ -79,14 +80,16 @@ export function resolveRepositoryContext(cwd) {
   };
 }
 
-export function globalRepositoryMapPath(identity, home = homedir()) {
-  if (identity.kind === "origin") {
-    return join(home, ".myflow", "repositories", ...identity.value.split("/"), "repository-map.md");
-  }
-  return join(home, ".myflow", "repositories", "local", identity.value, "repository-map.md");
+/**
+ * `home` is an explicit user home directory whose `.myflow` holds the map.
+ * Without it, the MyFlow home (`MYFLOW_HOME`, default `~/.myflow`) is used.
+ */
+export function globalRepositoryMapPath(identity, home) {
+  const storeHome = home === undefined ? myflowHome() : join(home, ".myflow");
+  return join(repositoryStoreDirectory(identity, storeHome), "repository-map.md");
 }
 
-export function preferredGlobalRepositoryTarget(context, home = homedir()) {
+export function preferredGlobalRepositoryTarget(context, home) {
   const source = context.identity.kind === "origin" ? "origin" : "common-git-dir";
   return {
     source,

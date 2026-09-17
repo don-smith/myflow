@@ -65,7 +65,7 @@ test("feedback contract is exact, private, once per attempt, and non-blocking", 
   assert.match(contract, /structured[^.\n]*preferred/i);
   assert.match(contract, /plain-text[^.\n]*fallback/i);
   assert.match(contract, /non-blocking|must not block/i);
-  assert.match(contract, /personal observation tree/i);
+  assert.match(contract, /workstream's `feedback\/` folder/i);
   assert.match(contract, /rating[^.\n]*note[^.\n]*never[^.\n]*journal/i);
   assert.match(contract, /package[^.\n]*version/i);
   assert.match(contract, /Git commit/i);

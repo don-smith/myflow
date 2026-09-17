@@ -14,9 +14,9 @@ Use the shipped resolver from the Git root before reading or writing repository 
 node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>
 ```
 
-It emits only JSON metadata (`found`, `source`, `mapPath`, and a normalized identity); it never reads map contents, prints the original remote URL, or sends telemetry. An explicit map override (`--map <path>`) is the exception path and wins over all normal discovery. Without an override, lookup order is: an existing repository-local `.myflow/repository-map.md`; an existing personal global map for normalized `origin` (`~/.myflow/repositories/<host>/<owner>/<repo>/repository-map.md`); then, only when `origin` is absent, an existing personal global map keyed by the SHA-256 of the absolute common Git directory at `~/.myflow/repositories/local/<sha256-common-git-dir>/repository-map.md`. Personal observation state uses the resolver's preferred global `target` identity even when a repository-local map takes policy precedence.
+It emits only JSON metadata (`found`, `source`, `mapPath`, a normalized identity, and for `discover` the artifact store fields `workstreamRoot`, `storeMode`, and `storeFallback`); it never reads map contents, prints the original remote URL, or sends telemetry. An explicit map override (`--map <path>`) is the exception path and wins over all normal discovery. Without an override, lookup order is: an existing repository-local `.myflow/repository-map.md`; an existing personal global map for normalized `origin` (`<MYFLOW_HOME>/repositories/<host>/<owner>/<repo>/repository-map.md`, where `MYFLOW_HOME` defaults to `~/.myflow`); then, only when `origin` is absent, an existing personal global map keyed by the SHA-256 of the absolute common Git directory at `<MYFLOW_HOME>/repositories/local/<sha256-common-git-dir>/repository-map.md`. Personal observation state uses the resolver's preferred global `target` identity even when a repository-local map takes policy precedence.
 
-A missing result is explicit, not an invitation to invent policy. `onboard` uses `target` to obtain the preferred writable global target. A malformed origin and a non-Git directory return machine-readable diagnostics; do not fall back silently from a malformed origin. Existing repository-local maps remain supported and authoritative; no legacy map or flat artifact is bulk-migrated. Personal maps, onboarding records, and private observations are global. Active delivery workstream artifacts remain local to the current worktree.
+A missing result is explicit, not an invitation to invent policy. `onboard` uses `target` to obtain the preferred writable global target. A malformed origin and a non-Git directory return machine-readable diagnostics; do not fall back silently from a malformed origin. Existing repository-local maps remain supported and authoritative; no legacy map or flat artifact is bulk-migrated. Personal maps, onboarding records, and private observations are global. Workstream artifacts live in the resolved workstream root described under [Artifact store](#artifact-store).
 
 ## Principles
 
@@ -34,16 +34,42 @@ MyFlow separates repository-level knowledge from workstream evidence. A **workst
 |---|---|---|
 | Repository map | Resolver-selected local `.myflow/repository-map.md` or personal global `~/.myflow/repositories/<identity>/repository-map.md` | Local policy wins; global policy is personal knowledge |
 | Onboarding run / evaluation | Beside the selected global map: `onboarding/runs/`, `onboarding/evaluations/`; local maps follow mapped policy | Repository-level discovery history and feedback |
-| Observation state and reports | Preferred personal global repository target: `~/.myflow/repositories/<identity>/observations/<workstream-id>/` | Private third-party evidence and curated flow reports; never written to the target worktree |
-| Workstream manifest | `.myflow/workstreams/<workstream-id>/workstream.md` | Workstream index and current-state projection |
-| Authoritative lifecycle journal | `.myflow/workstreams/<workstream-id>/lifecycle/events.jsonl` | Append-only workflow transitions, attempts, and correction episodes |
-| Scope alignment | `.myflow/workstreams/<workstream-id>/scope/` | Workstream record |
-| Specialist research | `.myflow/workstreams/<workstream-id>/research/` | Supporting evidence, when used |
-| Standalone design | `.myflow/workstreams/<workstream-id>/design/` | Architectural decisions and slices, when needed |
-| Executable plan | `.myflow/workstreams/<workstream-id>/plan/` | Implementation authority |
-| Validation report | `.myflow/workstreams/<workstream-id>/verify/` | Verification evidence |
-| Closeout summary, when needed | `.myflow/workstreams/<workstream-id>/close/` | Delivery and continuity record |
-| Exceptional handoff | `.myflow/workstreams/<workstream-id>/handoffs/` | Temporary bookmark |
+| Observation state and reports | Preferred personal global repository target: `<MYFLOW_HOME>/repositories/<identity>/observations/<workstream-id>/` | Private third-party evidence and curated flow reports; never written to the target worktree |
+| Workstream manifest | `<workstream-root>/<workstream-id>/workstream.md` | Workstream index and current-state projection |
+| Authoritative lifecycle journal | `<workstream-root>/<workstream-id>/lifecycle/events.jsonl` | Append-only workflow transitions, attempts, and correction episodes |
+| Stage feedback | `<workstream-root>/<workstream-id>/feedback/events.jsonl` | Private stage ratings and notes; synced with the workstream, never written to the journal |
+| Scope alignment | `<workstream-root>/<workstream-id>/scope/` | Workstream record |
+| Specialist research | `<workstream-root>/<workstream-id>/research/` | Supporting evidence, when used |
+| Standalone design | `<workstream-root>/<workstream-id>/design/` | Architectural decisions and slices, when needed |
+| Executable plan | `<workstream-root>/<workstream-id>/plan/` | Implementation authority |
+| Validation report | `<workstream-root>/<workstream-id>/verify/` | Verification evidence |
+| Closeout summary, when needed | `<workstream-root>/<workstream-id>/close/` | Delivery and continuity record |
+| Exceptional handoff | `<workstream-root>/<workstream-id>/handoffs/` | Temporary bookmark |
+
+`<workstream-root>` is the resolver's `workstreamRoot`. Paths inside a workstream's artifacts are relative to its workstream directory, so they stay valid in either store mode.
+
+### Artifact store
+
+Artifact location and backup are each developer's choice, stored in `<MYFLOW_HOME>/config/myflow.json` under `artifacts.location` (`home` or `checkout`) and `artifacts.remote` (a Git URL the developer owns, or `none`). MyFlow never names a particular artifact repository.
+
+| Store mode | `workstreamRoot` | Notes |
+|---|---|---|
+| `home` | `<MYFLOW_HOME>/repositories/<identity>/workstreams` | The MyFlow home is a Git repository, with or without a remote. A main checkout and its worktrees share one identity, so they share one root, and removing a worktree loses nothing. |
+| `checkout` | `<git-root>/.myflow/workstreams` | Each workstream is `.myflow/workstreams/<workstream-id>/` in the current worktree. MyFlow writes `.myflow/workstreams/.gitignore` containing `*`, so artifacts never enter the product repository and a committed `.myflow/repository-map.md` stays visible. |
+
+Without configuration, the location follows the running install: scripts invoked from inside the current Git repository select `checkout`, and scripts installed anywhere else select `home` with no remote. The invoked path is judged before symlinks are resolved. When the configured home is not writable, for example in a sandboxed agent, the resolver falls back to `checkout` and reports `storeFallback: true`; run `myflow artifacts import` later from an environment that can write the store.
+
+Only allowlisted paths are ever committed to the home store: `repos/`, and per repository `repository-map.md`, `onboarding/`, `workstreams/`, and `legacy-artifacts/`. `config/` and raw `observations/` stay on the machine. The store's `.gitignore` and the sync command both enforce this.
+
+| Command | Behaviour |
+|---|---|
+| `myflow artifacts init [--location home\|checkout] [--remote <url>\|--no-remote]` | Writes the configuration. For `home`, creates or adopts the store, archiving a foreign `.git` to `<MYFLOW_HOME>-safety-net-git-<date>.tgz`, restores remote content, and commits (and pushes) the allowlisted content. Warns when a GitHub remote is public. |
+| `myflow artifacts sync --workstream <id>` \| `--all` \| `--path <store-path>` | Builds a commit in a private temporary index on the remote head from one workstream (or each local workstream, or explicit allowlisted paths), including deletions, then pushes with retry. Never touches the store's working directory or other workstreams. Without a remote it commits locally; in `checkout` mode it does nothing. Warns when the remote changed the same workstream since this machine's last sync (last push wins). |
+| `myflow artifacts import [--workstream <id>]` | Moves checkout workstreams into the home store and removes each checkout copy only after its commit, and push when a remote exists, succeed. |
+| `myflow artifacts pull` | Restores remote files missing locally. Never overwrites or deletes a local file. |
+| `myflow artifacts status` | Reports the store mode, unsynced workstreams, and checkout workstreams that still need `import`. |
+
+Run these as `myflow artifacts <command>` after installing the package, or `node skills/myflow/scripts/cli.mjs artifacts <command>` from a MyFlow checkout. Every command accepts `--cwd <directory>` and prints one JSON object. Keep any artifact remote private.
 
 Use `<timestamp>_<topic-kebab>.md` for run-specific artifacts unless the repository map specifies another convention. Link related artifacts rather than copying their contents.
 
@@ -57,7 +83,7 @@ Onboarding remains outside a workstream because it may happen before an ID exist
 
 The authoritative lifecycle journal uses `myflow-lifecycle/v1`. `workstream.md` is its current-state projection, while stage artifacts remain authoritative for decisions and detailed evidence. Lifecycle writes do not depend on Pi or Langfuse.
 
-Every workstream mutation goes through `skills/myflow/scripts/lifecycle-journal.mjs`. Skills pass semantic arguments to a mutation subcommand. They must not assemble or edit event JSON. The writer resolves canonical repository identity, validates the transition and any repository-relative artifact reference, calculates artifact digests and stable IDs, links the prior event, acquires an append lock, and returns a receipt. An idempotent retry returns the original receipt. A retry that changes historical content fails. The writer removes an incomplete crash tail before a new append, but rejects malformed complete records and broken event chains.
+Every workstream mutation goes through `skills/myflow/scripts/lifecycle-journal.mjs`. Skills pass semantic arguments to a mutation subcommand. They must not assemble or edit event JSON. The writer resolves canonical repository identity, validates the transition and any artifact reference relative to the repository root or, by default, the workstream directory, calculates artifact digests and stable IDs, links the prior event, acquires an append lock, and returns a receipt. An idempotent retry returns the original receipt. A retry that changes historical content fails. The writer removes an incomplete crash tail before a new append, but rejects malformed complete records and broken event chains.
 
 The journal records five canonical stages: `Scope`, `Plan`, `Implement`, `Verify`, and `Close`. Supporting activity names are `scope`, `research`, `prototype`, `design`, `planning`, `phase`, `verification`, `review`, `closeout`, and `other`. A canonical stage attempt starts at `stage.entered`, has a stable stage-local ordinal, and ends with `advanced`, `superseded`, `abandoned`, or `workstream-closed`. Supporting activities, blocks, session changes, and same-stage revisions do not create another canonical stage attempt. Overlapping open attempts are illegal.
 
@@ -69,7 +95,7 @@ The reducer reports three separate counters:
 - `stageReturnCount` counts backward edges between canonical stages, including reroutes.
 - `activityReturnCount` counts same-stage backward edges, such as planning returning to design.
 
-Use `node skills/myflow/scripts/lifecycle-journal.mjs validate --workstream-id <id> --repository-root <git-root>` to validate a journal and inspect its reduced state. Validation detects schema errors, illegal transitions, broken links, and incomplete crash tails without mutating the journal.
+The journal path defaults to `<workstream-root>/<workstream-id>/lifecycle/events.jsonl`; `--journal <path>` overrides it. Use `node skills/myflow/scripts/lifecycle-journal.mjs validate --workstream-id <id> --repository-root <git-root>` to validate a journal and inspect its reduced state. Validation detects schema errors, illegal transitions, broken links, and incomplete crash tails without mutating the journal.
 
 ### Existing artifacts and retention
 

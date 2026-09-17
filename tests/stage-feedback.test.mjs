@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -28,7 +28,7 @@ async function records(path) {
 function options(root, suffix, overrides = {}) {
   return {
     repositoryRoot,
-    stateRoot: root,
+    workstreamRoot: root,
     workstreamId: "feedback-test",
     attemptId: `attempt_${suffix}`,
     attemptOrdinal: 1,
@@ -53,17 +53,17 @@ test("records each accepted rating and an optional one-sentence note privately",
   for (const [index, [rating, note]] of cases.entries()) {
     const receipt = await recordStageFeedback(options(root, index, { rating, ...(note ? { note } : {}) }));
     assert.equal(receipt.status, "recorded");
-    assert.match(receipt.privateRef, /^stage-feedback\/events\.jsonl#feedback_/);
+    assert.match(receipt.privateRef, /^feedback\/events\.jsonl#feedback_/);
     assert.deepEqual(Object.keys(receipt.journalFields).sort(), ["feedbackStatus", "privateRef"]);
     assert.equal(receipt.journalFields.feedbackStatus, "recorded");
     assert.equal("rating" in receipt.journalFields, false);
     assert.equal("note" in receipt.journalFields, false);
   }
 
-  const saved = await records(join(root, "feedback-test", "stage-feedback", "events.jsonl"));
+  const saved = await records(join(root, "feedback-test", "feedback", "events.jsonl"));
   assert.deepEqual(saved.map(({ rating }) => rating), cases.map(([rating]) => rating));
   assert.deepEqual(saved.map(({ note }) => note), cases.map(([, note]) => note));
-  assert.equal((await stat(join(root, "feedback-test", "stage-feedback", "events.jsonl"))).mode & 0o777, 0o600);
+  assert.equal((await stat(join(root, "feedback-test", "feedback", "events.jsonl"))).mode & 0o777, 0o600);
 });
 
 test("keeps skipped and pending autonomous Implement feedback distinct", async () => {
@@ -82,7 +82,7 @@ test("keeps skipped and pending autonomous Implement feedback distinct", async (
 
   assert.equal(skipped.journalFields.feedbackStatus, "skipped");
   assert.equal(pending.journalFields.feedbackStatus, "pending");
-  const saved = await records(join(root, "feedback-test", "stage-feedback", "events.jsonl"));
+  const saved = await records(join(root, "feedback-test", "feedback", "events.jsonl"));
   assert.equal(saved[0].rating, undefined);
   assert.equal(saved[1].rating, undefined);
   assert.equal(saved[1].context.hostCapability, "none");
@@ -106,12 +106,17 @@ test("captures plain-text fallback and versioned attempt context", async () => {
   assert.match(saved.context.myflowGitCommit, /^[a-f0-9]{40}$|^unavailable$/);
 });
 
-test("resolves the private store under the personal repository tree", async () => {
+test("resolves feedback into the configured home store's workstream, never the checkout", async () => {
   const home = await stateRoot();
-  const receipt = await recordStageFeedback(options(undefined, "private-path", { home }));
+  await mkdir(join(home, "config"), { recursive: true });
+  await writeFile(join(home, "config", "myflow.json"), JSON.stringify({ artifacts: { location: "home", remote: "none" } }));
+  const receipt = await recordStageFeedback(options(undefined, "private-path", {
+    workstreamRoot: undefined,
+    env: { ...process.env, MYFLOW_HOME: home },
+  }));
 
-  assert.equal(receipt.path.startsWith(join(home, ".myflow", "repositories")), true);
-  assert.match(receipt.path, /observations\/feedback-test\/stage-feedback\/events\.jsonl$/);
+  assert.equal(receipt.path.startsWith(join(home, "repositories")), true);
+  assert.match(receipt.path, /workstreams\/feedback-test\/feedback\/events\.jsonl$/);
   assert.equal(receipt.path.startsWith(repositoryRoot), false);
 });
 

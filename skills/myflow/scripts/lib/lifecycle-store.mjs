@@ -63,20 +63,29 @@ export async function readLifecycleJournal(journalPath, { allowCrashTail = false
   return parsed;
 }
 
-async function artifactReference(repositoryRoot, artifactPath) {
+/**
+ * Resolve an artifact path relative to the repository root, then relative to
+ * each additional root (the workstream directory when it lives outside the
+ * checkout). The path must stay inside the root it resolved against.
+ */
+async function artifactReference(repositoryRoot, artifactPath, artifactRoots = []) {
   assertRepositoryRelativePath(artifactPath);
-  const canonicalRoot = await realpath(repositoryRoot);
-  const absolutePath = resolve(canonicalRoot, artifactPath);
   let canonicalArtifact;
-  try {
-    canonicalArtifact = await realpath(absolutePath);
-  } catch (error) {
-    if (error.code === "ENOENT") throw new Error(`artifact does not exist: ${artifactPath}`);
-    throw error;
+  for (const root of [repositoryRoot, ...artifactRoots]) {
+    let canonicalRoot;
+    try {
+      canonicalRoot = await realpath(root);
+      canonicalArtifact = await realpath(resolve(canonicalRoot, artifactPath));
+    } catch (error) {
+      if (error.code === "ENOENT") continue;
+      throw error;
+    }
+    if (canonicalArtifact !== canonicalRoot && !canonicalArtifact.startsWith(`${canonicalRoot}${sep}`)) {
+      throw new Error("artifact path must remain inside the repository root");
+    }
+    break;
   }
-  if (canonicalArtifact !== canonicalRoot && !canonicalArtifact.startsWith(`${canonicalRoot}${sep}`)) {
-    throw new Error("artifact path must remain inside the repository root");
-  }
+  if (!canonicalArtifact) throw new Error(`artifact does not exist: ${artifactPath}`);
   const artifactStat = await stat(canonicalArtifact);
   if (!artifactStat.isFile()) throw new Error(`artifact is not a file: ${artifactPath}`);
   const contents = await readFile(canonicalArtifact);
@@ -91,6 +100,7 @@ async function buildEvent(input, state, previousEventId, existing) {
     journalPath,
     repositoryRoot,
     artifactPath,
+    artifactRoots,
     lockOptions,
     targetAttemptId,
     ...semanticInput
@@ -106,7 +116,7 @@ async function buildEvent(input, state, previousEventId, existing) {
     attemptOrdinal: existing.attemptOrdinal,
   } : eventAttemptMetadata(state, { ...event, targetAttemptId }));
   event.eventId = lifecycleEventId(event);
-  if (artifactPath !== undefined) event.artifactRef = await artifactReference(repositoryRoot, artifactPath);
+  if (artifactPath !== undefined) event.artifactRef = await artifactReference(repositoryRoot, artifactPath, artifactRoots);
   return event;
 }
 

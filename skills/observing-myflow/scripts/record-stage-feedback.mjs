@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { LIFECYCLE_SCHEMA_VERSION, canonicalJson } from "../../myflow/scripts/lib/lifecycle-contract.mjs";
+import { resolveWorkstreamRoot } from "../../myflow/scripts/lib/artifact-store.mjs";
 import { resolveRepositoryContext } from "../../myflow/scripts/lib/repository-context.mjs";
 import { appendPrivateRecord } from "./lib/private-store.mjs";
 
@@ -99,6 +100,12 @@ export async function recordStageFeedback(options) {
   validateFeedback(options);
   const repositoryRoot = resolve(options.repositoryRoot ?? process.cwd());
   const repository = resolveRepositoryContext(repositoryRoot).identity;
+  // Feedback lives with the workstream (`<workstreamRoot>/<id>/feedback/`) in
+  // every store mode, so it syncs with the rest of the workstream.
+  const workstreamRoot = resolve(
+    options.workstreamRoot ??
+      resolveWorkstreamRoot(repositoryRoot, { env: options.env, invokedPath: options.invokedPath }).workstreamRoot,
+  );
   const context = await packageContext(resolve(options.packageRoot ?? defaultPackageRoot), options.canonicalStage);
   context.hostCapability = options.hostCapability;
   const recordId = `feedback_${hash({
@@ -124,10 +131,9 @@ export async function recordStageFeedback(options) {
   };
   const stored = await appendPrivateRecord({
     repositoryRoot,
-    stateRoot: options.stateRoot,
-    home: options.home,
+    stateRoot: workstreamRoot,
     workstreamId: options.workstreamId,
-    category: "stage-feedback",
+    category: "feedback",
     record,
     validateExisting(existing) {
       const final = existing.find(
@@ -156,7 +162,7 @@ export async function recordStageFeedback(options) {
 
 const OPTION_NAMES = new Map([
   ["--repository-root", "repositoryRoot"],
-  ["--state-root", "stateRoot"],
+  ["--workstream-root", "workstreamRoot"],
   ["--workstream-id", "workstreamId"],
   ["--attempt-id", "attemptId"],
   ["--attempt-ordinal", "attemptOrdinal"],
@@ -169,7 +175,7 @@ const OPTION_NAMES = new Map([
   ["--idempotency-key", "idempotencyKey"],
 ]);
 
-const usage = `usage: record-stage-feedback.mjs --workstream-id <id> --attempt-id <id> --attempt-ordinal <n> --stage <stage> --status <recorded|skipped|pending> --host-capability <structured|plain-text|none> --source <skill> --idempotency-key <key> [--rating <smooth|some-friction|rough>] [--note <sentence>]`;
+const usage = `usage: record-stage-feedback.mjs --workstream-id <id> --attempt-id <id> --attempt-ordinal <n> --stage <stage> --status <recorded|skipped|pending> --host-capability <structured|plain-text|none> --source <skill> --idempotency-key <key> [--workstream-root <path>] [--rating <smooth|some-friction|rough>] [--note <sentence>]`;
 
 function parseArguments(arguments_) {
   const options = {};
@@ -185,7 +191,7 @@ function parseArguments(arguments_) {
 
 async function main() {
   try {
-    const receipt = await recordStageFeedback(parseArguments(process.argv.slice(2)));
+    const receipt = await recordStageFeedback({ ...parseArguments(process.argv.slice(2)), invokedPath: process.argv[1] });
     process.stdout.write(`${JSON.stringify(receipt)}\n`);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);

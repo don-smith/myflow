@@ -2,6 +2,7 @@
 
 import { resolve, join } from "node:path";
 
+import { resolveWorkstreamRoot } from "./lib/artifact-store.mjs";
 import { resolveRepositoryContext } from "./lib/repository-context.mjs";
 import {
   appendLifecycleEvent,
@@ -106,10 +107,13 @@ async function main() {
   try {
     options = parseArguments(process.argv.slice(2));
     const repositoryRoot = resolve(options.repositoryRoot ?? process.cwd());
-    const journalPath = resolve(
-      options.journalPath ??
-        join(repositoryRoot, ".myflow", "workstreams", options.workstreamId, "lifecycle", "events.jsonl"),
-    );
+    const workstreamDirectory = options.journalPath
+      ? undefined
+      : join(
+        resolveWorkstreamRoot(repositoryRoot, { invokedPath: process.argv[1] }).workstreamRoot,
+        options.workstreamId,
+      );
+    const journalPath = resolve(options.journalPath ?? join(workstreamDirectory, "lifecycle", "events.jsonl"));
 
     if (options.command === "validate") {
       const result = await validateLifecycleJournal(journalPath);
@@ -137,6 +141,7 @@ async function main() {
       ...eventOptions,
       journalPath,
       repositoryRoot: repositoryContext.root,
+      ...(workstreamDirectory ? { artifactRoots: [workstreamDirectory] } : {}),
       repository: repositoryContext.identity,
       kind: COMMANDS[command],
       ...(executionRef ? { executionRef } : {}),

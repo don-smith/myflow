@@ -29,7 +29,8 @@ async function createRepository({ remote } = {}) {
 async function run(mode, cwd, { map, home } = {}) {
   const args = [resolver.pathname, mode, "--cwd", cwd];
   if (map) args.push("--map", map);
-  const environment = { ...process.env, HOME: home ?? join(cwd, "home") };
+  const userHome = home ?? join(cwd, "home");
+  const environment = { ...process.env, HOME: userHome, MYFLOW_HOME: join(userHome, ".myflow") };
 
   try {
     const { stdout } = await execFile(process.execPath, args, { env: environment });
@@ -38,6 +39,12 @@ async function run(mode, cwd, { map, home } = {}) {
     return JSON.parse(error.stdout);
   }
 }
+
+const storeFields = (home, identity) => ({
+  workstreamRoot: join(home, ".myflow", "repositories", ...identity.split("/"), "workstreams"),
+  storeMode: "home",
+  storeFallback: false,
+});
 
 const globalMap = (home, identity) =>
   join(home, ".myflow", "repositories", ...identity.split("/"), "repository-map.md");
@@ -57,6 +64,7 @@ test("discover prefers an existing repository-local map", async () => {
     mapPath: localMap,
     identity: { kind: "origin", value: "github.com/don-smith/myflow" },
     reason: "existing repository-local map takes precedence",
+    ...storeFields(join(cwd, "home"), "github.com/don-smith/myflow"),
   });
 });
 
@@ -108,6 +116,7 @@ test("discover reports a missing origin-derived map without creating it", async 
     mapPath: globalMap(home, "github.com/acme/widgets"),
     identity: { kind: "origin", value: "github.com/acme/widgets" },
     reason: "no repository map exists at the preferred global target",
+    ...storeFields(home, "github.com/acme/widgets"),
   });
 });
 
@@ -123,6 +132,7 @@ test("an explicit map override is selected whether or not it exists", async () =
     mapPath: override,
     identity: { kind: "override", value: override },
     reason: "explicit map override does not exist",
+    ...storeFields(join(cwd, "home"), "github.com/acme/widgets"),
   });
 
   await mkdir(join(cwd, "custom"), { recursive: true });
@@ -156,6 +166,9 @@ test("no-origin repositories use a stable hash of the common Git directory", asy
     mapPath: expected,
     identity: { kind: "common-git-dir-sha256", value: hash },
     reason: "no repository map exists at the preferred global target",
+    workstreamRoot: join(home, ".myflow", "repositories", "local", hash, "workstreams"),
+    storeMode: "home",
+    storeFallback: false,
   });
 
   await mkdir(join(expected, ".."), { recursive: true });
@@ -170,7 +183,7 @@ test("resolver CLI output remains byte-compatible", async () => {
   const home = await mkdtemp(join(tmpdir(), "myflow-map-home-"));
   const cwd = await createRepository({ remote: "https://github.com/acme/widgets.git" });
   const { stdout } = await execFile(process.execPath, [resolver.pathname, "discover", "--cwd", cwd], {
-    env: { ...process.env, HOME: home },
+    env: { ...process.env, HOME: home, MYFLOW_HOME: join(home, ".myflow") },
   });
   const expected = {
     mode: "discover",
@@ -179,6 +192,7 @@ test("resolver CLI output remains byte-compatible", async () => {
     mapPath: globalMap(home, "github.com/acme/widgets"),
     identity: { kind: "origin", value: "github.com/acme/widgets" },
     reason: "no repository map exists at the preferred global target",
+    ...storeFields(home, "github.com/acme/widgets"),
   };
   assert.equal(stdout, `${JSON.stringify(expected)}\n`);
 });

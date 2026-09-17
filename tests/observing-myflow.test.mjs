@@ -470,7 +470,7 @@ test("rollup rejects a target-worktree output reached through a symlink", async 
         "--window-start", "2026-01-01T00:00:00.000Z",
         "--window-end", "2026-01-02T00:00:00.000Z",
         "--output", outputPath,
-      ], { env: { ...process.env, HOME: join(root, "home") } }),
+      ], { env: { ...process.env, HOME: join(root, "home"), MYFLOW_HOME: join(root, "home", ".myflow") } }),
       (error) => /outside the target worktree/i.test(error.stderr),
     );
     await assert.rejects(stat(outputPath), { code: "ENOENT" });
@@ -498,7 +498,7 @@ test("collector defaults to the canonical repository observation tree", async ()
   ]);
 
   try {
-    const result = await runCollector({ target, sessionsRoot, stateRoot: undefined, env: { HOME: home } });
+    const result = await runCollector({ target, sessionsRoot, stateRoot: undefined, env: { HOME: home, MYFLOW_HOME: join(home, ".myflow") } });
     const observationRoot = join(
       home,
       ".myflow/repositories/github.com/learn-ai-engineering/resonance/observations/demo-flow",

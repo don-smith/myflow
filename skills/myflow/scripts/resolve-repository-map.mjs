@@ -3,7 +3,10 @@
 /**
  * Resolve repository policy maps without exposing Git URL parsing or global
  * storage rules to individual skills. The command writes one JSON object to
- * stdout and never reads map contents.
+ * stdout and never reads map contents. `discover` also reports where the
+ * repository's workstreams live: `workstreamRoot`, `storeMode` (`home` or
+ * `checkout`), and `storeFallback` (true when an unwritable home forced
+ * `checkout`).
  *
  * Usage:
  *   node resolve-repository-map.mjs discover [--cwd <directory>] [--map <path>]
@@ -12,6 +15,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { resolveWorkstreamRoot } from "./lib/artifact-store.mjs";
 import {
   preferredGlobalRepositoryTarget,
   resolveRepositoryContext,
@@ -112,6 +116,19 @@ function main() {
       result = options.mode === "discover" ? discover(options, context) : target(options, context);
     } catch (exception) {
       result = error(options.mode, exception.code, exception.message);
+    }
+  }
+
+  if (result.mode === "discover" && !result.error) {
+    try {
+      const store = resolveWorkstreamRoot(options.cwd, { invokedPath: process.argv[1] });
+      Object.assign(result, {
+        workstreamRoot: store.workstreamRoot,
+        storeMode: store.storeMode,
+        storeFallback: store.storeFallback,
+      });
+    } catch {
+      // A map override outside a Git repository has no workstream root.
     }
   }
 

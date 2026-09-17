@@ -14,6 +14,9 @@
   "license": "MIT",
   "author": "Don Smith",
   "type": "module",
+  "bin": {
+    "myflow": "skills/myflow/scripts/cli.mjs"
+  },
   "files": [
     "LICENSE",
     "README.md",

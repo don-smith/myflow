@@ -583,6 +583,10 @@ test("lifecycle CLI exposes validation and every semantic mutation without accep
   await execFile("git", ["remote", "add", "origin", "https://github.com/example/project.git"], {
     cwd: repositoryRoot,
   });
+  // The CLI runs from outside this temporary repository, so without
+  // configuration it resolves the home store; keep that store temporary.
+  const myflowHomeDirectory = join(repositoryRoot, "myflow-home");
+  const cliOptions = { env: { ...process.env, MYFLOW_HOME: myflowHomeDirectory } };
   const cliSource = await readFile(lifecycleCli, "utf8");
   for (const command of [
     "workstream-created",
@@ -627,14 +631,14 @@ test("lifecycle CLI exposes validation and every semantic mutation without accep
     ...common,
     "--idempotency-key",
     "created",
-  ]);
+  ], cliOptions);
   const duplicate = await execFile(process.execPath, [
     lifecycleCli.pathname,
     "workstream-created",
     ...common,
     "--idempotency-key",
     "created",
-  ]);
+  ], cliOptions);
   assert.equal(JSON.parse(duplicate.stdout).duplicate, true);
   await execFile(process.execPath, [
     lifecycleCli.pathname,
@@ -642,7 +646,7 @@ test("lifecycle CLI exposes validation and every semantic mutation without accep
     ...common,
     "--idempotency-key",
     "scope-1",
-  ]);
+  ], cliOptions);
   const { stdout } = await execFile(process.execPath, [
     lifecycleCli.pathname,
     "validate",
@@ -650,10 +654,26 @@ test("lifecycle CLI exposes validation and every semantic mutation without accep
     repositoryRoot,
     "--workstream-id",
     "cli-fixture",
-  ]);
+  ], cliOptions);
   const validation = JSON.parse(stdout);
   assert.equal(validation.valid, true);
   assert.equal(validation.state.attempts[0].ordinal, 1);
+  const workstreamDirectory = join(myflowHomeDirectory, "repositories", "github.com", "example", "project", "workstreams", "cli-fixture");
+  await readFile(join(workstreamDirectory, "lifecycle", "events.jsonl"), "utf8");
+
+  // Artifact paths may be relative to a workstream directory outside the checkout.
+  await mkdir(join(workstreamDirectory, "scope"), { recursive: true });
+  await writeFile(join(workstreamDirectory, "scope", "alignment.md"), "# Alignment\n");
+  const accepted = await execFile(process.execPath, [
+    lifecycleCli.pathname,
+    "artifact-accepted",
+    ...common,
+    "--artifact",
+    "scope/alignment.md",
+    "--idempotency-key",
+    "scope-accepted",
+  ], cliOptions);
+  assert.equal(JSON.parse(accepted.stdout).event.artifactRef.path, "scope/alignment.md");
 });
 
 test("chain validation detects changed historical records", async () => {
