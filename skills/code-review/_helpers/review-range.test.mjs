@@ -51,12 +51,17 @@ const createRepo = () => {
 	return repo;
 };
 
-test("all scope includes committed, tracked working-tree, and untracked files", () => {
+const createRepoWithRemote = () => {
 	const repo = createRepo();
+	const main = git(repo, ["rev-parse", "main"]).trim();
+	git(repo, ["update-ref", "refs/remotes/origin/main", main]);
+	git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+	return repo;
+};
+
+test("all scope includes committed, tracked working-tree, and untracked files", () => {
+	const repo = createRepoWithRemote();
 	try {
-		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-qb", "feature"]);
 		writeFileSync(join(repo, "committed.txt"), "feature commit\n");
 		git(repo, ["add", "committed.txt"]);
@@ -107,11 +112,8 @@ test("all scope preserves opposing cached and unstaged layers in manifest and pa
 });
 
 test("all scope includes files introduced by a clean merge", () => {
-	const repo = createRepo();
+	const repo = createRepoWithRemote();
 	try {
-		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-qb", "integration"]);
 		git(repo, ["checkout", "-qb", "feature", "main"]);
 		writeFileSync(join(repo, "merged.txt"), "merged\n");
@@ -134,11 +136,9 @@ test("all scope includes files introduced by a clean merge", () => {
 });
 
 test("all scope preserves a remote-only default ref in a detached checkout", () => {
-	const repo = createRepo();
+	const repo = createRepoWithRemote();
 	try {
 		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-q", "--detach", main]);
 		git(repo, ["branch", "-D", "main"]);
 		writeFileSync(join(repo, "detached-feature.txt"), "detached feature\n");
@@ -299,26 +299,123 @@ test("explicit empty-tree range includes a root implementation through its final
 	}
 });
 
-test("commit-list scope includes the oldest named commit on a linear chain", () => {
+test("commit-list scope includes exactly the named commits and excludes an interleaved commit", () => {
 	const repo = createRepo();
 	try {
 		const base = git(repo, ["rev-parse", "HEAD"]).trim();
-		writeFileSync(join(repo, "first.txt"), "first\n");
-		git(repo, ["add", "first.txt"]);
-		git(repo, ["commit", "-qm", "first named commit"]);
-		const oldest = git(repo, ["rev-parse", "HEAD"]).trim();
+		writeFileSync(join(repo, "work-one.txt"), "work one\n");
+		git(repo, ["add", "work-one.txt"]);
+		git(repo, ["commit", "-qm", "work one"]);
+		const workOne = git(repo, ["rev-parse", "HEAD"]).trim();
+		writeFileSync(join(repo, "unrelated-only.txt"), "unrelated\n");
+		git(repo, ["add", "unrelated-only.txt"]);
+		git(repo, ["commit", "-qm", "unrelated"]);
+		writeFileSync(join(repo, "work-two.txt"), "work two\n");
+		git(repo, ["add", "work-two.txt"]);
+		git(repo, ["commit", "-qm", "work two"]);
+		const workTwo = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, `${workOne}, ${workTwo}`);
+		const patch = patchEvidence(output);
+
+		assert.match(output, /strategy:\s+commit-list/);
+		assert.equal(outputField(output, "scope_spec"), JSON.stringify(`${workOne}, ${workTwo}`));
+		assert.match(output, new RegExp(`oldest:\\s+${workOne}`));
+		assert.match(output, new RegExp(`newest:\\s+${workTwo}`));
+		assert.match(output, new RegExp(`base:\\s+${base}`));
+		assert.match(output, new RegExp(`tip:\\s+${workTwo}`));
+		assert.match(output, /range:\s+\(n\/a\)/);
+		assert.equal(outputField(output, "resolved_commits"), `${workOne},${workTwo}`);
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), ["work-one.txt", "work-two.txt"]);
+		assert.match(patch, new RegExp(`# code-review: commit ${workOne} relative to first parent ${base}`));
+		assert.match(patch, new RegExp(`# code-review: commit ${workTwo} relative to first parent `));
+		assert.match(patch, /diff --git a\/work-one\.txt b\/work-one\.txt/);
+		assert.match(patch, /diff --git a\/work-two\.txt b\/work-two\.txt/);
+		assert.doesNotMatch(patch, /unrelated-only\.txt/);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("commit-list scope uses empty-tree and first-parent semantics for named root and merge commits", () => {
+	const repo = createRepo();
+	try {
+		const root = git(repo, ["rev-parse", "HEAD"]).trim();
+		const emptyTree = git(repo, ["hash-object", "-t", "tree", "/dev/null"]).trim();
+		git(repo, ["checkout", "-qb", "feature"]);
+		writeFileSync(join(repo, "feature.txt"), "feature\n");
+		git(repo, ["add", "feature.txt"]);
+		git(repo, ["commit", "-qm", "feature"]);
+		git(repo, ["checkout", "-q", "main"]);
+		writeFileSync(join(repo, "main.txt"), "main\n");
+		git(repo, ["add", "main.txt"]);
+		git(repo, ["commit", "-qm", "main"]);
+		const firstParent = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["merge", "-q", "--no-ff", "feature", "-m", "merge"]);
+		const merge = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, `${root} ${merge}`);
+		const patch = patchEvidence(output);
+
+		assert.match(output, /strategy:\s+commit-list/);
+		assert.equal(outputField(output, "resolved_commits"), `${root},${merge}`);
+		assert.deepEqual(changedFiles(output), ["base.txt", "feature.txt"]);
+		assert.match(patch, new RegExp(`commit ${root} relative to first parent ${emptyTree}`));
+		assert.match(patch, new RegExp(`commit ${merge} relative to first parent ${firstParent}`));
+		assert.match(patch, /diff --git a\/feature\.txt b\/feature\.txt/);
+		assert.doesNotMatch(patch, /diff --git a\/main\.txt b\/main\.txt/);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("commit-list scope preserves exact paths and streams large patch evidence", () => {
+	const repo = createRepo();
+	try {
+		const exactPath = " leading\nname.txt ";
+		writeFileSync(join(repo, exactPath), "exact path\n");
+		git(repo, ["add", "-A"]);
+		git(repo, ["commit", "-qm", "exact path"]);
+		const exactPathCommit = git(repo, ["rev-parse", "HEAD"]).trim();
+		const tail = "COMMIT-LIST-TAIL-EVIDENCE-2161f9b5";
+		writeFileSync(join(repo, "large.txt"), `${"x".repeat(1024 * 1024 + 128 * 1024)}\n${tail}\n`);
+		git(repo, ["add", "large.txt"]);
+		git(repo, ["commit", "-qm", "large patch"]);
+		const largeCommit = git(repo, ["rev-parse", "HEAD"]).trim();
+
+		const output = runHelper(repo, `${exactPathCommit},${largeCommit}`);
+		const patch = patchEvidence(output);
+
+		assert.match(output, /scope_status:\s+ready/);
+		assert.deepEqual(changedFiles(output), [exactPath, "large.txt"]);
+		assert.ok(changedFilesBody(output).includes(JSON.stringify(exactPath)));
+		assert.ok(Buffer.byteLength(patch) > 1024 * 1024);
+		assert.match(patch, new RegExp(tail));
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test("commit-list scope rejects duplicate and unresolved commit IDs", () => {
+	const repo = createRepo();
+	try {
 		writeFileSync(join(repo, "second.txt"), "second\n");
 		git(repo, ["add", "second.txt"]);
-		git(repo, ["commit", "-qm", "second named commit"]);
-		const newest = git(repo, ["rev-parse", "HEAD"]).trim();
+		git(repo, ["commit", "-qm", "second"]);
+		const second = git(repo, ["rev-parse", "HEAD"]).trim();
+		const root = git(repo, ["rev-list", "--max-parents=0", "HEAD"]).trim();
 
-		const output = runHelper(repo, `${newest},${oldest}`);
-
-		assert.match(output, new RegExp(`oldest:\\s+${oldest}`));
-		assert.match(output, new RegExp(`newest:\\s+${newest}`));
-		assert.match(output, new RegExp(`base:\\s+${base}`));
-		assert.match(output, /scope_status:\s+ready/);
-		assert.deepEqual(changedFiles(output), ["first.txt", "second.txt"]);
+		for (const [scope, note] of [
+			[`${root},${second},${second}`, /duplicate commit/i],
+			[`${root},deadbeef`, /does not resolve/i],
+		]) {
+			const output = runHelper(repo, scope);
+			assert.match(output, /strategy:\s+unrecognised/);
+			assert.match(output, /scope_status:\s+invalid/);
+			assert.match(output, note);
+			assert.deepEqual(changedFiles(output), []);
+		}
 	} finally {
 		rmSync(repo, { recursive: true, force: true });
 	}
@@ -491,11 +588,8 @@ test("changed-files cap counts UTF-8 bytes and reserves the truncation footer", 
 });
 
 test("all and named-branch scopes omit reverted paths that have no endpoint patch", () => {
-	const repo = createRepo();
+	const repo = createRepoWithRemote();
 	try {
-		const main = git(repo, ["rev-parse", "main"]).trim();
-		git(repo, ["update-ref", "refs/remotes/origin/main", main]);
-		git(repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 		git(repo, ["checkout", "-qb", "feature"]);
 		writeFileSync(join(repo, "reverted.txt"), "temporary\n");
 		git(repo, ["add", "reverted.txt"]);

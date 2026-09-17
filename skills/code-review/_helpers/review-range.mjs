@@ -15,18 +15,20 @@
 //   <hash>              — single SHA-1 or SHA-256 commit (abbreviated or full)
 //   <A>..<B>            — exact base..head range; A is verified ancestor of B, swapped if reversed
 //   empty-tree..<B>     — root-inclusive range through B
-//   <h1>,<h2>,<h3>      — commit list on one ancestry chain; includes the oldest named commit
+//   <h1>,<h2>,<h3>      — exact commit list on one total ancestry chain
 //   <branch-name>       — committed changes from the branch merge base through its supplied tip
 //
 // Output (labeled key/value lines, then `---changed-files---` block):
 //
 //   default_branch: <name>|(unresolved)
-//   strategy:       branch-all|first-parent|working-tree|explicit-range|unrecognised
+//   scope_spec:     <JSON string preserving the exact input>
+//   strategy:       branch-all|first-parent|working-tree|explicit-range|commit-list|unrecognised
+//   resolved_commits: <ordered comma-separated hashes>|(n/a)
 //   oldest:         <hash>|(n/a)
 //   newest:         <hash>|(n/a)
-//   base:           <hash>|(n/a)
-//   tip:            <hash>|(n/a)
-//   range:          <base>..<tip>|(n/a)
+//   base:           <hash>|(n/a) (orientation only for commit-list)
+//   tip:            <hash>|(n/a) (orientation only for commit-list)
+//   range:          <base>..<tip>|(n/a) (always n/a for commit-list)
 //   fp_flag:        --first-parent|(empty)
 //   patch_path:     <worktree-safe path for the diff tempfile>
 //   scope_status:   ready|empty|invalid
@@ -160,10 +162,13 @@ const result = {
 	range: "(n/a)",
 	fp_flag: "(empty)",
 	note: "",
+	resolvedCommits: [],
+	commitDiffs: [],
 	changedFiles: [],
 };
 
 const argv = process.argv[2] ?? "";
+const rawInput = argv;
 const scope = stripOuterQuotes(argv);
 const lower = scope.toLowerCase();
 const defaultBranch = result.default_branch;
@@ -200,6 +205,22 @@ const setWorkingTree = (oldest = "(n/a)", newest = "(n/a)") => {
 	result.newest = newest;
 	result.base = "(n/a)";
 	result.tip = "(n/a)";
+	result.range = "(n/a)";
+	result.fp_flag = "(empty)";
+};
+
+const setCommitList = (commits) => {
+	const commitDiffs = commits.map((commit) => ({
+		commit,
+		parent: safe(["rev-parse", `${commit}^1`]) || emptyTree,
+	}));
+	result.strategy = "commit-list";
+	result.resolvedCommits = commits;
+	result.commitDiffs = commitDiffs;
+	result.oldest = commits[0];
+	result.newest = commits.at(-1);
+	result.base = commitDiffs[0].parent;
+	result.tip = commits.at(-1);
 	result.range = "(n/a)";
 	result.fp_flag = "(empty)";
 };
@@ -243,24 +264,23 @@ if (defaultBranch === "(unresolved)" && (lower === "" || lower === "auto" || low
 		}
 	}
 } else if (/[,\s]/.test(scope)) {
-	const hashes = scope.split(/[,\s]+/).filter(Boolean);
-	const resolved = hashes.map((hash) => safe(["rev-parse", `${hash}^{commit}`])).filter(Boolean);
-	const unique = [...new Set(resolved)];
-	if (resolved.length !== hashes.length || unique.length < 2) {
-		result.note = `commit list under-specified (need ≥2 distinct valid commits; got ${unique.length})`;
+	const candidates = scope.split(/[,\s]+/).filter(Boolean);
+	const resolved = candidates.map((candidate) => safe(["rev-parse", `${candidate}^{commit}`]));
+	if (resolved.some((commit) => !commit)) {
+		result.note = "commit list contains an ID that does not resolve to a commit";
+	} else if (new Set(resolved).size !== resolved.length) {
+		result.note = "commit list contains a duplicate commit";
+	} else if (resolved.length < 2) {
+		result.note = `commit list under-specified (need ≥2 distinct valid commits; got ${resolved.length})`;
 	} else {
-		const hasTotalAncestryOrder = unique.every((left, index) =>
-			unique.slice(index + 1).every((right) => isAncestor(left, right) || isAncestor(right, left)),
+		const hasTotalAncestryOrder = resolved.every((left, index) =>
+			resolved.slice(index + 1).every((right) => isAncestor(left, right) || isAncestor(right, left)),
 		);
 		if (!hasTotalAncestryOrder) {
 			result.note = "commit list not on a single ancestry chain";
 		} else {
-			const oldest = unique.find((candidate) => unique.every((hash) => isAncestor(candidate, hash)));
-			const newest = unique.find((candidate) => unique.every((hash) => isAncestor(hash, candidate)));
-			const base = safe(["rev-parse", `${oldest}^`]) || emptyTree;
-			setExplicitRange(base, newest);
-			result.oldest = oldest;
-			result.newest = newest;
+			const ordered = [...resolved].sort((left, right) => (isAncestor(left, right) ? -1 : 1));
+			setCommitList(ordered);
 		}
 	}
 } else if (resolveCommitId(scope)) {
@@ -288,6 +308,12 @@ if (result.strategy === "branch-all") {
 	result.changedFiles = dedupChangedFiles(committed, cached, unstaged, untracked);
 } else if (result.strategy === "first-parent" || result.strategy === "explicit-range") {
 	result.changedFiles = pathList(["diff", "--name-only", "-z", result.range]);
+} else if (result.strategy === "commit-list") {
+	result.changedFiles = dedupChangedFiles(
+		...result.commitDiffs.map(({ parent, commit }) =>
+			pathList(["diff", "--name-only", "-z", parent, commit]),
+		),
+	);
 } else if (result.strategy === "working-tree") {
 	if (lower === "staged") {
 		result.changedFiles = pathList(["diff", "--cached", "--name-only", "-z"]);
@@ -338,6 +364,11 @@ try {
 		}
 	} else if (result.strategy === "first-parent" || result.strategy === "explicit-range") {
 		streamDiff([result.range]);
+	} else if (result.strategy === "commit-list") {
+		for (const { parent, commit } of result.commitDiffs) {
+			writeLabel(`commit ${commit} relative to first parent ${parent}`);
+			streamDiff([parent, commit]);
+		}
 	} else if (result.strategy === "working-tree") {
 		if (lower === "staged") streamDiff(["--cached"]);
 		else if (lower === "modified") streamDiff(["HEAD"]);
@@ -358,7 +389,9 @@ const scopeStatus =
 
 const lines = [
 	`default_branch: ${result.default_branch}`,
+	`scope_spec:     ${JSON.stringify(rawInput)}`,
 	`strategy:       ${result.strategy}`,
+	`resolved_commits: ${result.resolvedCommits.length > 0 ? result.resolvedCommits.join(",") : "(n/a)"}`,
 	`oldest:         ${result.oldest}`,
 	`newest:         ${result.newest}`,
 	`base:           ${result.base}`,

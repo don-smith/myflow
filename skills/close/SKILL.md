@@ -10,10 +10,18 @@ Close consumes Verify evidence; it does not repeat validation or force ceremonia
 
 ## Rehydrate
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read the selected map when found.
+1. Run the resolver from the installed MyFlow package: derive the package root from this loaded skill's absolute location, run `node <myflow-package-root>/skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, and read its selected map when found.
 2. Read `workstream.md`, the validation report, accepted plan, and current Git state. Do not trust only the validation report's top-level verdict. Follow its linked review artifact and read the review artifact before entering Close.
-3. Confirm the linked review artifact exists, names the same accepted plan and implementation range as the validation report/checkpoint, contains the required review evidence, and has a passing review verdict. Missing, failing, blocked, or mismatched review evidence prevents Close and returns to Verify or the recorded corrective owner.
+3. Confirm the linked review artifact exists, names the same accepted plan and implementation range or exact implementation scope as the validation report/checkpoint, contains the required review evidence, and has a passing review verdict. For commit-list review, require the exact scope spec and resolved commit set to match; range base/head alone is insufficient. Missing, failing, blocked, or mismatched review evidence prevents Close and returns to Verify or the recorded corrective owner.
 4. Determine the closeout path: `<workstream-root>/<workstream-id>/close/<timestamp>_<topic>.md` (normally `.myflow/workstreams/<workstream-id>/close/`).
+
+## Lifecycle boundary
+
+Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values; never write lifecycle JSONL directly. After the passing Verify handoff, record `stage-entered --stage Close --activity closeout`, then `activity-entered`. Record `stage-blocked` and `stage-unblocked` for real waits.
+
+Record the accepted closeout summary with `artifact-accepted`. Run the private stage pulse once per eligible Close attempt before completion. Feedback failure is non-blocking. Then record `activity-completed`, `stage-completed --terminal-reason workstream-closed`, and `workstream-closed` in that order. Preserve every earlier attempt and accepted artifact as history.
+
+If Close discovers new evidence, record `return-opened` and complete Close as `superseded` rather than closing the workstream. Use canonical ownership: outcome or acceptance to Scope/scope, architecture to Plan/design, plan defects to Plan/planning, and implementation defects to Implement/phase. A later owner uses `return-owner-ready`, downstream work uses `return-resumed`, and Verify owns `return-closed` after passing re-verification.
 
 ## Determine proportionate actions
 

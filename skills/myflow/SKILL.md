@@ -66,7 +66,7 @@ When failed Verify returns an implementation defect after all original phases ar
 
 **Orchestrator:** `validate`
 
-Verify the implementation against the plan and its success criteria. Run automated checks, inspect the implementation, and load and execute the installed sibling `code-review` skill in the current run with the exact implementation range and accepted plan. Persist its provenance and result as a separate review artifact. When the work has human-facing or external behavior, prepare a manual-verification brief for the developer.
+Verify the implementation against the plan and its success criteria. Run automated checks, inspect the implementation, and load and execute the installed sibling `code-review` skill in the current run with the exact implementation scope and accepted plan. Persist its provenance and result as a separate review artifact. When the work has human-facing or external behavior, prepare a manual-verification brief for the developer.
 
 **Artifact:** validation report and any repository-specific review evidence.
 

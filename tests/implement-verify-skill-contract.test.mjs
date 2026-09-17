@@ -286,3 +286,21 @@ test("Close review gate rejects explicit missing, failing, and mismatched negati
     assert.throws(() => assertCloseReviewRefusalContract(mutant));
   }
 });
+
+test("Validate records the interleaved-commit clause and rejects its removal", async () => {
+  const validate = await read("skills/validate/SKILL.md");
+
+  assert.match(
+    validate,
+    /unrelated commit[^.]*interleaved[^.]*pass the ordered implementation commit IDs as an explicit comma-separated commit list/is,
+  );
+
+  const clause = "When an unrelated commit is interleaved, pass the ordered implementation commit IDs as an explicit comma-separated commit list so only named commits are reviewed.";
+  const withoutClause = validate.replace(clause, "");
+  assert.throws(() =>
+    assert.match(
+      withoutClause,
+      /unrelated commit[^.]*interleaved[^.]*pass the ordered implementation commit IDs as an explicit comma-separated commit list/is,
+    ),
+  );
+});
