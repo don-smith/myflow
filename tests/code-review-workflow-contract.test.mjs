@@ -90,7 +90,7 @@ test("code review pins complete scope through the active range helper", async ()
     read("package.json"),
   ]);
 
-  assert.match(skill, /\$\{SKILL_DIR\}\/\_helpers\/review-range\.mjs/);
+  assert.match(skill, /node _helpers\/review-range\.mjs/);
   for (const phrase of [
     "scope status",
     "base",
@@ -141,7 +141,9 @@ test("code review requires substantive evidence from all three fresh-context lan
   assert.match(skill, /Standards and Maintainability[^\n]*mapped rules[^\n]*maintainability/i);
   assert.match(skill, /security checks when/i);
   assert.match(skill, /dependency checks when/i);
-  assert.match(skill, /subagent capability[^.]*unavailable[^.]*block/is);
+  assert.match(skill, /when subagents are unavailable[^.]*fresh session/is);
+  assert.match(skill, /missing subagent facility never blocks the review/i);
+  assert.match(skill, /lane fails to return[^.]*block rather than silently pass/is);
   assert.doesNotMatch(skill, /two-axis|both sub-agents/i);
 });
 

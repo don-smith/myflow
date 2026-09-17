@@ -51,13 +51,15 @@ test("stage contracts preserve correction ownership and immutable history", asyn
 });
 
 test("feedback contract is exact, private, once per attempt, and non-blocking", async () => {
-  const [checkpoint, myflow, implement, verify] = await Promise.all([
+  const [checkpoint, myflow, capabilities, implement, verify] = await Promise.all([
     read("skills/myflow/templates/stage-context-checkpoint.md"),
     read("skills/myflow/SKILL.md"),
+    read("skills/myflow/references/capabilities.md"),
     read("skills/implement/SKILL.md"),
     read("skills/verify/SKILL.md"),
   ]);
-  const contract = `${checkpoint}\n${myflow}`;
+  // The structured-question rule is stated once, in the capability reference the stage text cites.
+  const contract = `${checkpoint}\n${myflow}\n${capabilities}`;
 
   assert.match(contract, /Before we leave \{stage\}, how did this stage go from your point of view\?/);
   for (const choice of ["smooth", "some-friction", "rough", "skip"]) assert.match(contract, new RegExp(choice));

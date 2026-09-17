@@ -31,7 +31,7 @@ tags: [code-review, verify]
 - Range head: `{hash, orientation tip, or n/a}`
 - Commit-list provenance: retain the exact scope spec and resolved commit set; range base/head alone is insufficient.
 - Dirty state: `{clean | dirty}`; {included or explicit exclusion}
-- Adapter command: `node "${SKILL_DIR}/_helpers/review-range.mjs" "{scope spec}"`
+- Adapter command: `node _helpers/review-range.mjs "{scope spec}"`, run from the installed `code-review` skill directory
 - In-scope files ({N}):
   - `{path}`
 - Exclusions: {none or reasoned list}

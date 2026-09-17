@@ -11,7 +11,7 @@ Architectural decision records belong to `design`. When a domain boundary settle
 
 ## Repository sources
 
-Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` first and read its selected `repository-map.md` when found. Use its mapped glossary and context-map sources rather than assuming `CONTEXT.md` or `CONTEXT-MAP.md`.
+Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder first, and read its selected `repository-map.md` when found. Use its mapped glossary and context-map sources rather than assuming `CONTEXT.md` or `CONTEXT-MAP.md`.
 
 If the map is absent or does not name a relevant source, inspect the repository's existing guidance and ask before creating a glossary location. Record the missing mapping for `onboard` to refresh. Create a source lazily only after the developer confirms its location and there is a resolved term to record.
 

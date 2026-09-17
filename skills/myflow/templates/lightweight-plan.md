@@ -84,7 +84,7 @@ Begin implementation in a fresh session.
 
 ### Read First
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected map when `found`
+1. Run the MyFlow repository-map resolver (`resolve-repository-map.mjs` in the installed `myflow` skill) with `discover --cwd <git-root>` and read its selected map when `found`
 2. `{this plan path}` — full
 3. `{alignment and specialist artifacts needed for implementation}`
 
@@ -98,4 +98,4 @@ Begin implementation in a fresh session.
 
 ### Next Command
 
-`/skill:implement {this plan path}`
+The `implement` skill with `{this plan path}`

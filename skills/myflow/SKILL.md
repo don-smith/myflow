@@ -15,6 +15,22 @@ MyFlow is a five-stage workflow for AI-assisted software development. Each stage
 - onboarding a repository to the workflow
 - checking the relationship between stages, artifacts, and cross-cutting skills
 
+## Invoking a skill
+
+MyFlow writes a next action as "the `plan` skill with `<path>`", because each agent spells the invocation differently:
+
+| Agent | Invocation |
+|---|---|
+| Claude Code | `/myflow:<skill>` |
+| Codex | `$<skill>` |
+| Cursor, OpenCode | `/<skill>` |
+| Pi | `/skill:<skill>` |
+| Kilo Code | name the skill |
+
+This table is the only place a host's own syntax belongs. Elsewhere skills name the capability they need, not the tool that provides it: `references/capabilities.md` defines structured questions, fresh context, parallel work, and read-only exploration, and the fallback each one takes where the host does not offer it.
+
+Scripts are named by a path relative to the skill that runs them, such as `../myflow/scripts/resolve-repository-map.mjs` from a stage skill. Resolve them against the installed skill folder, not the target repository.
+
 ## Collaboration model
 
 - **Scope and Plan:** collaborate with the developer; resolve intent, trade-offs, scope, and architecture together.
@@ -55,7 +71,7 @@ Every non-trivial workstream has an executable plan. Its **design disposition** 
 
 **Orchestrator:** `implement`
 
-Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `verify` skill and executes it immediately; `/skill:verify` is recovery/rehydration guidance, not a user-operated gate.
+Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `verify` skill and executes it immediately; invoking `verify` by hand is recovery/rehydration guidance, not a user-operated gate.
 
 When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify.
 
@@ -79,13 +95,13 @@ Leave the workstream in a clean, understandable, low-debt state. Close begins on
 
 ## Lifecycle and stage pulse
 
-For durable workstreams, canonical skills record real workflow state through `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs`. Every mutation uses a stable `--idempotency-key`; skills never construct or append journal JSONL. Stage artifacts stay authoritative for decisions, while the journal preserves canonical attempts, accepted artifacts, supporting activities, blocks, and correction episodes as immutable history.
+For durable workstreams, canonical skills record real workflow state through the lifecycle journal CLI, `scripts/lifecycle-journal.mjs` in this skill folder. Every mutation uses a stable `--idempotency-key`; skills never construct or append journal JSONL. Stage artifacts stay authoritative for decisions, while the journal preserves canonical attempts, accepted artifacts, supporting activities, blocks, and correction episodes as immutable history.
 
 Correction ownership does not change: `outcome-or-acceptance` routes to Scope/scope, `architecture` to Plan/design, `plan` to Plan/planning, and `implementation` to Implement/phase. The detecting stage records `return-opened`; an owner correction may use `return-rerouted`, then records `return-owner-ready`. Downstream stages record `return-resumed`; Verify records `verification-completed` and `return-closed` after passing re-verification. Do not rewrite earlier attempts or artifacts.
 
-Each eligible completed attempt gets one private stage pulse. The exact question is "Before we leave {stage}, how did this stage go from your point of view?" The choices are `smooth`, `some-friction`, `rough`, and `skip`. Structured interaction is preferred, with plain-text fallback. `record-stage-feedback.mjs` keeps ratings and optional notes in the workstream's `feedback/` folder; the lifecycle journal receives only coverage status and a private reference. The pulse is non-blocking. If Implement has no live developer interaction, record it as pending. Pending Implement feedback is requested once at Verify entry.
+Each eligible completed attempt gets one private stage pulse. The exact question is "Before we leave {stage}, how did this stage go from your point of view?" The choices are `smooth`, `some-friction`, `rough`, and `skip`. Ask it through the structured-question capability in `references/capabilities.md`. `record-stage-feedback.mjs` keeps ratings and optional notes in the workstream's `feedback/` folder; the lifecycle journal receives only coverage status and a private reference. The pulse is non-blocking. If Implement has no live developer interaction, record it as pending. Pending Implement feedback is requested once at Verify entry.
 
-The shared `skills/myflow/templates/stage-context-checkpoint.md` defines the command sequence, version and governing-skill digest capture, host capability values, and feedback failure behavior. Use stable idempotency keys for every lifecycle mutation.
+The shared `templates/stage-context-checkpoint.md` in this skill folder defines the command sequence, version and governing-skill digest capture, host capability values, and feedback failure behavior. Use stable idempotency keys for every lifecycle mutation.
 
 ## Cross-cutting skills
 
@@ -107,7 +123,7 @@ Questioning supplements rather than replaces the Scope artifact: record settled 
 
 ## Onboarding
 
-Before using MyFlow seriously in a repository, run `onboard`. It uses `skills/myflow/scripts/resolve-repository-map.mjs` to select an existing repository-local map or personal global map, then creates or refreshes the appropriate repository-policy index. Skills run the resolver before guessing conventional paths; only maps/onboarding records are global, while active workstream artifacts remain local.
+Before using MyFlow seriously in a repository, run `onboard`. It uses `scripts/resolve-repository-map.mjs` to select an existing repository-local map or personal global map, then creates or refreshes the appropriate repository-policy index. Skills run the resolver before guessing conventional paths; only maps/onboarding records are global, while active workstream artifacts remain local.
 
 `onboard` also writes a run report and pending evaluation record. It is discovery, not an architecture assessment: it inspects first, asks only material unresolved questions, and can leave a repository `provisional` when unknowns do not prevent safe low-risk work.
 

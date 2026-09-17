@@ -2,7 +2,6 @@
 name: scope
 description: Begin a MyFlow workstream with right-sized, code-light scoping. Establishes a workstream ID and durable alignment artifact when needed, selects only the specialists the work requires, and offers an isolated worktree or trunk-based path.
 argument-hint: "[rough idea | transcript | ticket path | notes path]"
-shell-timeout: 10
 ---
 
 # Scope
@@ -31,8 +30,8 @@ A truly trivial, uninterrupted change may remain in conversation. It is not resu
 
 ## 1. Read repository context
 
-1. Start at the Git root. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, record the resolved map path, and read it when `found`. Follow its mapped operating instructions and artifact policy. If it is missing or stale for needed work, recommend `onboard`; do not invent repository policy.
-2. Read user-provided tickets, notes, or named files fully. Do not dispatch broad codebase agents by default.
+1. Start at the Git root. Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder, record the resolved map path, and read it when `found`. Follow its mapped operating instructions and artifact policy. If it is missing or stale for needed work, recommend `onboard`; do not invent repository policy.
+2. Read user-provided tickets, notes, or named files fully. Do not launch broad codebase exploration by default.
 3. Ask for a short description when no usable input is provided.
 
 Scope may inspect a narrow source area only when it is necessary to classify material risk or choose a specialist. Deeper codebase, architecture, or external investigation belongs to the selected specialist.
@@ -128,7 +127,7 @@ The alignment artifact must include: intent, desired outcome, non-goals, accepta
 
 ## Lifecycle boundary
 
-Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` with a stable `--idempotency-key` for every mutation. Never write lifecycle JSONL directly.
+Use `node ../myflow/scripts/lifecycle-journal.mjs` with a stable `--idempotency-key` for every mutation. Never write lifecycle JSONL directly.
 
 - After creating `workstream.md`, record `workstream-created`, then `stage-entered --stage Scope --activity scope`. Keep both receipts.
 - Record each selected research or prototype interval with `activity-entered` and `activity-completed`. Record a real wait with `stage-blocked` and its resumption with `stage-unblocked`.

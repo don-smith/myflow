@@ -6,11 +6,11 @@ argument-hint: "[initial | refresh | missing requirement]"
 
 # Onboard
 
-Create or refresh compact repository knowledge through the shipped resolver, never an assumed local path:
+Create or refresh compact repository knowledge through the shipped resolver, never an assumed local path. Run these from this skill folder; every script path is relative to it:
 
 ```text
-node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>
-node skills/myflow/scripts/resolve-repository-map.mjs target --cwd <git-root>
+node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>
+node ../myflow/scripts/resolve-repository-map.mjs target --cwd <git-root>
 ```
 
 `discover` selects an explicit override, an existing repository-local map, or an existing personal global map. `target` names the preferred writable **personal global** map for an origin-backed repository or a no-origin common-Git-directory identity. The resolver emits metadata only; read map contents only after it selects a path.
@@ -46,12 +46,12 @@ Ask only where an answer changes operation: required checks/manual verification;
 
 ### 4. Settle artifact storage
 
-Run `node skills/myflow/scripts/cli.mjs artifacts status --cwd <git-root>`. When it reports `configured: false`, ask the developer, one question at a time:
+Run `node ../myflow/scripts/cli.mjs artifacts status --cwd <git-root>`. When it reports `configured: false`, ask the developer, one question at a time:
 
 1. Should workstream artifacts be kept outside this repository, in their MyFlow home? (`home`, recommended when MyFlow is installed globally) Or next to the code in the checkout, ignored by Git? (`checkout`)
 2. For `home` only: should they be backed up to a Git repository the developer owns? If so, which URL? For example `git@github.com:<you>/myflow-artifacts.git`. The repository should be private.
 
-Then run `node skills/myflow/scripts/cli.mjs artifacts init --location <home|checkout> [--remote <url> | --no-remote]` and report its `warnings`. These settings are personal configuration in `<MYFLOW_HOME>/config/myflow.json`; never write them into the repository map or name a particular artifact repository in repository files. If `status` lists `needsImport`, offer `artifacts import`. If the developer declines to decide, leave the configuration absent; MyFlow then follows the install location.
+Then run `node ../myflow/scripts/cli.mjs artifacts init --location <home|checkout> [--remote <url> | --no-remote]` and report its `warnings`. These settings are personal configuration in `<MYFLOW_HOME>/config/myflow.json`; never write them into the repository map or name a particular artifact repository in repository files. If `status` lists `needsImport`, offer `artifacts import`. If the developer declines to decide, leave the configuration absent; MyFlow then follows the install location.
 
 ### 5. Write the map and report
 

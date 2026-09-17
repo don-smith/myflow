@@ -2,7 +2,6 @@
 name: research
 description: Investigate a specific codebase or external question selected by a MyFlow workstream, record evidence in the workstream, and return to Scope, Design, or Plan with a recommendation.
 argument-hint: "[alignment/design artifact path] [research question]"
-shell-timeout: 10
 ---
 
 # Research
@@ -11,7 +10,7 @@ Research is an optional specialist, not a mandatory workflow stage. Use it when 
 
 ## Input and setup
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, read its selected map when found, then read `workstream.md` and the supplied upstream artifact fully.
+1. Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder, read its selected map when found, then read `workstream.md` and the supplied upstream artifact fully.
 2. Extract the workstream ID, research question, and decision it informs. Ask for a focused question if the input does not state one.
 3. Resolve the workstream root from the map (default `.myflow/workstreams`).
 4. Follow the repository's mapped instruction, secret-handling, and telemetry policy. Do not send sensitive source, credentials, or repository identifiers to external tools without approval.
@@ -20,7 +19,7 @@ Research is an optional specialist, not a mandatory workflow stage. Use it when 
 
 - Prefer primary sources: applicable repository code/configuration, official documentation, specifications, first-party APIs, and authoritative operational material.
 - Investigate only what answers the stated question. Do not turn a targeted question into a broad codebase audit.
-- Use targeted subagents or research tools when they improve evidence quality; verify important claims against the primary source.
+- Use targeted read-only exploration and research tools when they improve evidence quality, following `../myflow/references/capabilities.md`; verify important claims against the primary source.
 - Distinguish confirmed facts, inferences, and unresolved gaps.
 
 ## Output and return

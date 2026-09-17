@@ -94,7 +94,7 @@ Create the executable plan.
 
 ### Read First
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected map when `found`
+1. Run the MyFlow repository-map resolver (`resolve-repository-map.mjs` in the installed `myflow` skill) with `discover --cwd <git-root>` and read its selected map when `found`
 2. `{workstream manifest path}` — full
 3. `{alignment artifact path}` — full
 4. `{this design and supporting artifacts}` — full
@@ -109,4 +109,4 @@ Create the executable plan.
 
 ### Next Command
 
-`/skill:plan {this design path}`
+The `plan` skill with `{this design path}`

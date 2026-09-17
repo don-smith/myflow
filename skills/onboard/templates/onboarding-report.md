@@ -37,7 +37,7 @@ telemetry_trace_id: {trace_id_or_not_configured}
 ## Readiness
 
 - Status: `ready | provisional | blocked`
-- Safe next action: `{for example: /skill:scope ...}`
+- Safe next action: {for example: the `scope` skill with a one-line description of the work}
 - Specialist recommended: `{none | domain-modeling | architecture-review | other}`
 - Rationale: {why this level of readiness is appropriate}
 

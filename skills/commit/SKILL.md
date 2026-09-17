@@ -2,8 +2,6 @@
 name: commit
 description: Create structured atomic commits. Use when the user asks to commit, or when Implement has completed a plan phase whose automated success criteria are green.
 argument-hint: [message]
-allowed-tools: Bash(git *), Read, Glob, Grep
-shell-timeout: 10
 ---
 
 # Commit Changes
@@ -16,8 +14,10 @@ You are tasked with creating git commits for repository changes.
 
 ## Metadata
 
-```!
-node "${SKILL_DIR}/../_shared/git-context.mjs"
+Run this block from this skill's directory and keep its full output. Every path is relative to this installed `skills/commit/SKILL.md`.
+
+```bash
+node ../_shared/git-context.mjs
 echo "---status---"
 git status --short 2>/dev/null || true
 echo "---diffstat---"
@@ -74,7 +74,7 @@ For direct user invocations and Close's final closeout commit, retain the normal
    - List the files you plan to add for each commit
    - Show the commit message(s) you'll use
    - For a plan-phase commit meeting every condition above, proceed without a separate confirmation.
-   - Otherwise, use the `ask_user_question` tool to confirm the commit plan. Question: "{N} commit(s) with {M} files. Proceed?". Header: "Commit". Options: "Commit (Recommended)" (Create the commit(s) as planned); "Adjust" (Change the grouping or commit messages); "Review files" (Show me the full diff before committing).
+   - Otherwise, ask the user to confirm the commit plan, following the structured-question capability in `../myflow/references/capabilities.md`. Question: "{N} commit(s) with {M} files. Proceed?". Header: "Commit". Options: "Commit (Recommended)" (Create the commit(s) as planned); "Adjust" (Change the grouping or commit messages); "Review files" (Show me the full diff before committing).
 
 4. **Execute after confirmation, or directly for a pre-authorized plan-phase commit:**
    - Use `git add` with specific files (never use `-A` or `.`)

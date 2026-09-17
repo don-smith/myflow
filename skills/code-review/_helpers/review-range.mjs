@@ -1,9 +1,10 @@
 // review-range.mjs — scope resolution helper for the code-review skill.
 //
 // LLM-invoked (not render-time substituted). The LLM derives the scope spec
-// from `$ARGUMENTS` (or `ask_user_question` clarification) and runs:
+// from its arguments (or from a clarifying question to the user) and runs, from the
+// skill directory:
 //
-//   node "${SKILL_DIR}/_helpers/review-range.mjs" "<scope-spec>"
+//   node _helpers/review-range.mjs "<scope-spec>"
 //
 // Accepted <scope-spec> values:
 //   auto                — empty-scope-default: complete current-branch review (committed, tracked, untracked)
@@ -55,7 +56,7 @@
 //     subtrees from reachability; the latter drops merge commits themselves from
 //     the log. Both flags are independently controllable in the consumer's git log.
 //   - Always exit 0 (R-8) — unrecognised scope returns strategy=unrecognised with
-//     `note:` so the LLM can ask the user via ask_user_question rather than fail.
+//     `note:` so the LLM can ask the user for a clarification rather than fail.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { closeSync, openSync, writeSync } from "node:fs";

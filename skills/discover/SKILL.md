@@ -2,7 +2,6 @@
 name: discover
 description: Extract feature intent and requirements through grill-me rounds when Scope cannot state the outcome and acceptance criteria clearly enough. Supports light ideation for a fuzzy concept and structured requirements extraction for complex work. Writes a requirements artifact into the workstream and returns to scope.
 argument-hint: "[free-text feature description | existing artifact path]"
-shell-timeout: 10
 ---
 
 # Discover
@@ -23,10 +22,12 @@ Discover operates on a spectrum: from light ideation for fuzzy concepts through 
 
 ## Metadata
 
-```!
-node "${SKILL_DIR}/../_shared/now.mjs"
+Run this block from this skill's directory and keep its full output. Every path is relative to this installed `skills/discover/SKILL.md`.
+
+```bash
+node ../_shared/now.mjs
 echo
-node "${SKILL_DIR}/../_shared/git-context.mjs"
+node ../_shared/git-context.mjs
 ```
 
 Copy values verbatim — do not reformat the timezone offset.
@@ -55,7 +56,7 @@ Each invocation writes a NEW timestamp-distinct artifact (Step 7). To iterate on
 
 Before any codebase look, ask the foundational intent question. This is purely conversational — no exploration, no recommendation, no `file:line` citations.
 
-1. **Ask one open-ended intent question**, through `ask_user_question` where the host supports structured questions and in plain text otherwise:
+1. **Ask one open-ended intent question**, following the structured-question capability in `../myflow/references/capabilities.md`:
    - Frame: "What problem are you solving and who hits it?" or "What does success look like?" — phrase it for the specific feature.
    - **No recommended answer.** `grill-me` carries this rule: the developer generates the framing, so an intent question offers open shapes that route the answer, never a recommendation and never a solution shape.
    - **No `file:line` citations** — the codebase has nothing to say about intent.
@@ -68,7 +69,7 @@ Before any codebase look, ask the foundational intent question. This is purely c
 
 Ground the rounds in concrete codebase evidence, shaped by the stated intent.
 
-1. **Keep the slice narrow** — one component, one seam. Locate the relevant code and read what the search surfaces (≤5 files). Read-only exploration in a fresh context is the preferred shape; a direct search in this session is the fallback.
+1. **Keep the slice narrow** — one component, one seam. Locate the relevant code and read what the search surfaces (≤5 files). Use the read-only exploration capability in `../myflow/references/capabilities.md`.
 
 2. **Cap the look at two passes.** Discover is not research: when a question needs a real investigation, name it for `research` instead.
 
@@ -137,7 +138,7 @@ Compile the rounds into the document. Redistribute answers into the template's s
 Report the artifact path, the requirement and decision counts, and the open questions. Then hand control back:
 
 ```text
-/skill:scope <workstream-root>/<workstream-id>/scope/<timestamp>_requirements.md
+The `scope` skill with <workstream-root>/<workstream-id>/scope/<timestamp>_requirements.md
 ```
 
 `scope` links the requirements document from the alignment artifact and owns the depth, specialist, and next-action decisions from there. Discover does not select downstream specialists itself.

@@ -2,15 +2,13 @@
 name: handoff
 description: Write or resume a lightweight handoff document for a session transition. Write mode compacts the current task, decisions, in-flight changes, and next steps into a concise file; resume mode reads one back and continues the work. Use when context is large and you need to pause mid-stage, or when a fresh session starts from such a pause. Artifacts are the primary handoff mechanism — this is a backup for mid-stage pauses.
 argument-hint: "[description | --resume <handoff-path>]"
-allowed-tools: Read, Write, Bash
-shell-timeout: 10
 ---
 
 # Handoff
 
 A lightweight backup for mid-stage pauses. Stage artifacts are the primary handoff mechanism in MyFlow — use this skill only to hand off between artifact boundaries, inside a stage or an implementation phase.
 
-First run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and record its selected map path.
+First run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder and record its selected map path.
 
 ## Pick the mode
 
@@ -56,7 +54,7 @@ First run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd 
 Handoff written to:
 `<workstream-root>/<workstream-id>/handoffs/<filename>.md`
 
-**Next step:** `/skill:handoff --resume <workstream-root>/<workstream-id>/handoffs/<filename>.md`
+**Next step:** the `handoff` skill with `--resume <workstream-root>/<workstream-id>/handoffs/<filename>.md`
 ```
 
 Keep it short. The stage artifact already holds the full context — the handoff just points at what to resume.

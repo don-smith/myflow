@@ -81,6 +81,13 @@ const AGENT_SYNTAX_PATTERNS = [
   { label: ".myflow/workstreams", pattern: /\.myflow\/workstreams/ },
 ];
 
+/**
+ * The one documented exception to rule 4: the `myflow` router carries a table of every
+ * supported agent's invocation syntax, so a skill's prose never has to. Nothing else may
+ * name a host's own syntax, and the exemption is per file and per label.
+ */
+const AGENT_SYNTAX_EXEMPTIONS = new Map([["skills/myflow/SKILL.md", new Set(["/skill:"])]]);
+
 const RULES = {
   frontmatter: "rule1-frontmatter",
   references: "rule2-references",
@@ -314,7 +321,9 @@ export async function lintSkillTree(root, options = {}) {
 
       const spans = inlineCodeSpans(document);
 
+      const exempt = AGENT_SYNTAX_EXEMPTIONS.get(filePath);
       for (const { label, pattern } of AGENT_SYNTAX_PATTERNS) {
+        if (exempt?.has(label)) continue;
         if (pattern.test(document)) add(RULES.agentSyntax, filePath, `agent-specific syntax: ${label}`);
       }
 

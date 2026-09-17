@@ -11,7 +11,7 @@ Execute only an accepted plan. The orchestrator works autonomously through every
 
 ## Rehydrate
 
-1. Run the resolver from the installed MyFlow package, not from the target checkout: `node <myflow-package-root>/skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`. Derive `<myflow-package-root>` from this loaded skill's absolute location (the directory above `skills/`); read the selected map when found.
+1. Run the resolver from the installed MyFlow package, not from the target checkout: `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, resolving the script path relative to this installed `skills/implement/SKILL.md`. Read the selected map when found.
 2. Read the accepted plan, `workstream.md`, linked design/specialist evidence, and `git status --short`.
 3. Confirm the plan is `ready`, identify the first incomplete phase or an authorized corrective phase, and record the resolver-selected map path in the implementation checkpoint.
 
@@ -21,6 +21,8 @@ When failed Verify returns an implementation defect after all original phases ar
 
 For every incomplete phase, create exactly one fresh-context implementation subagent, sequentially. Do not implement a phase directly in the orchestrator, combine phases in one child, or merely describe a delegation that you do not launch.
 
+Take that fresh context the way `../myflow/references/capabilities.md` describes: a subagent where the host provides one, otherwise a fresh session started from the written phase brief. A host without subagents changes where the phase runs, never who owns it.
+
 1. Give the child the accepted-plan path, its one phase's scope and success criteria, linked evidence, resolver-selected map path, current checkpoint and Git state, and phase-commit authority. It owns the entire phase: follow the test-first seam, make only phase changes, run every automated criterion and required repository check, keep manual verification visible, create the atomic phase commit via `commit` when green, and update the checkpoint.
 2. Require a concise completion summary containing: phase outcome; changed files; commands and automated evidence; commit hash; checkpoint path/update; deviations; outstanding manual verification; current Git state; and next-phase or Verify readiness. The checkpoint records the same durable facts, including the resolved map path.
 3. Consume that completion summary, then immediately launch the fresh-context child for the next incomplete phase. Do not stop for a progress report, confirmation, or context re-reading between green phases.
@@ -28,7 +30,7 @@ For every incomplete phase, create exactly one fresh-context implementation suba
 
 ## Lifecycle boundary and deferred feedback
 
-Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` for every real state change, always with a stable `--idempotency-key`; never write lifecycle JSONL directly. On Implement entry, record `stage-entered --stage Implement --activity phase`. Around each plan phase, record `activity-entered` and `activity-completed`; record accepted checkpoint artifacts with `artifact-accepted`. Use `stage-blocked` and `stage-unblocked` for real blockers. Preserve completed attempts, phase commits, and accepted artifacts as history.
+Use `node ../myflow/scripts/lifecycle-journal.mjs` for every real state change, always with a stable `--idempotency-key`; never write lifecycle JSONL directly. On Implement entry, record `stage-entered --stage Implement --activity phase`. Around each plan phase, record `activity-entered` and `activity-completed`; record accepted checkpoint artifacts with `artifact-accepted`. Use `stage-blocked` and `stage-unblocked` for real blockers. Preserve completed attempts, phase commits, and accepted artifacts as history.
 
 If a defect routes work back, the detecting stage owns `return-opened`; Implement records `return-owner-ready` only after the corrective phase is green. A changed plan or architecture uses `return-rerouted` to the canonical owner. When downstream execution resumes after owner readiness, record `return-resumed` at the first affected stage.
 
@@ -38,7 +40,7 @@ After the last phase activity completes, handle the private stage pulse before `
 
 After the final green phase commit, update `workstream.md` to make the accepted plan and implementation checkpoint the authoritative Verify input. Continue in the same parent session: resolve `../verify/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path. Proceed without developer action and do not stop after printing a command.
 
-`/skill:verify <accepted-plan-path>` is recovery/rehydration only, for a new session resuming an interrupted transition. It is not the normal Implement-to-Verify gate.
+Invoking the `verify` skill by hand with the accepted-plan path is recovery/rehydration only, for a new session resuming an interrupted transition. It is not the normal Implement-to-Verify gate.
 
 Verify writes its report under `<workstream-root>/workstreams/<workstream-id>/verify/` when the mapped workstream root is not already the repository root (normally `.myflow/workstreams/<workstream-id>/verify/`). It owns validation, linked review evidence, and the conditional manual-verification brief. Do not create the final closeout commit in Implement.
 

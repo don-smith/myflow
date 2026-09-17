@@ -1,0 +1,2 @@
+# Codex: close is developer-invoked only. The model must not trigger it on its own.
+allow_implicit_invocation: false

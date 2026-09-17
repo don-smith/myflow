@@ -60,7 +60,7 @@ Apply this mapping exactly: confirmed P0/P1 produces validation verdict `fail`; 
 
 ## Owner-Correct Next Action
 
-`{ /skill:close | /skill:implement <plan> | /skill:plan <input> | /skill:design <input> | /skill:scope <input> }`
+{ the `close` skill | the `implement` skill with `<plan>` | the `plan` skill with `<input>` | the `design` skill with `<input>` | the `scope` skill with `<input>` }
 
 ## Context Checkpoint
 

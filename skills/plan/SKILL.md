@@ -2,7 +2,6 @@
 name: plan
 description: Produce the accepted, executable implementation plan for a MyFlow workstream. Accepts an alignment artifact for lightweight work or a standalone design artifact for structural work.
 argument-hint: "[alignment artifact path | design artifact path]"
-shell-timeout: 10
 ---
 
 # Plan
@@ -13,7 +12,7 @@ Plan is collaborative. Do not edit product source code.
 
 ## Input and preconditions
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, read its selected map when `found`, and record the resolved path. Then read `workstream.md` and the supplied alignment or design artifact fully.
+1. Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder, read its selected map when `found`, and record the resolved path. Then read `workstream.md` and the supplied alignment or design artifact fully.
 2. Follow the artifact's workstream ID and resolve the workstream root from the map (default `.myflow/workstreams`).
 3. Read all linked specialist artifacts whose findings affect decisions, phase boundaries, or verification.
 4. Stop and return to Scope when intent, acceptance criteria, non-goals, or risk classification changed. Stop and return to Design when a material architectural choice remains unresolved.
@@ -56,14 +55,14 @@ If Plan discovers that a supposedly lightweight change needs a new seam, public 
 8. Update `workstream.md`: Plan is `ready`, Implement is the current stage, the plan is authoritative, and its next action is:
 
    ```text
-   /skill:implement <plan-path>
+   The `implement` skill with <plan-path>
    ```
 
 9. Present the plan and ask for acceptance. Only an accepted, `ready` plan authorizes autonomous implementation.
 
 ## Lifecycle boundary
 
-Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values; never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity planning`. Record `activity-entered --stage Plan --activity planning` before planning work. Record real waits with `stage-blocked` and `stage-unblocked`.
+Use `node ../myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values; never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity planning`. Record `activity-entered --stage Plan --activity planning` before planning work. Record real waits with `stage-blocked` and `stage-unblocked`.
 
 When the developer accepts the ready plan, record `artifact-accepted`, `activity-completed`, and `return-owner-ready` when this Plan attempt owns an active correction. Run the private stage pulse from the shared stage checkpoint once for the attempt. Feedback failure does not block `stage-completed --terminal-reason advanced`. Preserve all earlier attempts and accepted artifacts as history.
 

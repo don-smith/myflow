@@ -53,8 +53,8 @@ The journal is the append-only lifecycle authority. This manifest is its current
 
 ## Rehydration
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` and read its selected map when `found`.
-2. Validate `lifecycle/events.jsonl` with `node skills/myflow/scripts/lifecycle-journal.mjs validate --workstream-id {workstream-id} --repository-root <git-root>`.
+1. Run the MyFlow repository-map resolver (`resolve-repository-map.mjs` in the installed `myflow` skill) with `discover --cwd <git-root>` and read its selected map when `found`.
+2. Validate `lifecycle/events.jsonl` with the MyFlow lifecycle journal CLI (`lifecycle-journal.mjs` in the installed `myflow` skill): `validate --workstream-id {workstream-id} --repository-root <git-root>`.
 3. Read the authoritative current artifact above.
 4. Check `git status --short`.
 5. Continue with the recorded next action.

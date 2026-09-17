@@ -11,10 +11,10 @@ Produce a bounded, independent review with an auditable gate.
 
 Run the installed `../myflow/scripts/resolve-repository-map.mjs` resolver and read mapped instructions. Require a scope spec and accepted plan or equivalent specification; Verify supplies its exact implementation scope (`base..head`, `empty-tree..head` when implementation starts at the root commit, or an explicit comma/whitespace commit list) and accepted plan.
 
-Execute the active adapter and retain its full output:
+Execute the active adapter from this skill's directory and retain its full output. The helper path is relative to this installed `skills/code-review/SKILL.md`:
 
 ```bash
-node "${SKILL_DIR}/_helpers/review-range.mjs" "<scope-spec>"
+node _helpers/review-range.mjs "<scope-spec>"
 ```
 
 Record scope status, strategy, base, tip, range, resolved commits, dirty state, changed-files count, and every changed file by decoding each manifest entry as a JSON string so whitespace and control characters remain unambiguous. Read the generated `patch_path` and give every reviewer that same patch evidence with the complete manifest, scope provenance, plan, and mapped sources. The `all` patch preserves committed, cached, unstaged, and untracked layers separately so opposing index and worktree changes remain visible. A `commit-list` manifest is the union of each resolved commit's diff relative to its first parent, with the empty tree as a root commit's parent; its patch contains matching labeled per-commit sections. For commit-list review, retain the exact scope spec and resolved commit set; range base/head alone is insufficient. `scope_status: invalid` or `empty`, a truncated manifest, unreadable patch evidence, unresolved revision, or mismatch with Verify's exact scope provenance makes review **blocked**. Dirty state outside an explicit range is an exclusion. A missing plan/equivalent spec blocks Spec Fidelity. Documented standards may be unavailable; still apply maintainability judgment.
@@ -27,7 +27,9 @@ Launch exactly three required fresh-context reviewers in parallel:
 - **Standards and Maintainability:** apply mapped rules, then inspect clarity, duplication, coupling, needless generality, tests, and maintainability. Repository rules override generic heuristics.
 - **Spec Fidelity:** compare every acceptance criterion, every phase outcome, and every exclusion, plus each requested behavior in the accepted plan, with the implementation; identify omissions, wrong behavior, and scope creep.
 
-Each lane must return its own evidence from the supplied scope. Record the run ID and agent identity actually used for each fresh review lane. Use locally available agents; no model matrix is required. Do not accept a pass verdict, checklist, or unsupported assurance as lane evidence. If fresh subagent capability is unavailable, a lane fails to return, or any lane misses part of the manifest, block rather than silently pass.
+Fresh context and parallelism follow `../myflow/references/capabilities.md`. Run the three lanes in parallel when the host supports it, otherwise one after another with the same scope each. When subagents are unavailable, run each lane as a fresh session whose input is the scope spec, the complete manifest, the patch evidence, the accepted plan, and the mapped sources. A missing subagent facility never blocks the review; it only changes how each lane is run.
+
+Each lane must return its own evidence from the supplied scope. Record the run ID and agent identity actually used for each fresh review lane. Use locally available agents; no model matrix is required. Do not accept a pass verdict, checklist, or unsupported assurance as lane evidence. If a lane fails to return, or any lane misses part of the manifest, block rather than silently pass.
 
 ## Normalize and verify
 
@@ -39,12 +41,12 @@ Retain only actionable findings. Assign a stable ID (`CR-001`, `SM-001`, or `SF-
 
 Every retained finding needs its stable ID, P0/P1/P2, failure mechanism, affected behavior or requirement, smallest fix, and source lane. For an implementation defect, cite changed `file:line` plus a verbatim quote. For an omission, cite the accepted plan or spec `path:line` with a verbatim quote and the nearest expected implementation seam. Changed-code evidence is required only when related code exists.
 
-Send provisional P0/P1 claims to a separate fresh-context verifier for independent verification. Record the run ID and agent identity actually used for independent P0/P1 verification. It inspects the cited code and callers, establishes the mechanism, and returns `confirmed`, `falsified`, or `inconclusive` with evidence. Drop falsified claims, retain confirmed claims, and block on inconclusive P0/P1 or unavailable verification. Do not change severity merely to alter the gate.
+Send provisional P0/P1 claims to a separate fresh-context verifier for independent verification. Take that fresh context the same way the lanes do. Record the run ID and agent identity actually used for independent P0/P1 verification. It inspects the cited code and callers, establishes the mechanism, and returns `confirmed`, `falsified`, or `inconclusive` with evidence. Drop falsified claims, retain confirmed claims, and block on inconclusive P0/P1 or a verifier that returns no evidence. Do not change severity merely to alter the gate.
 
 ## Gate and persist
 
 - confirmed P0/P1 → **fail**;
-- missing mandatory evidence, incomplete scope, required fresh review unavailable, or inconclusive verification → **blocked**;
+- missing mandatory evidence, incomplete scope, a required fresh review that returned unavailable, or inconclusive verification → **blocked**;
 - otherwise → **pass**; retained P2 findings do not block.
 
 Write `templates/review.md` under the workstream `verify/` directory. Include plan provenance, scope, lane evidence, retained findings, P0/P1 verification, exclusions, and review verdict. The validation report must link this durable artifact and copy its exact scope provenance and verdict; a prose summary is not a substitute.

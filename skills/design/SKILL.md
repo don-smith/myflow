@@ -2,7 +2,6 @@
 name: design
 description: Resolve material architectural decisions for a MyFlow workstream and write a standalone design artifact only when Scope or Plan requires structural design. Use after Scope and selected research/specialists, before Plan.
 argument-hint: "[alignment artifact path | research artifact path]"
-shell-timeout: 10
 ---
 
 # Design
@@ -13,9 +12,9 @@ A design artifact records the chosen solution shape and its consequences. It doe
 
 ## Input and preconditions
 
-1. Run `node skills/myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, read its selected map when `found`, and record the resolved path. Then read the workstream's `workstream.md` and the supplied alignment/research artifact fully.
+1. Run `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>` from this skill folder, read its selected map when `found`, and record the resolved path. Then read the workstream's `workstream.md` and the supplied alignment/research artifact fully.
 2. Confirm the artifact's workstream ID and resolve the workstream root from the map (default `.myflow/workstreams`).
-3. If Scope selected `lightweight` work and no material architectural question remains, do not manufacture a design artifact. State the locked/localized design disposition for Plan and continue with `/skill:plan <alignment-path>`.
+3. If Scope selected `lightweight` work and no material architectural question remains, do not manufacture a design artifact. State the locked/localized design disposition for Plan and hand on to the `plan` skill with `<alignment-path>`.
 4. If the input lacks a workstream, acceptance criteria, or a question that needs architecture, return to Scope rather than guessing.
 
 ## Flow
@@ -37,12 +36,12 @@ A design artifact records the chosen solution shape and its consequences. It doe
 10. Present a fresh-session command:
 
    ```text
-   /skill:plan <design-artifact-path>
+   The `plan` skill with <design-artifact-path>
    ```
 
 ## Lifecycle boundary
 
-Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values. Never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity design`; then record `activity-entered --stage Plan --activity design`. A resumed design activity in the same Plan attempt does not create another stage attempt.
+Use `node ../myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values. Never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity design`; then record `activity-entered --stage Plan --activity design`. A resumed design activity in the same Plan attempt does not create another stage attempt.
 
 After the developer accepts the design, record `artifact-accepted` and `activity-completed`. Planning owns the later Plan completion and stage pulse. Record a real wait with `stage-blocked` and `stage-unblocked`. On a correction owned by Design, keep earlier attempts and accepted artifacts as history, record `return-owner-ready` when the architecture is ready, and let downstream planning record `return-resumed`. If Design proves that the outcome changed, use `return-rerouted` to Scope rather than changing ownership silently.
 
