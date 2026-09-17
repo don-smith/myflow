@@ -8,7 +8,7 @@ const skillPaths = {
   Design: "skills/design/SKILL.md",
   Plan: "skills/plan/SKILL.md",
   Implement: "skills/implement/SKILL.md",
-  Verify: "skills/validate/SKILL.md",
+  Verify: "skills/verify/SKILL.md",
   Close: "skills/close/SKILL.md",
   MyFlow: "skills/myflow/SKILL.md",
 };
@@ -51,11 +51,11 @@ test("stage contracts preserve correction ownership and immutable history", asyn
 });
 
 test("feedback contract is exact, private, once per attempt, and non-blocking", async () => {
-  const [checkpoint, myflow, implement, validate] = await Promise.all([
+  const [checkpoint, myflow, implement, verify] = await Promise.all([
     read("skills/myflow/templates/stage-context-checkpoint.md"),
     read("skills/myflow/SKILL.md"),
     read("skills/implement/SKILL.md"),
-    read("skills/validate/SKILL.md"),
+    read("skills/verify/SKILL.md"),
   ]);
   const contract = `${checkpoint}\n${myflow}`;
 
@@ -75,9 +75,9 @@ test("feedback contract is exact, private, once per attempt, and non-blocking", 
 
   assert.match(implement, /pending/i);
   assert.match(implement, /without live (?:developer )?interaction/i);
-  assert.match(validate, /before substantive[^.\n]*Verify/i);
-  assert.match(validate, /pending Implement feedback/i);
-  assert.match(validate, /feedback failure[^.\n]*(?:does not|must not)[^.\n]*(?:stage transition|verification)/i);
+  assert.match(verify, /before substantive[^.\n]*Verify/i);
+  assert.match(verify, /pending Implement feedback/i);
+  assert.match(verify, /feedback failure[^.\n]*(?:does not|must not)[^.\n]*(?:stage transition|verification)/i);
 });
 
 test("lifecycle core remains host-neutral", async () => {

@@ -1,11 +1,11 @@
 ---
-name: validate
+name: verify
 description: Use after Implement to verify an accepted MyFlow plan, collect review evidence, and produce a workstream-aware Verify report.
 argument-hint: "<accepted-plan-path>"
 shell-timeout: 10
 ---
 
-# Validate
+# Verify
 
 Verify execution against the supplied accepted plan. This is Stage 4; it consumes evidence and reports defects, not code changes.
 
@@ -29,7 +29,7 @@ After deferred feedback, record `activity-entered --stage Verify --activity veri
 - Use the plan's verification map and run its phase-defined automated commands as written.
 - Inspect each completed phase against its outcome, commit/checkpoint evidence, deviations, and acceptance-criterion seam.
 - Resolve the exact implementation scope from every phase and corrective-phase commit hash. When those commits are contiguous, use an exact implementation range: normally the base is the first implementation commit's parent and the head is the final implementation commit, producing `base..head`; if the first implementation commit has no parent, use `empty-tree..<final implementation commit>`. When an unrelated commit is interleaved, pass the ordered implementation commit IDs as an explicit comma-separated commit list so only named commits are reviewed. Confirm and record the exact scope spec; do not substitute an inferred branch comparison.
-- Resolve `../code-review/SKILL.md` relative to this installed `skills/validate/SKILL.md`, read it, and execute it immediately in the current run. Pass that explicit scope form to code-review with the accepted plan as the spec. This is operational composition, not advice to invoke another slash command later.
+- Resolve `../code-review/SKILL.md` relative to this installed `skills/verify/SKILL.md`, read it, and execute it immediately in the current run. Pass that explicit scope form to code-review with the accepted plan as the spec. This is operational composition, not advice to invoke another slash command later.
 - Save the review output as the separate review artifact. Record its accepted-plan path, exact scope spec, resolved commit set, orientation base and tip, review verdict, and review evidence required by the loaded code-review skill. For commit-list review, copy the exact scope spec and resolved commit set; range base/head alone is insufficient. Apply one deterministic mapping: confirmed P0/P1 produces validation verdict `fail`; missing mandatory scope or evidence, unavailable lane, or inconclusive verifier produces validation verdict `blocked`. Frontmatter status is `ready` only for `pass` and `blocked` for `fail` or `blocked`; a top-level validation pass cannot override review evidence.
 - Prepare a manual-verification brief only when the plan names human-facing, external, or otherwise non-automatable checks. Mark it `not required` otherwise.
 - Write one complete report using `templates/validation.md`: verdict, criterion coverage, automated evidence, linked review evidence, deviations, manual-verification brief, explicit exclusions, and owner-correct next action.

@@ -35,7 +35,7 @@ MyFlow is a five-stage workflow for AI-assisted software development. Each stage
 Determine the intent, size, ambiguity, risk, and appropriate depth of the work. Select specialists only when needed:
 
 - `discover` for deeper requirements extraction
-- `grill-with-docs` for a repository-scoped decision that needs collaborative questioning and may sharpen domain language or record an ADR
+- `grill-me` for a decision that needs collaborative questioning and may sharpen domain language or record an ADR
 - `research` for codebase or external research
 - `prototype` for difficult behavior or UI questions
 
@@ -55,7 +55,7 @@ Every non-trivial workstream has an executable plan. Its **design disposition** 
 
 **Orchestrator:** `implement`
 
-Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `validate` skill and executes it immediately; `/skill:validate` is recovery/rehydration guidance, not a user-operated gate.
+Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `verify` skill and executes it immediately; `/skill:verify` is recovery/rehydration guidance, not a user-operated gate.
 
 When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify.
 
@@ -63,7 +63,7 @@ When failed Verify returns an implementation defect after all original phases ar
 
 ### 4. Verify
 
-**Orchestrator:** `validate`
+**Orchestrator:** `verify`
 
 Verify the implementation against the plan and its success criteria. Run automated checks, inspect the implementation, and load and execute the installed sibling `code-review` skill in the current run with the exact implementation scope and accepted plan. Persist its provenance and result as a separate review artifact. When the work has human-facing or external behavior, prepare a manual-verification brief for the developer.
 
@@ -91,9 +91,8 @@ The shared `skills/myflow/templates/stage-context-checkpoint.md` defines the com
 
 These skills can be invoked at any suitable point:
 
-- `create-handoff` and `resume-handoff` — exceptional mid-stage or mid-slice recovery
-- `grilling` — the model-invocable decision-tree interview technique used by other skills
-- `grill-me` — an explicit, stateless interview for a decision not tied to a repository workstream
+- `handoff` — exceptional mid-stage or mid-slice recovery, in write and resume modes
+- `grill-me` — the decision-tree interview technique other skills use for collaborative questioning
 - `domain-modeling` — establish or sharpen domain language
 - `diagnosing-bugs` — resolve bugs, failures, flaky behavior, and performance regressions
 - `technical-writing` — write or revise documentation the workstream produces
@@ -102,13 +101,9 @@ TDD is already consolidated: `tdd` is the canonical skill. Use it primarily duri
 
 Debugging is already consolidated: `diagnosing-bugs` is the canonical skill. It requires an evidence-first feedback loop before a durable fix; `systematic-debugging` is retired.
 
-The grilling family is intentionally layered:
+Questioning is consolidated: `grill-me` is the one interview skill. It is model-invocable, so a skill that needs collaborative decision-making runs its rounds rather than inventing another interview, and it is also the developer's explicit front door for a decision that is not tied to a workstream at all. For a repository-scoped decision it composes with `domain-modeling` and `design` when domain language or an ADR needs maintenance.
 
-- `grilling` is the model-invocable decision-tree interview technique. Skills that need collaborative decision-making use it rather than inventing another interview.
-- `grill-me` is its explicit, stateless front door. It is stage agnostic and appropriate when the decision is not tied to a repository workstream or its artifacts.
-- `grill-with-docs` is its repository-scoped Scope specialist. It composes `grilling` with `domain-modeling` when a change can be settled collaboratively and domain language or an ADR may need maintenance.
-
-`grill-with-docs` supplements rather than replaces the Scope artifact: record settled scope, trade-offs, requirements, and next action in the alignment artifact even when they are neither glossary terms nor ADRs. It must use the repository paths discovered during onboarding, not assume `CONTEXT.md` or `docs/adr/`.
+Questioning supplements rather than replaces the Scope artifact: record settled scope, trade-offs, requirements, and next action in the alignment artifact even when they are neither glossary terms nor ADRs. It must use the repository paths discovered during onboarding, not assume `CONTEXT.md` or `docs/adr/`.
 
 ## Onboarding
 
@@ -136,7 +131,7 @@ Stage artifacts are the primary handoff mechanism. Each should make the current 
 - next action and next-session command
 - rehydration information
 
-Use a fresh session at a natural stage boundary. Use `create-handoff` only for an exceptional interruption inside a stage or slice; use `resume-handoff` to recover it. The handoff should point to the authoritative stage artifact rather than duplicate it.
+Use a fresh session at a natural stage boundary. Use `handoff` only for an exceptional interruption inside a stage or slice: its write mode records the pause and its resume mode recovers it. The handoff should point to the authoritative stage artifact rather than duplicate it.
 
 ## Continuous improvement
 
@@ -154,11 +149,10 @@ Each completed stage attempt offers one private pulse. The ratings and notes sta
 |---|---|
 | Establish or refresh repository conventions | `onboard` |
 | Start or classify work | `scope` |
-| Resolve fuzzy requirements | `discover` or a grilling entry point |
+| Resolve fuzzy requirements | `discover` or `grill-me` |
 | Research reality | `research` |
 | Design and sequence | `design` → `plan` |
 | Execute accepted work | `implement` |
-| Validate implementation | `validate` → `code-review` |
+| Verify implementation | `verify` → `code-review` |
 | Close the workstream | `close` |
-| Pause unexpectedly | `create-handoff` |
-| Resume a pause | `resume-handoff` |
+| Pause mid-stage, or resume such a pause | `handoff` |

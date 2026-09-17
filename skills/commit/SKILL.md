@@ -17,10 +17,20 @@ You are tasked with creating git commits for repository changes.
 ## Metadata
 
 ```!
-node "${SKILL_DIR}/../_shared/git-changes.mjs"
+node "${SKILL_DIR}/../_shared/git-context.mjs"
+echo "---status---"
+git status --short 2>/dev/null || true
+echo "---diffstat---"
+git diff --stat HEAD 2>/dev/null || true
 echo "---recent-subjects---"
 git log --pretty=%s -n 20 2>/dev/null || true
 ```
+
+The first six lines are `branch:`, `commit:`, `repo:`, `root:`, `in_repo:`, and `author:`.
+
+`---status---` — the short status: staged, unstaged, and untracked paths.
+
+`---diffstat---` — per-file insertion and deletion counts against `HEAD`. Empty on a no-HEAD initial repository; use `git diff --stat` and `git status` directly there.
 
 `---recent-subjects---` — up to 20 most recent commit subject lines, used in Step 2 to match the repository's existing commit-message style. Empty on a no-HEAD initial repo.
 
@@ -48,7 +58,7 @@ For direct user invocations and Close's final closeout commit, retain the normal
 
 1. **Think about what changed:**
    - **If in-session**: Review the conversation history to understand what was accomplished.
-   - The Metadata block gives you the file list and per-file diffstat (insertions/deletions). For files with a small diffstat (≲5 lines), the line counts alone are enough to write the message — skip `git diff`. Run `git diff <path>` only for files where the change is large or the intent isn't obvious from filename + line counts.
+   - The Metadata block gives you the file list under `---status---` and the per-file insertion and deletion counts under `---diffstat---`. For a file with a small diffstat (≲5 lines), the line counts alone are enough to write the message — skip `git diff`. Run `git diff <path>` only where the change is large or the intent isn't obvious from the filename and line counts.
    - For untracked directories shown in status (e.g. `?? path/`), assume their contents are the change unless the directory has many files; do NOT `cat`/`head` files to verify obvious purpose.
    - Consider whether changes should be one commit or multiple logical commits.
 

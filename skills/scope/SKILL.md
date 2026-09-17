@@ -106,9 +106,9 @@ Choose the smallest safe path with the developer:
 
 Select specialists by evidence rather than forcing a chain:
 
-- `discover` for unresolved requirements;
+- `discover` for unresolved requirements, which returns a requirements document in this workstream's `scope/` folder for the alignment artifact to link;
 - `research` for a specific codebase or external question;
-- `grill-with-docs` for a repository-scoped decision that may affect domain language or ADRs;
+- `grill-me` for a decision that may affect domain language or ADRs;
 - `prototype` for uncertain behavior or UI;
 - `domain-modeling` for unclear/changing terminology or boundaries; or
 - `codebase-design` for a focused technical-debt or deepening workstream.
@@ -148,7 +148,7 @@ Report:
 - the selected specialist or exact Plan command; and
 - whether a fresh session in the target worktree is recommended.
 
-At a normal stage boundary, a fresh session runs `resolve-repository-map.mjs discover`, reads the resolved map when found, then reads `workstream.md` and the authoritative alignment artifact. Store the resolved map path in the manifest and artifact frontmatter. Use `create-handoff` only for an interruption inside Scope.
+At a normal stage boundary, a fresh session runs `resolve-repository-map.mjs discover`, reads the resolved map when found, then reads `workstream.md` and the authoritative alignment artifact. Store the resolved map path in the manifest and artifact frontmatter. Use `handoff` only for an interruption inside Scope.
 
 ## Guardrails
 

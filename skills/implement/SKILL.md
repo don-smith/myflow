@@ -36,9 +36,9 @@ After the last phase activity completes, handle the private stage pulse before `
 
 ## Enter Verify automatically
 
-After the final green phase commit, update `workstream.md` to make the accepted plan and implementation checkpoint the authoritative Verify input. Continue in the same parent session: resolve `../validate/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path. Proceed without developer action and do not stop after printing a command.
+After the final green phase commit, update `workstream.md` to make the accepted plan and implementation checkpoint the authoritative Verify input. Continue in the same parent session: resolve `../verify/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path. Proceed without developer action and do not stop after printing a command.
 
-`/skill:validate <accepted-plan-path>` is recovery/rehydration only, for a new session resuming an interrupted transition. It is not the normal Implement-to-Verify gate.
+`/skill:verify <accepted-plan-path>` is recovery/rehydration only, for a new session resuming an interrupted transition. It is not the normal Implement-to-Verify gate.
 
 Verify writes its report under `<workstream-root>/workstreams/<workstream-id>/verify/` when the mapped workstream root is not already the repository root (normally `.myflow/workstreams/<workstream-id>/verify/`). It owns validation, linked review evidence, and the conditional manual-verification brief. Do not create the final closeout commit in Implement.
 

@@ -16,11 +16,13 @@ export const STAGE_FEEDBACK_RATINGS = Object.freeze(["smooth", "some-friction", 
 export const STAGE_FEEDBACK_STATUSES = Object.freeze(["recorded", "skipped", "pending"]);
 export const HOST_CAPABILITIES = Object.freeze(["structured", "plain-text", "none"]);
 
+// The skill that governs each canonical stage. Records written before the Verify
+// skill was renamed name `validate` here; they are history and stay readable.
 const SKILL_BY_STAGE = Object.freeze({
   Scope: "scope",
   Plan: "plan",
   Implement: "implement",
-  Verify: "validate",
+  Verify: "verify",
   Close: "close",
 });
 const SAFE_VALUE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;

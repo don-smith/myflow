@@ -36,7 +36,7 @@ Before writing a test, record and, during collaborative planning, confirm:
 3. **Dependencies** — what the implementation needs, and which of those should be supplied by the caller.
 4. **Test level** — the cheapest level that exercises the real behavior without hiding important integration.
 
-Use public interfaces, not private methods, internal collaborators, call counts, or side channels. If a test needs to reach inside, first ask whether the seam is in the wrong place or the module is too shallow. Use the `/codebase-design` vocabulary when the interface, depth, or seam is itself a design question.
+Use public interfaces, not private methods, internal collaborators, call counts, or side channels. If a test needs to reach inside, first ask whether the seam is in the wrong place or the module is too shallow. Use `codebase-design` as the vocabulary when the interface, depth, or seam is itself a design question: module, interface, seam, adapter, depth, leverage, and locality.
 
 Prefer designs that:
 

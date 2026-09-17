@@ -686,3 +686,22 @@ test("chain validation detects changed historical records", async () => {
   assert.equal(validation.valid, false);
   assert.match(validation.errors.join("\n"), /eventId|integrity/i);
 });
+
+test("a journal that records a retired skill name as its source stays valid", async () => {
+  const context = await fixture();
+  await reachVerify(context);
+  // The Verify skill was named `validate` until the core slimdown. Journals written
+  // then carry that source and must keep validating and reducing.
+  await context.append("verification.completed", {
+    canonicalStage: "Verify",
+    owningActivity: "verification",
+    source: "validate",
+    verificationStatus: "pass",
+  });
+
+  const validation = await validateLifecycleJournal(context.journalPath);
+  assert.equal(validation.valid, true, validation.errors.join("\n"));
+  assert.equal(validation.state.currentStage, "Verify");
+  const { events } = await readLifecycleJournal(context.journalPath);
+  assert.equal(events.at(-1).source, "validate");
+});

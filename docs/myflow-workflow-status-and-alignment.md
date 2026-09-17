@@ -26,10 +26,10 @@ Onboard repository (when needed)
 | Scope | `scope` | Collaboratively establish intended outcome, acceptance criteria, risk, and appropriate workflow depth. |
 | Plan | `plan` | Produce implementation authority, using a standalone `design` artifact only when justified. |
 | Implement | `implement` | Autonomously execute accepted plan phases, commit each green phase, then continue to Verify in the same parent session. |
-| Verify | `validate` | Load and execute `code-review` with the exact implementation scope and accepted plan, then prepare human manual verification. |
+| Verify | `verify` | Load and execute `code-review` with the exact implementation scope and accepted plan, then prepare human manual verification. |
 | Close | `close` | Require linked passing review evidence, then complete applicable documentation, learning, delivery, and final-closeout work collaboratively. |
 
-After the final green phase, Implement reads the installed Validate skill and executes it immediately in the same parent session. `/skill:validate` is recovery/rehydration guidance only, not a user-operated gate. Verify runs fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity lanes. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and its plan/scope provenance instead of trusting only a validation report's top-level verdict.
+After the final green phase, Implement reads the installed `verify` skill and executes it immediately in the same parent session. `/skill:verify` is recovery/rehydration guidance only, not a user-operated gate. Verify runs fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity lanes. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and its plan/scope provenance instead of trusting only a validation report's top-level verdict.
 
 `myflow` is the workflow map and navigation layer, not a competing stage.
 
@@ -52,7 +52,7 @@ After the final green phase, Implement reads the installed Validate skill and ex
 
 ### Cross-cutting primitives
 
-- `create-handoff` / `resume-handoff` are the canonical exceptional-handoff pair.
+- `handoff` is the canonical exceptional-handoff skill, in write and resume modes.
 - `epiphany-tabling` preserves follow-up ideas without expanding current scope.
 - `diagnosing-bugs` is the canonical evidence-first debugging skill; `systematic-debugging` is retired.
 - `tdd` is the canonical TDD skill. It primarily shapes Plan/design test seams and the verification map; implementation re-invokes it only for uncovered behavior or a revealed design gap.
@@ -62,15 +62,13 @@ After the final green phase, Implement reads the installed Validate skill and ex
 
 ### Layered specialist families
 
-- `grilling` is the model-invocable decision-tree technique.
-- `grill-me` is the stateless, stage-agnostic entry point.
-- `grill-with-docs` is a repository-scoped Scope specialist and supplements, never replaces, the alignment artifact.
+- `grill-me` is the model-invocable decision-tree technique and the stage-agnostic entry point. For a repository-scoped decision it supplements, never replaces, the alignment artifact.
 - `architecture-review` is a broad structural audit selected by Plan or onboarding.
 - `improve-codebase-architecture` is a focused Scope entry branch for technical-debt/deepening exploration.
 
 ### Retired from MyFlow
 
-`handoff`, `as-built-documentation`, `to-spec`, `to-tickets`, `loop-me`, `triage`, `test-driven-development`, and `systematic-debugging` are retired. Retained skills must not require them.
+`as-built-documentation`, `to-spec`, `to-tickets`, `loop-me`, `triage`, `test-driven-development`, and `systematic-debugging` are retired. Retained skills must not require them.
 
 ## Alignment inventory
 

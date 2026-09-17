@@ -21,18 +21,20 @@ A design artifact records the chosen solution shape and its consequences. It doe
 ## Flow
 
 1. Gather only the evidence needed to resolve the architecture question.
-2. Identify the affected modules, interfaces, seams, dependencies, and relevant repository precedents. Use `codebase-design` vocabulary: module, interface, seam, adapter, depth, leverage, and locality.
-3. Select `domain-modeling`, `prototype`, or targeted research only when the evidence shows it is needed.
-4. Present genuine alternatives and trade-offs to the developer. Do not ask for confirmation of an obvious existing pattern; record the evidence instead.
-5. Settle one direction, its change boundaries, operational consequences, verification intent, and independently verifiable implementation slices.
-6. Read `templates/design.md` relative to this skill and write:
+2. Identify the affected modules, interfaces, seams, dependencies, and relevant repository precedents. Use `codebase-design` as the vocabulary for this step: module, interface, seam, adapter, depth, leverage, and locality.
+3. Name the patterns and ADRs in the repository map that this change uses, extends, or conflicts with. A conflict is a design question, not a detail: settle it here or return it to its owning stage.
+4. Select `domain-modeling`, `prototype`, or targeted research only when the evidence shows it is needed.
+5. Present genuine alternatives and trade-offs to the developer. Do not ask for confirmation of an obvious existing pattern; record the evidence instead.
+6. Settle one direction, its change boundaries, operational consequences, verification intent, and independently verifiable implementation slices.
+7. Offer an ADR for a decision that qualifies, following the rules below.
+8. Read `templates/design.md` relative to this skill and write:
 
    ```text
    <workstream-root>/<workstream-id>/design/<timestamp>_<topic>.md
    ```
 
-7. Update `workstream.md`: Plan is in progress, the design artifact is the current authoritative planning input, and the next action is Plan.
-8. Present a fresh-session command:
+9. Update `workstream.md`: Plan is in progress, the design artifact is the current authoritative planning input, and the next action is Plan.
+10. Present a fresh-session command:
 
    ```text
    /skill:plan <design-artifact-path>
@@ -43,6 +45,18 @@ A design artifact records the chosen solution shape and its consequences. It doe
 Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` with stable `--idempotency-key` values. Never write lifecycle JSONL directly. If no Plan attempt is open, record `stage-entered --stage Plan --activity design`; then record `activity-entered --stage Plan --activity design`. A resumed design activity in the same Plan attempt does not create another stage attempt.
 
 After the developer accepts the design, record `artifact-accepted` and `activity-completed`. Planning owns the later Plan completion and stage pulse. Record a real wait with `stage-blocked` and `stage-unblocked`. On a correction owned by Design, keep earlier attempts and accepted artifacts as history, record `return-owner-ready` when the architecture is ready, and let downstream planning record `return-resumed`. If Design proves that the outcome changed, use `return-rerouted` to Scope rather than changing ownership silently.
+
+## Record the decision when it qualifies
+
+Design owns architectural decision records. Offer one only when all three are true:
+
+1. **Hard to reverse** — the cost of changing your mind later is meaningful.
+2. **Surprising without context** — a future reader will wonder "why did they do it this way?".
+3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons.
+
+If any of the three is missing, skip the ADR. The design artifact already records the decision; an ADR is for the decision a reader will meet in the code long after this workstream closes.
+
+Write it to the ADR location the repository map names. When the map names none, ask before creating one, and record the missing mapping for `onboard` to refresh. `ADR-FORMAT.md` in this skill folder holds the format, the numbering rule, and what qualifies; use it when the developer confirms it as the repository's format.
 
 ## Required design outcome
 

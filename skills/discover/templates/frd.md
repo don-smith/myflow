@@ -5,13 +5,13 @@ commit: {Current commit hash}
 branch: {Current branch name}
 repository: {Repository name}
 topic: "{Feature topic}"
-tags: [intent, frd, relevant-component-names]
+tags: [intent, requirements, relevant-component-names]
 status: ready
 last_updated: {Same ISO timestamp as `date:` above}
 last_updated_by: {`author:` from Metadata block}
 ---
 
-# FRD: {Feature topic}
+# Requirements: {Feature topic}
 
 ## Summary
 {2-3 sentences. The settled feature concept after the interview — what we're building, in the developer's framing.}
@@ -47,7 +47,7 @@ last_updated_by: {`author:` from Metadata block}
 - [ ] {Criterion 2}
 
 ## Recommended Approach
-{1-2 sentences. The architectural shape implied by the decisions — e.g., "New command in `packages/rpiv-pi/extensions/`, writes JSON to stdout, no persistence layer." The downstream `research` skill validates this against the codebase and passes this text to `scope-tracer` as the topic.}
+{1-2 sentences. The architectural shape implied by the decisions — e.g., "New command in `packages/rpiv-pi/extensions/`, writes JSON to stdout, no persistence layer." Scope carries this shape into the alignment artifact, and selects `research` when it needs checking against the codebase.}
 
 ## Decisions
 
@@ -64,7 +64,7 @@ last_updated_by: {`author:` from Metadata block}
 **Rationale**: …
 
 ## Open Questions
-{Only items the developer explicitly deferred. Each becomes an Open Question for `research` to answer or carry forward into Developer Context.}
+{Only items the developer explicitly deferred. Each becomes an open question in the alignment artifact for Scope to route or carry forward.}
 
 - {Deferred item 1 — what's deferred, why}
 
@@ -75,4 +75,4 @@ last_updated_by: {`author:` from Metadata block}
 
 ## References
 - {Input file or ticket}
-- {Related artifact, e.g., `.myflow/artifacts/research/<YYYY-MM-DD_HH-MM-SS>_<topic>.md`}
+- {Related artifact, e.g., `<workstream-root>/<workstream-id>/research/<timestamp>_<topic>.md`}

@@ -2,19 +2,16 @@
   "rule1-frontmatter": [
     "skills/commit/SKILL.md: disallowed key: allowed-tools",
     "skills/commit/SKILL.md: disallowed key: shell-timeout",
-    "skills/create-handoff/SKILL.md: disallowed key: allowed-tools",
-    "skills/create-handoff/SKILL.md: disallowed key: shell-timeout",
     "skills/design/SKILL.md: disallowed key: shell-timeout",
     "skills/discover/SKILL.md: disallowed key: shell-timeout",
+    "skills/handoff/SKILL.md: disallowed key: allowed-tools",
+    "skills/handoff/SKILL.md: disallowed key: shell-timeout",
     "skills/plan/SKILL.md: disallowed key: shell-timeout",
     "skills/research/SKILL.md: disallowed key: shell-timeout",
-    "skills/resume-handoff/SKILL.md: disallowed key: shell-timeout",
     "skills/scope/SKILL.md: disallowed key: shell-timeout",
-    "skills/validate/SKILL.md: disallowed key: shell-timeout"
+    "skills/verify/SKILL.md: disallowed key: shell-timeout"
   ],
-  "rule2-references": [
-    "skills/commit/SKILL.md: missing reference: skills/_shared/git-changes.mjs"
-  ],
+  "rule2-references": [],
   "rule3-skill-references": [],
   "rule4-agent-syntax": [
     "skills/close/SKILL.md: agent-specific syntax: .myflow/workstreams",
@@ -23,7 +20,6 @@
     "skills/commit/SKILL.md: agent-specific syntax: ${SKILL_DIR}",
     "skills/commit/SKILL.md: agent-specific syntax: ask_user_question",
     "skills/commit/SKILL.md: agent-specific syntax: shell-injection fence",
-    "skills/create-handoff/SKILL.md: agent-specific syntax: /skill:",
     "skills/design/SKILL.md: agent-specific syntax: .myflow/workstreams",
     "skills/design/SKILL.md: agent-specific syntax: /skill:",
     "skills/design/templates/design.md: agent-specific syntax: /skill:",
@@ -31,6 +27,7 @@
     "skills/discover/SKILL.md: agent-specific syntax: /skill:",
     "skills/discover/SKILL.md: agent-specific syntax: ask_user_question",
     "skills/discover/SKILL.md: agent-specific syntax: shell-injection fence",
+    "skills/handoff/SKILL.md: agent-specific syntax: /skill:",
     "skills/implement/SKILL.md: agent-specific syntax: .myflow/workstreams",
     "skills/implement/SKILL.md: agent-specific syntax: /skill:",
     "skills/myflow/SKILL.md: agent-specific syntax: /skill:",
@@ -43,16 +40,8 @@
     "skills/plan/templates/full-plan.md: agent-specific syntax: /skill:",
     "skills/research/SKILL.md: agent-specific syntax: .myflow/workstreams",
     "skills/scope/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/validate/SKILL.md: agent-specific syntax: .myflow/workstreams",
-    "skills/validate/templates/validation.md: agent-specific syntax: /skill:"
+    "skills/verify/SKILL.md: agent-specific syntax: .myflow/workstreams",
+    "skills/verify/templates/validation.md: agent-specific syntax: /skill:"
   ],
-  "rule5-core-set": [
-    "skills: missing skill: handoff",
-    "skills: missing skill: verify",
-    "skills: unexpected skill: create-handoff",
-    "skills: unexpected skill: grill-with-docs",
-    "skills: unexpected skill: grilling",
-    "skills: unexpected skill: resume-handoff",
-    "skills: unexpected skill: validate"
-  ]
+  "rule5-core-set": []
 }

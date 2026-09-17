@@ -27,7 +27,7 @@ If Close discovers new evidence, record `return-opened` and complete Close as `s
 
 With the developer, select only actions supported by Verify evidence or mapped repository policy:
 
-- documentation/status update when product behavior or mapped policy requires it;
+- documentation/status update when product behavior or mapped policy requires it. Write or revise that documentation with `technical-writing`, including the closeout summary and the final commit message;
 - learning capture, retrospective, or tabled follow-up only when an observation warrants it;
 - changelog/release preparation only when delivery policy requires it;
 - a closeout summary whenever close decisions, manual evidence, or follow-ups need to remain resumable.

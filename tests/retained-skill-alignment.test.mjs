@@ -5,8 +5,7 @@ import test from "node:test";
 const mapConsumers = [
   "skills/domain-modeling/SKILL.md",
   "skills/research/SKILL.md",
-  "skills/create-handoff/SKILL.md",
-  "skills/resume-handoff/SKILL.md",
+  "skills/handoff/SKILL.md",
 ];
 
 test("retained map consumers use the resolver and avoid retired helper dependencies", async () => {

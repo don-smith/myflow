@@ -9,7 +9,7 @@ Produce a bounded, independent review with an auditable gate.
 
 ## Pin the scope
 
-Run the installed `../myflow/scripts/resolve-repository-map.mjs` resolver and read mapped instructions. Require a scope spec and accepted plan or equivalent specification; Validate supplies its exact implementation scope (`base..head`, `empty-tree..head` when implementation starts at the root commit, or an explicit comma/whitespace commit list) and accepted plan.
+Run the installed `../myflow/scripts/resolve-repository-map.mjs` resolver and read mapped instructions. Require a scope spec and accepted plan or equivalent specification; Verify supplies its exact implementation scope (`base..head`, `empty-tree..head` when implementation starts at the root commit, or an explicit comma/whitespace commit list) and accepted plan.
 
 Execute the active adapter and retain its full output:
 
@@ -17,7 +17,7 @@ Execute the active adapter and retain its full output:
 node "${SKILL_DIR}/_helpers/review-range.mjs" "<scope-spec>"
 ```
 
-Record scope status, strategy, base, tip, range, resolved commits, dirty state, changed-files count, and every changed file by decoding each manifest entry as a JSON string so whitespace and control characters remain unambiguous. Read the generated `patch_path` and give every reviewer that same patch evidence with the complete manifest, scope provenance, plan, and mapped sources. The `all` patch preserves committed, cached, unstaged, and untracked layers separately so opposing index and worktree changes remain visible. A `commit-list` manifest is the union of each resolved commit's diff relative to its first parent, with the empty tree as a root commit's parent; its patch contains matching labeled per-commit sections. For commit-list review, retain the exact scope spec and resolved commit set; range base/head alone is insufficient. `scope_status: invalid` or `empty`, a truncated manifest, unreadable patch evidence, unresolved revision, or mismatch with Validate's exact scope provenance makes review **blocked**. Dirty state outside an explicit range is an exclusion. A missing plan/equivalent spec blocks Spec Fidelity. Documented standards may be unavailable; still apply maintainability judgment.
+Record scope status, strategy, base, tip, range, resolved commits, dirty state, changed-files count, and every changed file by decoding each manifest entry as a JSON string so whitespace and control characters remain unambiguous. Read the generated `patch_path` and give every reviewer that same patch evidence with the complete manifest, scope provenance, plan, and mapped sources. The `all` patch preserves committed, cached, unstaged, and untracked layers separately so opposing index and worktree changes remain visible. A `commit-list` manifest is the union of each resolved commit's diff relative to its first parent, with the empty tree as a root commit's parent; its patch contains matching labeled per-commit sections. For commit-list review, retain the exact scope spec and resolved commit set; range base/head alone is insufficient. `scope_status: invalid` or `empty`, a truncated manifest, unreadable patch evidence, unresolved revision, or mismatch with Verify's exact scope provenance makes review **blocked**. Dirty state outside an explicit range is an exclusion. A missing plan/equivalent spec blocks Spec Fidelity. Documented standards may be unavailable; still apply maintainability judgment.
 
 ## Run three independent lanes
 

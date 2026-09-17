@@ -53,19 +53,19 @@ test("Implement records resolver-aware phase checkpoints before Verify", async (
 });
 
 test("Implement defers its non-blocking feedback pulse to Verify entry", async () => {
-  const [implement, validate] = await Promise.all([
+  const [implement, verify] = await Promise.all([
     read("skills/implement/SKILL.md"),
-    read("skills/validate/SKILL.md"),
+    read("skills/verify/SKILL.md"),
   ]);
 
   assert.match(implement, /record-stage-feedback\.mjs/);
   assert.match(implement, /status pending/i);
   assert.match(implement, /without live (?:developer )?interaction/i);
-  assert.match(validate, /pending Implement feedback/i);
-  assert.match(validate, /before substantive[^.\n]*Verify/i);
-  assert.match(validate, /feedback-requested/i);
-  assert.match(validate, /feedback-recorded/i);
-  assert.match(validate, /feedback failure[^.\n]*(?:does not|must not)[^.\n]*(?:stage transition|verification)/i);
+  assert.match(verify, /pending Implement feedback/i);
+  assert.match(verify, /before substantive[^.\n]*Verify/i);
+  assert.match(verify, /feedback-requested/i);
+  assert.match(verify, /feedback-recorded/i);
+  assert.match(verify, /feedback failure[^.\n]*(?:does not|must not)[^.\n]*(?:stage transition|verification)/i);
 });
 
 test("Implement delegates every phase through a fresh context", async () => {
@@ -120,7 +120,7 @@ test("Implement enters Verify immediately in the same parent session", async () 
 
   for (const phrase of [
     "same parent session",
-    "../validate/SKILL.md",
+    "../verify/SKILL.md",
     "relative to this installed",
     "read",
     "execute",
@@ -129,15 +129,15 @@ test("Implement enters Verify immediately in the same parent session", async () 
   ]) {
     assert.match(implement, new RegExp(phrase, "i"));
   }
-  assertRequiredExecuteNowClause(implement, /\.\.\/validate\/SKILL\.md/i);
-  assert.doesNotMatch(implement, /Start Verify with:\s*```text\s*\/skill:validate/i);
-  assert.doesNotMatch(implement, /ask (?:the )?developer to (?:invoke|run|start).*validate/i);
+  assertRequiredExecuteNowClause(implement, /\.\.\/verify\/SKILL\.md/i);
+  assert.doesNotMatch(implement, /Start Verify with:\s*```text\s*\/skill:verify/i);
+  assert.doesNotMatch(implement, /ask (?:the )?developer to (?:invoke|run|start).*verify/i);
 });
 
-test("Implement-to-Validate contract rejects negated and advisory-only execution clauses", async () => {
+test("Implement-to-Verify contract rejects negated and advisory-only execution clauses", async () => {
   const implement = await read("skills/implement/SKILL.md");
   const clause =
-    "resolve `../validate/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path";
+    "resolve `../verify/SKILL.md` relative to this installed `skills/implement/SKILL.md`, read it, and execute its instructions immediately with the accepted-plan path";
 
   const mutants = [
     implement.replace(clause, `do not ${clause}`),
@@ -145,17 +145,17 @@ test("Implement-to-Validate contract rejects negated and advisory-only execution
   ];
 
   for (const mutant of mutants) {
-    for (const token of ["../validate/SKILL.md", "read", "execute", "immediately"]) {
+    for (const token of ["../verify/SKILL.md", "read", "execute", "immediately"]) {
       assert.match(mutant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
     }
-    assert.throws(() => assertRequiredExecuteNowClause(mutant, /\.\.\/validate\/SKILL\.md/i));
+    assert.throws(() => assertRequiredExecuteNowClause(mutant, /\.\.\/verify\/SKILL\.md/i));
   }
 });
 
-test("Validate consumes workstream evidence and executes code review now", async () => {
-  const [validate, template, review] = await Promise.all([
-    read("skills/validate/SKILL.md"),
-    read("skills/validate/templates/validation.md"),
+test("Verify consumes workstream evidence and executes code review now", async () => {
+  const [verify, template, review] = await Promise.all([
+    read("skills/verify/SKILL.md"),
+    read("skills/verify/templates/validation.md"),
     read("skills/code-review/SKILL.md"),
   ]);
 
@@ -175,14 +175,14 @@ test("Validate consumes workstream evidence and executes code review now", async
     "implementation defect returns to Implement",
     "plan returns to Plan",
   ]) {
-    assert.match(validate, new RegExp(phrase, "i"));
+    assert.match(verify, new RegExp(phrase, "i"));
   }
   assert.match(
-    validate,
+    verify,
     /first implementation commit has no parent[^.]*empty-tree\.\.<final implementation commit>/i,
   );
-  assert.match(validate, /pass that explicit scope form[^.]*code-review/i);
-  assert.doesNotMatch(validate, /_shared|\.myflow\/artifacts|\/skill:revise|mandatory Stage 4 gate/i);
+  assert.match(verify, /pass that explicit scope form[^.]*code-review/i);
+  assert.doesNotMatch(verify, /_shared|\.myflow\/artifacts|\/skill:revise|mandatory Stage 4 gate/i);
   assert.match(template, /Criterion Coverage/);
   assert.match(template, /Review Evidence/);
   assert.match(template, /Review artifact/);
@@ -198,13 +198,13 @@ test("Validate consumes workstream evidence and executes code review now", async
   assert.match(template, /Owner-Correct Next Action/);
   assert.match(review, /resolve-repository-map\.mjs/);
   assert.match(review, /unavailable/i);
-  assertRequiredExecuteNowClause(validate, /\.\.\/code-review\/SKILL\.md/i);
+  assertRequiredExecuteNowClause(verify, /\.\.\/code-review\/SKILL\.md/i);
 });
 
-test("Validate maps review verdicts and frontmatter status deterministically", async () => {
-  const [validate, template] = await Promise.all([
-    read("skills/validate/SKILL.md"),
-    read("skills/validate/templates/validation.md"),
+test("Verify maps review verdicts and frontmatter status deterministically", async () => {
+  const [verify, template] = await Promise.all([
+    read("skills/verify/SKILL.md"),
+    read("skills/verify/templates/validation.md"),
   ]);
 
   const assertMapping = (document) => {
@@ -213,7 +213,7 @@ test("Validate maps review verdicts and frontmatter status deterministically", a
     assert.match(document, /frontmatter status[^.\n]*ready[^.\n]*only[^.\n]*pass[^.\n]*blocked[^.\n]*fail[^.\n]*blocked/i);
   };
 
-  for (const document of [validate, template]) {
+  for (const document of [verify, template]) {
     assertMapping(document);
     const mutants = [
       document.replace(/confirmed P0\/P1([^.\n]*validation verdict[^.\n]*)fail/i, "confirmed P0/P1$1blocked"),
@@ -227,14 +227,14 @@ test("Validate maps review verdicts and frontmatter status deterministically", a
   }
 });
 
-test("Validate-to-code-review contract rejects negated and advisory-only execution clauses", async () => {
-  const validate = await read("skills/validate/SKILL.md");
+test("Verify-to-code-review contract rejects negated and advisory-only execution clauses", async () => {
+  const verify = await read("skills/verify/SKILL.md");
   const clause =
-    "Resolve `../code-review/SKILL.md` relative to this installed `skills/validate/SKILL.md`, read it, and execute it immediately in the current run";
+    "Resolve `../code-review/SKILL.md` relative to this installed `skills/verify/SKILL.md`, read it, and execute it immediately in the current run";
 
   const mutants = [
-    validate.replace(clause, `Do not ${clause.toLowerCase()}`),
-    validate.replace(clause, `You may ${clause.toLowerCase()} when useful`),
+    verify.replace(clause, `Do not ${clause.toLowerCase()}`),
+    verify.replace(clause, `You may ${clause.toLowerCase()} when useful`),
   ];
 
   for (const mutant of mutants) {
@@ -287,16 +287,16 @@ test("Close review gate rejects explicit missing, failing, and mismatched negati
   }
 });
 
-test("Validate records the interleaved-commit clause and rejects its removal", async () => {
-  const validate = await read("skills/validate/SKILL.md");
+test("Verify records the interleaved-commit clause and rejects its removal", async () => {
+  const verify = await read("skills/verify/SKILL.md");
 
   assert.match(
-    validate,
+    verify,
     /unrelated commit[^.]*interleaved[^.]*pass the ordered implementation commit IDs as an explicit comma-separated commit list/is,
   );
 
   const clause = "When an unrelated commit is interleaved, pass the ordered implementation commit IDs as an explicit comma-separated commit list so only named commits are reviewed.";
-  const withoutClause = validate.replace(clause, "");
+  const withoutClause = verify.replace(clause, "");
   assert.throws(() =>
     assert.match(
       withoutClause,

@@ -92,7 +92,7 @@ test("captures plain-text fallback and versioned attempt context", async () => {
   const root = await stateRoot();
   const receipt = await recordStageFeedback(options(root, "plain", {
     canonicalStage: "Verify",
-    source: "validate",
+    source: "verify",
     hostCapability: "plain-text",
     rating: "some-friction",
   }));
@@ -102,7 +102,7 @@ test("captures plain-text fallback and versioned attempt context", async () => {
   assert.equal(saved.context.lifecycleSchemaVersion, "myflow-lifecycle/v1");
   assert.match(saved.context.myflowVersion, /^\d+\.\d+\.\d+/);
   assert.match(saved.context.governingSkill.digest, /^[a-f0-9]{64}$/);
-  assert.equal(saved.context.governingSkill.name, "validate");
+  assert.equal(saved.context.governingSkill.name, "verify");
   assert.match(saved.context.myflowGitCommit, /^[a-f0-9]{40}$|^unavailable$/);
 });
 
@@ -141,7 +141,7 @@ test("allows pending feedback to resolve once and rejects a second response", as
   }));
   const recorded = await recordStageFeedback(options(root, "deferred", {
     canonicalStage: "Implement",
-    source: "validate",
+    source: "verify",
     rating: "rough",
     hostCapability: "structured",
     idempotencyKey: "feedback-deferred-recorded",
@@ -151,7 +151,7 @@ test("allows pending feedback to resolve once and rejects a second response", as
   await assert.rejects(
     recordStageFeedback(options(root, "deferred", {
       canonicalStage: "Implement",
-      source: "validate",
+      source: "verify",
       rating: "smooth",
       idempotencyKey: "feedback-deferred-second",
     })),

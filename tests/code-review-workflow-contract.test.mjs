@@ -107,12 +107,12 @@ test("code review pins complete scope through the active range helper", async ()
   assert.match(packageJson, /skills\/code-review\/_helpers\/review-range\.test\.mjs/);
 });
 
-test("commit-list provenance is exact across Code-review, Validate, and Close contracts", async () => {
+test("commit-list provenance is exact across Code-review, Verify, and Close contracts", async () => {
   const documents = await Promise.all([
     read("skills/code-review/SKILL.md"),
     read("skills/code-review/templates/review.md"),
-    read("skills/validate/SKILL.md"),
-    read("skills/validate/templates/validation.md"),
+    read("skills/verify/SKILL.md"),
+    read("skills/verify/templates/validation.md"),
     read("skills/close/SKILL.md"),
   ]);
 
@@ -322,7 +322,7 @@ test("review gate and durable artifact are explicit", async () => {
   const [skill, template, validationTemplate] = await Promise.all([
     read("skills/code-review/SKILL.md"),
     read("skills/code-review/templates/review.md"),
-    read("skills/validate/templates/validation.md"),
+    read("skills/verify/templates/validation.md"),
   ]);
 
   assertSeverityGateContract(skill);

@@ -23,7 +23,7 @@ A missing result is explicit, not an invitation to invent policy. `onboard` uses
 - A stage artifact is the authoritative record of that stage's outcome. A downstream stage consumes it; it does not replace its upstream decision record.
 - The workflow records **outcomes before implementation details**. Scope defines acceptance criteria; Plan turns them into an executable verification map.
 - `design` is an architectural decision gate, not necessarily a separate document. Every executable plan records a design disposition.
-- A fresh session normally begins at a stage boundary. `create-handoff` is only for an interruption within a stage or implementation phase, and points to the authoritative artifact.
+- A fresh session normally begins at a stage boundary. `handoff` is only for an interruption within a stage or implementation phase, and points to the authoritative artifact.
 - The repository map governs artifact-root, tracking, and retention policy. The paths below are defaults when the map does not specify an alternative.
 
 ## Artifact locations
@@ -95,6 +95,8 @@ The reducer reports three separate counters:
 - `stageReturnCount` counts backward edges between canonical stages, including reroutes.
 - `activityReturnCount` counts same-stage backward edges, such as planning returning to design.
 
+An event's `source` is the free-form name of the skill that recorded it, so it is not validated against the current skill set. Journals written before the Verify skill was renamed record `source: "validate"`, and they stay valid and readable. Do not rewrite them.
+
 The journal path defaults to `<workstream-root>/<workstream-id>/lifecycle/events.jsonl`; `--journal <path>` overrides it. Use `node skills/myflow/scripts/lifecycle-journal.mjs validate --workstream-id <id> --repository-root <git-root>` to validate a journal and inspect its reduced state. Validation detects schema errors, illegal transitions, broken links, and incomplete crash tails without mutating the journal.
 
 ### Existing artifacts and retention
@@ -126,7 +128,7 @@ Where frontmatter is used, `kind`, `workstream`, `stage`, `status`, creation/upd
 | Onboarding | Repository map; run report; pending evaluation | Confirmed sources, material unknowns, readiness, safe next action | Scope or a recommended specialist |
 | Scope | Alignment artifact | Intent, audience/outcome, non-goals, observable acceptance criteria, risk/classification, constraints, and selected depth | Design disposition and Plan, optionally through selected specialists |
 | Plan | Executable plan; standalone design only when justified | Design disposition, implementation phases, verification map, commit strategy, manual checks, and rehydration | Fresh session → Implement |
-| Implement | Updated plan checkpoint or implementation summary; phase commits | Completed phases and commit hashes, checks/evidence, deviations, remaining manual verification, current working tree state; the same parent session immediately loads Validate (`/skill:validate` is recovery/rehydration only) | Verify |
+| Implement | Updated plan checkpoint or implementation summary; phase commits | Completed phases and commit hashes, checks/evidence, deviations, remaining manual verification, current working tree state; the same parent session immediately loads Verify (`/skill:verify` is recovery/rehydration only) | Verify |
 | Verify | Validation report, linked review artifact, and manual-verification brief where needed | Verdict, criterion coverage, automated evidence, exact implementation scope, accepted-plan provenance, defects/deviations, and human checks still required | Close, or a corrective loop |
 | Close | Repository-specific delivery/status/documentation updates and a closeout summary when needed | Linked passing review evidence, what shipped, closeout decisions, final commit/integration state, resolved tabled items, and follow-up destinations | End workstream or begin a new Scope |
 
@@ -165,7 +167,7 @@ The user and Scope decide the depth in situ. A stage may increase depth when evi
 5. **Use an implementation checkpoint between phases.** Each green plan phase is committed. The checkpoint records its commit hash, automated evidence, outstanding manual verification, and next phase.
 6. **Use handoffs only mid-stage.** A handoff names the current stage and artifact, summarizes the live working set, and never becomes a competing specification.
 7. **Route corrections to their owner.** An implementation defect returns to Implement; an unexecutable or incorrect plan returns to Plan; a changed architectural decision returns to Design; a changed outcome or acceptance criterion returns to Scope. When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify. Keep one correction episode across any owner reroute. Record owner readiness and downstream resumption, then re-run downstream verification before closure.
-8. **Enter Verify without a user gate.** After the final green phase, the same parent session reads the installed Validate skill and executes it immediately. `/skill:validate` is recovery/rehydration guidance only.
+8. **Enter Verify without a user gate.** After the final green phase, the same parent session reads the installed `verify` skill and executes it immediately. `/skill:verify` is recovery/rehydration guidance only.
 9. **Do not close on unverified work.** Verify completes automated validation and fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity review lanes, then writes a separate artifact with plan/scope provenance. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence rather than trusting the validation report's top-level verdict. Repository-specific policy may add gates.
 
 ## Lightweight plan template

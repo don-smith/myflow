@@ -176,6 +176,9 @@ export function validateLifecycleEvent(event) {
   if (event.schemaVersion !== LIFECYCLE_SCHEMA_VERSION) {
     throw new Error(`schemaVersion must be ${LIFECYCLE_SCHEMA_VERSION}`);
   }
+  // `source` names the skill that recorded the event. It is deliberately not checked
+  // against the current skill set: historical journals record retired names, such as
+  // the `validate` skill that is now `verify`, and they must stay valid.
   for (const field of ["eventId", "occurredAt", "workstreamId", "kind", "source", "idempotencyKey"]) {
     requireString(event, field);
   }
