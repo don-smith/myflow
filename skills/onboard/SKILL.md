@@ -38,7 +38,7 @@ If no map exists, run `target`. Use its `mapPath` as the preferred writable loca
 
 ### 2. Inspect before asking
 
-Inspect applicable instruction files, manifests/task runners, CI, documentation, status/changelog/runbook locations, ADR/glossary candidates, local skills/templates, and Git delivery conventions. Record each source and what it establishes. This is discovery, not an architecture review; recommend `architecture-review` only when evidence warrants it.
+Inspect applicable instruction files, manifests/task runners, CI, documentation, status/changelog/runbook locations, ADR/glossary candidates, local skills/templates, and Git delivery conventions. Record each source and what it establishes. This is discovery, not an architecture review; recommend a dedicated assessment only when evidence warrants it.
 
 ### 3. Ask only material unresolved questions
 

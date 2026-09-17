@@ -42,11 +42,7 @@ test("onboard templates separate durable repository facts from run and evaluatio
 });
 
 test("initial map consumers defer to onboarding-discovered paths", async () => {
-  const [domainModeling, architectureReview] = await Promise.all([
-    read("skills/domain-modeling/SKILL.md"),
-    read("skills/architecture-review/SKILL.md"),
-  ]);
+  const domainModeling = await read("skills/domain-modeling/SKILL.md");
 
   assert.match(domainModeling, /repository-map\.md/);
-  assert.match(architectureReview, /repository-map\.md/);
 });

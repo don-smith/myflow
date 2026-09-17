@@ -22,7 +22,7 @@ A design artifact records the chosen solution shape and its consequences. It doe
 
 1. Gather only the evidence needed to resolve the architecture question.
 2. Identify the affected modules, interfaces, seams, dependencies, and relevant repository precedents. Use `codebase-design` vocabulary: module, interface, seam, adapter, depth, leverage, and locality.
-3. Select `architecture-review`, `domain-modeling`, `prototype`, or targeted research only when the evidence shows it is needed.
+3. Select `domain-modeling`, `prototype`, or targeted research only when the evidence shows it is needed.
 4. Present genuine alternatives and trade-offs to the developer. Do not ask for confirmation of an obvious existing pattern; record the evidence instead.
 5. Settle one direction, its change boundaries, operational consequences, verification intent, and independently verifiable implementation slices.
 6. Read `templates/design.md` relative to this skill and write:

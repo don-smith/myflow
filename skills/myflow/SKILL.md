@@ -38,7 +38,6 @@ Determine the intent, size, ambiguity, risk, and appropriate depth of the work. 
 - `grill-with-docs` for a repository-scoped decision that needs collaborative questioning and may sharpen domain language or record an ADR
 - `research` for codebase or external research
 - `prototype` for difficult behavior or UI questions
-- `wayfinder` for efforts too large to map in one planning session
 
 **Artifact:** alignment artifact, with research artifacts when research is selected.
 
@@ -46,7 +45,7 @@ Determine the intent, size, ambiguity, risk, and appropriate depth of the work. 
 
 **Orchestrator:** `plan`, with `design` as the collaborative design step
 
-Resolve the solution shape, architectural decisions, implementation slices, ordering, and verification criteria. Use `architecture-review`, `domain-modeling`, `prototype`, or the canonical `tdd` skill when the work requires them.
+Resolve the solution shape, architectural decisions, implementation slices, ordering, and verification criteria. Use `domain-modeling`, `prototype`, or the canonical `tdd` skill when the work requires them.
 
 Every non-trivial workstream has an executable plan. Its **design disposition** says whether work is locked into existing architecture, needs localized design recorded in the plan, or requires a linked standalone design artifact. A truly trivial, uninterrupted change may keep this agreement in-session; if it expands or pauses, write a lightweight plan before continuing.
 
@@ -56,7 +55,7 @@ Every non-trivial workstream has an executable plan. Its **design disposition** 
 
 **Orchestrator:** `implement`
 
-Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `validate` skill and executes it immediately; `/skill:validate` is recovery/rehydration guidance, not a user-operated gate. Use `epiphany-tabling` only when a new observation should be preserved without expanding the current work.
+Execute the accepted plan autonomously. Follow its test-first slices and verification map; use the canonical `tdd` skill again only if a design gap appears. After every completed plan phase whose automated criteria and required checks are green, invoke `commit` to create one atomic phase commit. Update the implementation checkpoint with the commit hash and any outstanding manual verification. After the final phase, the same parent session loads the installed `validate` skill and executes it immediately; `/skill:validate` is recovery/rehydration guidance, not a user-operated gate.
 
 When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify.
 
@@ -74,7 +73,7 @@ Verify the implementation against the plan and its success criteria. Run automat
 
 **Orchestrator:** `close`
 
-Leave the workstream in a clean, understandable, low-debt state. Close begins only after inspecting linked passing review evidence whose plan and implementation-range provenance matches Verify; a top-level validation pass is insufficient. With the developer, select only applicable documentation, status, learning, retrospective, changelog, and delivery actions from Verify evidence and repository policy. Record every unresolved follow-up with a destination rather than forcing it into the current closeout. If applicable closeout changes exist, make a separate final closeout commit and determine integration without inferring a policy.
+Leave the workstream in a clean, understandable, low-debt state. Close begins only after inspecting linked passing review evidence whose plan and implementation-range provenance matches Verify; a top-level validation pass is insufficient. With the developer, select only applicable documentation, status, learning, and delivery actions from Verify evidence and repository policy. Record every unresolved follow-up with a destination rather than forcing it into the current closeout. If applicable closeout changes exist, make a separate final closeout commit and determine integration without inferring a policy.
 
 **Artifacts:** repository-specific closeout updates and a resumable closeout summary when decisions, manual evidence, or follow-ups need to persist.
 
@@ -93,21 +92,15 @@ The shared `skills/myflow/templates/stage-context-checkpoint.md` defines the com
 These skills can be invoked at any suitable point:
 
 - `create-handoff` and `resume-handoff` — exceptional mid-stage or mid-slice recovery
-- `epiphany-tabling` — preserve useful ideas without derailing current scope
 - `grilling` — the model-invocable decision-tree interview technique used by other skills
 - `grill-me` — an explicit, stateless interview for a decision not tied to a repository workstream
 - `domain-modeling` — establish or sharpen domain language
 - `diagnosing-bugs` — resolve bugs, failures, flaky behavior, and performance regressions
-- `resolving-merge-conflicts` — recover from an in-progress merge or rebase
-- `wait-what` — recover when the current explanation or direction is unclear
-- `writing-skills` — maintain and test MyFlow skills
-- `langfuse` and telemetry tooling — inspect or improve workflow observability
+- `technical-writing` — write or revise documentation the workstream produces
 
 TDD is already consolidated: `tdd` is the canonical skill. Use it primarily during Plan/design to shape seams and the verification map; implementation follows the accepted plan unless a design gap appears.
 
 Debugging is already consolidated: `diagnosing-bugs` is the canonical skill. It requires an evidence-first feedback loop before a durable fix; `systematic-debugging` is retired.
-
-`architecture-review` and `improve-codebase-architecture` are complementary specialists: the former is a broad structural audit for Plan/onboarding, and the latter is a focused deepening exploration that Scope can select for technical-debt work.
 
 The grilling family is intentionally layered:
 
@@ -125,11 +118,7 @@ Before using MyFlow seriously in a repository, run `onboard`. It uses `skills/my
 
 Optional onboarding specialists remain separate:
 
-- `setup-pre-commit` for commit-time formatting and checks
-- `setup-ts-deep-modules` for TypeScript package-boundary enforcement
-- `architecture-review` for an architectural baseline
 - `domain-modeling` for the repository glossary and important domain decisions
-- `langfuse` or repository telemetry setup for workflow evaluation
 
 ## Artifact and session rules
 
@@ -151,14 +140,13 @@ Use a fresh session at a natural stage boundary. Use `create-handoff` only for a
 
 ## Continuous improvement
 
-MyFlow has two feedback loops:
+MyFlow improves through one loop:
 
 ```text
-developer observation → epiphany table / retro → learning promotion
-workflow telemetry → evaluation → human feedback → workflow improvement
+stage feedback → evaluation → workflow improvement
 ```
 
-`writing-retros` is useful when a process reflection is warranted, but is not mandatory for every workstream. `capturing-learnings` decides whether repeated observations should become durable skills, runbooks, memory, or deliberate drops.
+Each completed stage attempt offers one private pulse. The ratings and notes stay in the workstream's `feedback/` folder, and only coverage status reaches the lifecycle journal.
 
 ## Quick reference
 
@@ -174,5 +162,3 @@ workflow telemetry → evaluation → human feedback → workflow improvement
 | Close the workstream | `close` |
 | Pause unexpectedly | `create-handoff` |
 | Resume a pause | `resume-handoff` |
-| Preserve a distracting idea | `epiphany-tabling` |
-| Improve MyFlow itself | `writing-skills`, telemetry, or a retrospective |

@@ -16,7 +16,7 @@ import {
   status,
   sync,
 } from "../skills/myflow/scripts/lib/artifact-store.mjs";
-import { recordStageFeedback } from "../skills/observing-myflow/scripts/record-stage-feedback.mjs";
+import { recordStageFeedback } from "../skills/myflow/scripts/record-stage-feedback.mjs";
 
 const execFile = promisify(execFileCallback);
 const cli = new URL("../skills/myflow/scripts/cli.mjs", import.meta.url).pathname;

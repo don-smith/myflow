@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { recordStageFeedback } from "../skills/observing-myflow/scripts/record-stage-feedback.mjs";
+import { recordStageFeedback } from "../skills/myflow/scripts/record-stage-feedback.mjs";
 import {
   appendLifecycleEvent,
   validateLifecycleJournal,

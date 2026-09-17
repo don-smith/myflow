@@ -25,8 +25,6 @@
     "skills",
     "packages/config",
     "packages/ask-user-question",
-    "packages/telemetry",
-    "packages/web-tools",
     "!packages/**/node_modules",
     "!packages/**/*.test.ts",
     "!packages/**/test",
@@ -51,9 +49,7 @@
       "./skills"
     ],
     "extensions": [
-      "./packages/ask-user-question/index.ts",
-      "./packages/telemetry/extension.ts",
-      "./packages/web-tools/index.ts"
+      "./packages/ask-user-question/index.ts"
     ]
   },
   "peerDependencies": {
@@ -62,23 +58,11 @@
     "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
-  "dependencies": {
-    "@langfuse/client": "^5.9.1",
-    "@langfuse/otel": "^5.9.1",
-    "@langfuse/tracing": "^5.9.1",
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/core": "^2.10.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
-    "@opentelemetry/sdk-node": "^0.221.0",
-    "@opentelemetry/sdk-trace-base": "^2.10.0",
-    "@tintinweb/pi-subagents": "*",
-    "yaml": "*"
-  },
   "scripts": {
     "lint": "echo 'No lint configured yet'",
     "test": "bun run test:root && bun run test:packages",
     "test:root": "node --test tests/*.test.mjs skills/code-review/_helpers/review-range.test.mjs",
-    "test:packages": "bun run --filter @myflow/test-utils --filter @myflow/ask-user-question --filter @myflow/web-tools --filter @myflow/telemetry test"
+    "test:packages": "bun run --filter @myflow/test-utils --filter @myflow/ask-user-question test"
   },
   "devDependencies": {
     "vitest": "*"

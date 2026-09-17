@@ -110,11 +110,8 @@ Select specialists by evidence rather than forcing a chain:
 - `research` for a specific codebase or external question;
 - `grill-with-docs` for a repository-scoped decision that may affect domain language or ADRs;
 - `prototype` for uncertain behavior or UI;
-- `domain-modeling` for unclear/changing terminology or boundaries;
-- `architecture-review` for a structural baseline/audit;
-- `improve-codebase-architecture` for a focused technical-debt/deepening workstream;
-- `wayfinder` for work too large to plan in one ordinary effort; or
-- `wizard` when required human-only setup is discovered.
+- `domain-modeling` for unclear/changing terminology or boundaries; or
+- `codebase-design` for a focused technical-debt or deepening workstream.
 
 For lightweight work, record the expected Plan design disposition as `locked into existing architecture` or `localized design`. Scope does not settle code shape; it identifies why a full Design is or is not needed.
 
@@ -159,4 +156,4 @@ At a normal stage boundary, a fresh session runs `resolve-repository-map.mjs dis
 - Do not require research, a standalone design, a branch, or a worktree merely by convention.
 - Do not silently create a new workstream when a matching one exists.
 - Do not allow a conversation-only trivial path to become a multi-session or multi-phase change; create a lightweight plan first.
-- Do not make an architecture assessment from a map or shallow file scan. Select `architecture-review` or another appropriate specialist when real assessment is needed.
+- Do not make an architecture assessment from a map or shallow file scan. Select `research` or another appropriate specialist when real assessment is needed.

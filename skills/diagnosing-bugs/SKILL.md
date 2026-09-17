@@ -41,7 +41,7 @@ For a flaky asynchronous test, wait for the observable condition, not a guessed 
 
 Turn the minimised reproducer into a regression test at a seam exercising the real bug pattern. If no such seam exists, document the architectural limitation rather than adding a misleading shallow test.
 
-Apply one minimal change addressing the confirmed source. Run the regression test, original unminimised loop, and relevant broader checks. A failed fix returns to evidence and hypotheses. Repeated failures or a missing test seam warrant an architecture follow-up, not an automatic architectural verdict; use `improve-codebase-architecture` for a concrete deepening opportunity.
+Apply one minimal change addressing the confirmed source. Run the regression test, original unminimised loop, and relevant broader checks. A failed fix returns to evidence and hypotheses. Repeated failures or a missing test seam warrant an architecture follow-up, not an automatic architectural verdict; use `codebase-design` for a concrete deepening opportunity.
 
 ## 5. Close the investigation
 

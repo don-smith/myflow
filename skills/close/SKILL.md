@@ -46,7 +46,7 @@ Use `node <myflow-package-root>/skills/myflow/scripts/lifecycle-journal.mjs` for
 
 If Close discovers an unowned verification gap or a defect that was missed, record `return-opened` with the owning stage, then `return-rerouted` to that owner. Implementation defects route to Implement/phase; an incorrect or unexecutable plan routes to Plan/planning; a changed architectural decision routes to Plan/design; a changed outcome or acceptance criterion routes to Scope/scope. Do not close the workstream with an open correction.
 
-Before recording the final stage transition, run the private stage pulse exactly once for this Close attempt. Write the response through `node <myflow-package-root>/skills/observing-myflow/scripts/record-stage-feedback.mjs`, then send only `recorded`, `skipped`, or `pending` and the private reference through `lifecycle-journal.mjs feedback-recorded`. The rating and note never enter the journal. Feedback failure does not block `stage-completed --terminal-reason advanced` or `workstream-closed`.
+Before recording the final stage transition, run the private stage pulse exactly once for this Close attempt. Write the response through `node <myflow-package-root>/skills/myflow/scripts/record-stage-feedback.mjs`, then send only `recorded`, `skipped`, or `pending` and the private reference through `lifecycle-journal.mjs feedback-recorded`. The rating and note never enter the journal. Feedback failure does not block `stage-completed --terminal-reason advanced` or `workstream-closed`.
 
 ## Completion and correction
 
