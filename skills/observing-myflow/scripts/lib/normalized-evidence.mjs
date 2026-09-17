@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { canonicalJson } from "../../../myflow/scripts/lib/lifecycle-contract.mjs";
+
 export const NORMALIZED_EVIDENCE_SCHEMA_VERSION = "myflow-normalized-evidence/v1";
 
 export const DELIVERY_STATES = Object.freeze([
@@ -65,20 +67,6 @@ export const USAGE_DIMENSIONS = [
 
 const numeric = (value) =>
   typeof value === "number" && Number.isFinite(value) ? value : undefined;
-
-/**
- * Canonical JSON for stable comparison and digesting.
- */
-export function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonicalJson(value[k])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
 
 function stable(value) {
   return JSON.stringify(

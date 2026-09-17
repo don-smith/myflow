@@ -213,6 +213,13 @@ async function main() {
 
     const revision = existingReviews.length + 1;
 
+    const feedbackCoverage = feedbackStatus === "missing" &&
+      lifecycleState.feedback.some(
+        (f) => f.attemptId === options.attemptId && f.status === "requested",
+      )
+      ? "pending"
+      : feedbackStatus;
+
     const review = {
       schemaVersion: STAGE_REVIEW_SCHEMA_VERSION,
       reviewId: reviewId({
@@ -243,12 +250,8 @@ async function main() {
       },
       predicates: predicateResults,
       outcome,
-      feedbackCoverage: feedbackStatus === "missing" &&
-        lifecycleState.feedback.some(
-          (f) => f.attemptId === options.attemptId && f.status === "requested",
-        )
-        ? "pending"
-        : feedbackStatus,
+      feedbackCoverage,
+      developerExperience: feedbackCoverage === "recorded" && feedback ? feedback.rating : null,
       returnAssessment,
       limitations: [
         "Stage predicates are mechanical section checks only.",

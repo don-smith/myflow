@@ -1,4 +1,4 @@
-import { open, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
 import { canonicalJson } from "../../../myflow/scripts/lib/lifecycle-contract.mjs";
@@ -6,9 +6,9 @@ import {
   globalRepositoryMapPath,
   resolveRepositoryContext,
 } from "../../../myflow/scripts/lib/repository-context.mjs";
+import { acquireLock } from "../../../myflow/scripts/lib/lock.mjs";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-const sleep = (milliseconds) => new Promise((done) => setTimeout(done, milliseconds));
 
 function assertSafeId(value, name) {
   if (typeof value !== "string" || !SAFE_ID.test(value)) throw new Error(`${name} must be filesystem-safe`);
@@ -18,32 +18,6 @@ export function privateObservationRoot(repositoryRoot, { stateRoot, home } = {})
   if (stateRoot) return resolve(stateRoot);
   const context = resolveRepositoryContext(repositoryRoot);
   return join(dirname(globalRepositoryMapPath(context.identity, home)), "observations");
-}
-
-async function acquireLock(path, timeoutMs = 5000) {
-  const started = Date.now();
-  while (true) {
-    try {
-      const handle = await open(path, "wx", 0o600);
-      return async () => {
-        await handle.close();
-        await rm(path, { force: true });
-      };
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      try {
-        const metadata = await stat(path);
-        if (Date.now() - metadata.mtimeMs > 30000) {
-          await rm(path, { force: true });
-          continue;
-        }
-      } catch (statError) {
-        if (statError.code !== "ENOENT") throw statError;
-      }
-      if (Date.now() - started >= timeoutMs) throw new Error(`timed out acquiring private store lock: ${path}`);
-      await sleep(10);
-    }
-  }
 }
 
 async function readRecords(path) {
@@ -84,7 +58,7 @@ export async function appendPrivateRecord({
   }
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const lockPath = `${path}.lock`;
-  const release = await acquireLock(lockPath);
+  const release = await acquireLock(lockPath, { description: `private store: ${relativePath}` });
   try {
     const existing = await readRecords(path);
     const duplicate = existing.find(({ recordId }) => recordId === record.recordId);

@@ -167,7 +167,7 @@ export function projectTrace(repository, workstreamId, attemptId, review) {
   const scores = [];
   const baseComment = `myflow-stage-review revision ${review.revision}`;
 
-  const devExp = review.feedbackCoverage === "recorded" ? publicProj.outcome : null;
+  const devExp = review.developerExperience ?? null;
   if (devExp && DEV_EXPERIENCE_VALUES.some((v) => v === devExp)) {
     scores.push({
       scoreId: buildStableScoreId(observationId, SCORE_NAMES.DEVELOPER_STAGE_EXPERIENCE),

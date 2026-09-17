@@ -55,10 +55,10 @@ function buildAttemptIntervals(lifecycleState, slackMs = 60000) {
 function buildExecutionRefIndex(lifecycleState) {
   const index = new Map();
 
-  if (!lifecycleState?.events) return index;
+  if (!lifecycleState?.executionRefs) return index;
 
-  for (const event of lifecycleState.events) {
-    const ref = event.executionRef;
+  for (const entry of lifecycleState.executionRefs) {
+    const ref = entry.executionRef;
     if (!ref) continue;
 
     const keys = [];
@@ -70,9 +70,8 @@ function buildExecutionRefIndex(lifecycleState) {
     for (const key of keys) {
       const entries = index.get(key) || [];
       entries.push({
-        eventId: event.eventId,
-        attemptId: event.attemptId,
-        canonicalStage: event.canonicalStage,
+        eventId: entry.eventId,
+        attemptId: entry.attemptId,
         executionRef: ref,
       });
       index.set(key, entries);
@@ -90,6 +89,7 @@ function computeCandidates(
   {
     attempts,
     executionRefIndex,
+    executionRefs,
     repositoryIdentity,
     branch,
     worktree,
@@ -128,17 +128,20 @@ function computeCandidates(
   }
 
   // Check session lineage: emitting or grouping session match
-  for (const attempt of attempts) {
-    // Session check via lifecycle events with matching emitting/grouping session
-    const sessionEvents = lifecycleStateEventsForSession(
-      observation.emittingSessionId || observation.groupingSessionId,
-    );
-    if (sessionEvents.some((e) => e.attemptId === attempt.attemptId)) {
-      candidates.push({
-        attemptId: attempt.attemptId,
-        confidence: "strong",
-        reasons: ["session-lineage"],
-      });
+  if (executionRefs) {
+    for (const attempt of attempts) {
+      // Session check via lifecycle execution refs with matching emitting/grouping session
+      const sessionEvents = lifecycleStateEventsForSession(
+        executionRefs,
+        observation.emittingSessionId || observation.groupingSessionId,
+      );
+      if (sessionEvents.some((e) => e.attemptId === attempt.attemptId)) {
+        candidates.push({
+          attemptId: attempt.attemptId,
+          confidence: "strong",
+          reasons: ["session-lineage"],
+        });
+      }
     }
   }
 
@@ -162,9 +165,13 @@ function computeCandidates(
   return { candidates, reasons };
 }
 
-function lifecycleStateEventsForSession(sessionId) {
-  // This is a simplified version; in practice this iterates the events
-  return [];
+function lifecycleStateEventsForSession(executionRefs, sessionId) {
+  if (!sessionId || !executionRefs) return [];
+  return executionRefs.filter(
+    (entry) =>
+      entry.executionRef?.emittingSessionId === sessionId ||
+      entry.executionRef?.groupingSessionId === sessionId,
+  );
 }
 
 /**
@@ -215,6 +222,7 @@ export function correlateObservations(
     const { candidates, reasons } = computeCandidates(obs, {
       attempts,
       executionRefIndex,
+      executionRefs: lifecycleState?.executionRefs,
       repositoryIdentity,
       branch,
       worktree,

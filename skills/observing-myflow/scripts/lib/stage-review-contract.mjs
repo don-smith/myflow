@@ -78,6 +78,7 @@ const REQUIRED_REVIEW_FIELDS = [
 const ALLOWED_REVIEW_FIELDS = new Set([
   ...REQUIRED_REVIEW_FIELDS,
   "recordId",
+  "developerExperience",
 ]);
 
 export function reviewDigest(inputs) {

@@ -126,5 +126,7 @@ export function buildReturnAssessment(options, episode) {
     assessment.qualityGuardrail = options.qualityGuardrail;
   }
 
+  assessment.initialOwningStage = episode.owner?.stage;
+
   return assessment;
 }

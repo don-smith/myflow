@@ -5,7 +5,6 @@ import {
   open,
   readFile,
   realpath,
-  rm,
   stat,
   truncate,
 } from "node:fs/promises";
@@ -24,31 +23,7 @@ import {
   eventAttemptMetadata,
   reduceLifecycle,
 } from "./lifecycle-reducer.mjs";
-
-const sleep = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
-
-async function acquireLock(lockPath, { timeoutMs = 5000, staleMs = 30000 } = {}) {
-  const started = Date.now();
-  while (true) {
-    try {
-      await mkdir(lockPath);
-      return async () => rm(lockPath, { recursive: true, force: true });
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      try {
-        const lockStat = await stat(lockPath);
-        if (Date.now() - lockStat.mtimeMs > staleMs) {
-          await rm(lockPath, { recursive: true, force: true });
-          continue;
-        }
-      } catch (statError) {
-        if (statError.code !== "ENOENT") throw statError;
-      }
-      if (Date.now() - started >= timeoutMs) throw new Error(`timed out acquiring lifecycle journal lock: ${lockPath}`);
-      await sleep(10 + Math.floor(Math.random() * 15));
-    }
-  }
-}
+import { acquireLock } from "./lock.mjs";
 
 async function parseJournal(journalPath) {
   let buffer;
@@ -141,7 +116,7 @@ export async function appendLifecycleEvent(input) {
   if (!input.idempotencyKey) throw new Error("appendLifecycleEvent requires idempotencyKey");
   await mkdir(dirname(input.journalPath), { recursive: true });
   const lockPath = `${input.journalPath}.lock`;
-  const release = await acquireLock(lockPath, input.lockOptions);
+  const release = await acquireLock(lockPath, { ...input.lockOptions, description: `lifecycle journal: ${input.journalPath}` });
 
   try {
     const parsed = await parseJournal(input.journalPath);
