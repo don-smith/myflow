@@ -360,7 +360,7 @@ export async function lintSkillTree(root, options = {}) {
   const seen = new Set();
   return violations
     .filter((violation) => {
-      const identity = `${violation.rule} ${violation.key}`;
+      const identity = `${violation.rule}\u0000${violation.key}`;
       if (seen.has(identity)) return false;
       seen.add(identity);
       return true;
