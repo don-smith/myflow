@@ -103,11 +103,14 @@ The journal path defaults to `<workstream-root>/<workstream-id>/lifecycle/events
 
 Stages do not assemble lifecycle calls. Every stage edge goes through one command,
 `skills/myflow/scripts/stage-boundary.mjs`, which a stage skill runs from its own directory as
-`../myflow/scripts/stage-boundary.mjs`.
+`../myflow/scripts/stage-boundary.mjs`. Because the skill folder is the working directory, every
+subcommand also takes `--repository-root <git-root>` naming the repository being recorded; without
+it the command falls back to its own working directory and records under MyFlow's identity, or
+fails when the install is not a Git repository.
 
 | Subcommand | Records |
 |---|---|
-| `enter --workstream <id> --stage <S> --activity <a>` | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt. Syncs. |
+| `enter --workstream <id> --stage <S> --activity <a> --repository-root <git-root>` | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt. Syncs. |
 | `accept --artifact <workstream-relative path>` | `artifact-accepted`, with the artifact's digest. |
 | `exit --feedback <smooth\|some-friction\|rough\|skipped\|pending>` | the feedback request when it was shown, the private feedback record, `feedback-recorded`, `activity-completed`, and `stage-completed`. `--terminal-reason` selects `advanced` (the default), `superseded`, `abandoned`, or `workstream-closed`. Syncs. |
 | `return --owning-stage <S> --owning-activity <a> --trigger-source <t> --change-kind <k>` | `return-opened`, and with `--event`, the later `return-rerouted`, `return-owner-ready`, `return-resumed`, and `return-closed` events of the same episode. |

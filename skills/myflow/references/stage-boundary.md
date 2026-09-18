@@ -5,6 +5,13 @@ developer accepted, how it went, and that it finished. One command does all of i
 `scripts/stage-boundary.mjs` in this skill folder. A stage skill runs it from its own
 folder as the sibling `myflow` skill's copy, passing only facts it already knows.
 
+Every subcommand takes `--repository-root <git-root>`, naming the repository the work
+belongs to. It is not optional in practice: the command falls back to its own working
+directory, which on an installed MyFlow is the skill folder, so omitting it records the
+workstream under MyFlow's own identity, or fails outright when the install is not a Git
+repository. Pass the `<git-root>` the skill already resolved in its first step, the same
+way `resolve-repository-map.mjs discover --cwd <git-root>` takes it.
+
 The command derives each idempotency key from the workstream, the canonical stage, the
 stage attempt, the owning activity, and the action. **A skill never invents a key**, and
 never appends to `lifecycle/events.jsonl` by hand. Rerunning a command is safe: the
@@ -16,7 +23,7 @@ sync result. Keep the returned event and attempt IDs in the stage checkpoint.
 
 | Subcommand | Required | Records |
 |---|---|---|
-| `enter` | `--stage`, `--activity`, `--workstream` | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt before opening the new one. Syncs. |
+| `enter` | `--stage`, `--activity`, `--workstream`, `--repository-root` | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt before opening the new one. Syncs. |
 | `accept` | `--artifact <workstream-relative path>` | `artifact-accepted`, with the artifact's digest. |
 | `exit` | `--feedback <smooth\|some-friction\|rough\|skipped\|pending>` | `feedback-requested` when the question was shown, the private feedback, `feedback-recorded`, `activity-completed`, and `stage-completed --terminal-reason advanced`. Syncs. |
 | `return` | `--owning-stage`, `--owning-activity`, `--trigger-source`, `--change-kind` | `return-opened`, and with `--event`, the `return-rerouted`, `return-owner-ready`, `return-resumed`, and `return-closed` events. The episode ID is derived and reused. |
@@ -54,6 +61,12 @@ folder together with the MyFlow package version, the Git commit when available, 
 governing skill digest, the lifecycle schema version, and the host capability at the
 attempt boundary. Only the coverage status and a private reference reach the lifecycle
 journal; the rating and the note never enter the journal.
+
+Private here means kept out of the lifecycle journal, not kept off the network. The
+`feedback/` folder is part of the workstream and syncs with it, so a rating and note
+reach the developer's own artifact remote like any other workstream file. Say so if the
+developer asks what happens to the note. What never leaves the machine is configuration,
+credentials, and raw observations.
 
 ## Implement's deferred question
 

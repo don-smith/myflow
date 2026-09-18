@@ -72,7 +72,8 @@ const AGENT_SYNTAX_PATTERNS = [
   { label: "/skill:", pattern: /\/skill:/ },
   { label: "/myflow:", pattern: /\/myflow:/ },
   { label: "${SKILL_DIR}", pattern: /\$\{SKILL_DIR\}/ },
-  { label: "${CLAUDE_", pattern: /\$\{CLAUDE_/ },
+  { label: "$CLAUDE_", pattern: /\$\{?CLAUDE_/ },
+  { label: ".claude/", pattern: /\.claude\// },
   { label: "shell-injection fence", pattern: /^```!/m },
   { label: "ask_user_question", pattern: /ask_user_question/ },
   { label: "subagent(", pattern: /subagent\(/ },
@@ -82,33 +83,62 @@ const AGENT_SYNTAX_PATTERNS = [
   { label: ".myflow/workstreams", pattern: /\.myflow\/workstreams/ },
 ];
 
+const TABLE_ROW = /^\s*\|/;
+/** A table is agent-keyed only when its *first* row keys the rows by agent or host. */
+const AGENT_KEYED_HEADER = /^\s*\|\s*(agent|host)\b/i;
+/** The `|---|---|` rule under a table header, which names no host. */
+const TABLE_SEPARATOR = /^[\s|:-]+$/;
+/** A table with one host row documents that host; only a table that maps several is neutral. */
+const MINIMUM_MAPPED_HOSTS = 2;
+
+const firstCell = (line) => line.trim().replace(/^\|/, "").split("|")[0].trim();
+
+/** Whether a contiguous table block is keyed by agent and maps at least two distinct hosts. */
+function mapsEveryHost(block) {
+  if (!AGENT_KEYED_HEADER.test(block[0])) return false;
+  const hosts = new Set(
+    block
+      .slice(1)
+      .filter((line) => !TABLE_SEPARATOR.test(line))
+      .map(firstCell)
+      .filter((cell) => cell !== ""),
+  );
+  return hosts.size >= MINIMUM_MAPPED_HOSTS;
+}
+
 /**
  * Rule 4 forbids a skill instructing in one host's syntax. A table keyed by agent is the
  * opposite: it maps every supported host, which is what lets the prose stay host-neutral.
- * Such a table is host-neutral by construction, so its rows are not scanned — in any skill,
- * with no file named here. Prose, code, and any other table remain subject to the rule.
+ * Only a table that earns that justification is excused, and the justification is checked
+ * rather than assumed: the header must open the table, and the table must key at least two
+ * distinct hosts. Prose, code, and every other table remain subject to the rule.
+ *
+ * The excused lines are returned as indices, not as text, so excusing a row inside a mapping
+ * table never silences an identical line somewhere else in the same file.
+ *
+ * @param {string} document
+ * @returns {Set<number>} zero-based indices of the lines belonging to an excused table
  */
 const agentKeyedTableRows = (document) => {
   const lines = document.split("\n");
-  const rows = [];
-  let inTable = false;
-  for (const line of lines) {
-    const isRow = /^\s*\|/.test(line);
-    if (!isRow) {
-      inTable = false;
-      continue;
+  const excused = new Set();
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!TABLE_ROW.test(lines[index])) continue;
+    let end = index;
+    while (end + 1 < lines.length && TABLE_ROW.test(lines[end + 1])) end += 1;
+    if (mapsEveryHost(lines.slice(index, end + 1))) {
+      for (let row = index; row <= end; row += 1) excused.add(row);
     }
-    if (!inTable) inTable = /^\s*\|\s*(agent|host)\b/i.test(line);
-    if (inTable) rows.push(line);
+    index = end;
   }
-  return rows;
+  return excused;
 };
 
 const withoutAgentKeyedTables = (document) => {
-  const excluded = new Set(agentKeyedTableRows(document));
+  const excused = agentKeyedTableRows(document);
   return document
     .split("\n")
-    .map((line) => (excluded.has(line) ? "" : line))
+    .map((line, index) => (excused.has(index) ? "" : line))
     .join("\n");
 };
 
@@ -145,8 +175,19 @@ function toPosix(path) {
   return path.split(sep).join(posix.sep);
 }
 
+/**
+ * Every `.md` under a directory. Rules 2-4 read the whole `skills/` tree through this, not
+ * only the directories that happen to carry a `SKILL.md`: a leftover folder's Markdown ships
+ * with the package and instructs an agent just as a skill's own reference does.
+ */
 async function listMarkdownFiles(directory) {
-  const entries = await readdir(directory, { withFileTypes: true, recursive: true });
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true, recursive: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
   return entries
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => join(entry.parentPath, entry.name))
@@ -337,8 +378,17 @@ export async function lintSkillTree(root, options = {}) {
         add(RULES.frontmatter, skillPath, `description longer than ${MAX_DESCRIPTION_LENGTH} characters`);
       }
     }
+  }
 
-    for (const file of await listMarkdownFiles(skillDirectory)) {
+  // Rules 2-4 read every `.md` under `skills/`, including one in a directory that carries no
+  // `SKILL.md`. Such a file is still shipped and still instructs. The owning skill is the
+  // top-level directory under `skills/`, which is what a bundled reference resolves against;
+  // rule 3 then applies only where that directory is a core skill.
+  {
+    for (const file of await listMarkdownFiles(skillsRoot)) {
+      const segments = toPosix(relative(skillsRoot, file)).split("/");
+      const name = segments.length > 1 ? segments[0] : "";
+      const skillDirectory = name === "" ? skillsRoot : join(skillsRoot, name);
       const filePath = toPosix(relative(repositoryRootPath, file));
       const document = await readFile(file, "utf8");
       const fileDirectory = dirname(file);
@@ -535,4 +585,100 @@ test("a missing core skill and a retired skill reference are reported", async (t
   const keys = violations.map((violation) => `${violation.rule}: ${violation.key}`);
   assert.ok(keys.includes("rule5-core-set: skills: missing skill: clean-support"));
   assert.ok(keys.includes("rule3-skill-references: skills/clean-stage/SKILL.md: unknown skill referenced: clean-support"));
+});
+
+test("a table is excused only when it is headed by agent and maps more than one host", async (t) => {
+  const scratch = await mkdtemp(join(tmpdir(), "myflow-skill-structure-"));
+  t.after(() => rm(scratch, { recursive: true, force: true }));
+  await cp(cleanFixture, scratch, { recursive: true });
+
+  const options = { core: ["clean-stage", "clean-support"], parked: ["parked-example"] };
+  const stage = join(scratch, "skills", "clean-stage", "SKILL.md");
+  const original = await readFile(stage, "utf8");
+  const rule4 = async () =>
+    new Set(
+      (await lintSkillTree(scratch, options))
+        .filter((violation) => violation.rule === RULES.agentSyntax)
+        .map((violation) => violation.key),
+    );
+
+  // A one-row table names one host's syntax. It documents that host; it does not map every
+  // supported host, so it does not earn the exclusion its justification claims.
+  await writeFile(
+    stage,
+    original.concat("\n## Invoking\n\n| Agent | Invocation |\n|---|---|\n| Claude Code | `/myflow:<skill>` |\n"),
+  );
+  assert.ok(
+    (await rule4()).has("skills/clean-stage/SKILL.md: agent-specific syntax: /myflow:"),
+    "a table with a single host row is that host's syntax, not a mapping of every host",
+  );
+
+  // A table headed by something else stays in scope for the whole of its length, however
+  // many of its later rows happen to begin with a host name.
+  await writeFile(
+    stage,
+    original.concat(
+      "\n## Steps\n\n| Step | Detail |\n|---|---|\n| First | resolve the map |\n",
+      "| Host | `/myflow:<skill>` |\n| Then | run `/skill:<skill>` |\n",
+    ),
+  );
+  assert.deepEqual(
+    [...(await rule4())].sort(),
+    [
+      "skills/clean-stage/SKILL.md: agent-specific syntax: /myflow:",
+      "skills/clean-stage/SKILL.md: agent-specific syntax: /skill:",
+    ],
+    "the header decides the whole table; a host-named row partway down excuses nothing",
+  );
+
+  // Excusing a row inside a mapping table must not silence the same text elsewhere in the file.
+  await writeFile(
+    stage,
+    original.concat(
+      "\n## Invoking\n\n| Agent | Invocation |\n|---|---|\n| Claude Code | `/myflow:<skill>` |\n| Pi | `/skill:<skill>` |\n",
+      "\n## Next\n\nRun it as follows.\n\n| Pi | `/skill:<skill>` |\n",
+    ),
+  );
+  assert.deepEqual(
+    [...(await rule4())],
+    ["skills/clean-stage/SKILL.md: agent-specific syntax: /skill:"],
+    "an identical line outside the mapping table is still an instruction in one host's syntax",
+  );
+});
+
+test("rule 4 catches the unbraced Claude Code spellings", async (t) => {
+  const scratch = await mkdtemp(join(tmpdir(), "myflow-skill-structure-"));
+  t.after(() => rm(scratch, { recursive: true, force: true }));
+  await cp(cleanFixture, scratch, { recursive: true });
+
+  const options = { core: ["clean-stage", "clean-support"], parked: ["parked-example"] };
+  const stage = join(scratch, "skills", "clean-stage", "SKILL.md");
+  const original = await readFile(stage, "utf8");
+  await writeFile(stage, original.concat("\n## Paths\n\nRead `$CLAUDE_PROJECT_DIR/notes.md` and write to `.claude/skills/`.\n"));
+
+  const keys = new Set((await lintSkillTree(scratch, options)).map((violation) => `${violation.rule}: ${violation.key}`));
+  assert.ok(keys.has("rule4-agent-syntax: skills/clean-stage/SKILL.md: agent-specific syntax: $CLAUDE_"));
+  assert.ok(keys.has("rule4-agent-syntax: skills/clean-stage/SKILL.md: agent-specific syntax: .claude/"));
+});
+
+test("rules 2 to 4 read a Markdown file in a skills directory that has no SKILL.md", async (t) => {
+  const scratch = await mkdtemp(join(tmpdir(), "myflow-skill-structure-"));
+  t.after(() => rm(scratch, { recursive: true, force: true }));
+  await cp(cleanFixture, scratch, { recursive: true });
+
+  await mkdir(join(scratch, "skills", "leftover"));
+  await writeFile(
+    join(scratch, "skills", "leftover", "NOTES.md"),
+    "# Leftover\n\nRun `/skill:clean-support` and read `references/absent.md`.\n",
+  );
+
+  const violations = await lintSkillTree(scratch, { core: ["clean-stage", "clean-support"], parked: ["parked-example"] });
+  const keys = new Set(violations.map((violation) => `${violation.rule}: ${violation.key}`));
+  assert.ok(keys.has("rule4-agent-syntax: skills/leftover/NOTES.md: agent-specific syntax: /skill:"));
+  assert.ok(keys.has("rule2-references: skills/leftover/NOTES.md: missing reference: skills/leftover/references/absent.md"));
+  assert.deepEqual(
+    violations.filter((violation) => violation.rule === RULES.coreSet),
+    [],
+    "a directory with no SKILL.md is not a skill, so rule 5 does not report it",
+  );
 });

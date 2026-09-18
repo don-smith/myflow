@@ -30,9 +30,9 @@ Take that fresh context the way `../myflow/references/capabilities.md` describes
 
 ## Stage boundary
 
-Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. Pass `--repository-root <git-root>` on every subcommand — the same `<git-root>` resolved in step 1 — because the command otherwise records against its own working directory, which on an install is the skill folder rather than the target repository. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-- On entry and at the start of every phase: `enter --stage Implement --activity phase --workstream <workstream-id> --label <phase>`. The first call opens the attempt; each later call completes the previous phase's activity and opens the next.
+- On entry and at the start of every phase: `enter --stage Implement --activity phase --workstream <workstream-id> --repository-root <git-root> --label <phase>`. The first call opens the attempt; each later call completes the previous phase's activity and opens the next.
 - For an accepted checkpoint artifact: `accept --artifact <path>`.
 - After the last phase: `exit --feedback pending`. Implement runs without live developer interaction, so it shows no question and records coverage as pending; Verify asks it once at entry. When live interaction is already available, pass the developer's answer instead.
 - When a correction routes work back: `return`. The detecting stage opens the episode; Implement records `--event owner-ready` only after the corrective phase is green.

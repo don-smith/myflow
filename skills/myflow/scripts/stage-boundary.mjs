@@ -372,7 +372,20 @@ async function enter(context, options) {
     });
   }
 
-  await record(context, { kind: "stage.entered", canonicalStage, owningActivity, action: "stage-entered" });
+  // `stage.entered` is stage-scoped: its key ignores the activity, so entering the same open
+  // attempt with a second activity must rebuild the event the journal already holds, byte for
+  // byte. The attempt's `openingActivity` is the activity that opened it; using the passed one
+  // would build the same key with different content and trip the historical-rewrite guard —
+  // which is what made the documented mid-stage activity switch impossible.
+  const openAttempt = state.attempts.find(
+    ({ attemptId, canonicalStage: stage }) => attemptId === state.currentAttemptId && stage === canonicalStage,
+  );
+  await record(context, {
+    kind: "stage.entered",
+    canonicalStage,
+    owningActivity: openAttempt ? openAttempt.openingActivity : owningActivity,
+    action: "stage-entered",
+  });
 
   state = await loadState(context.journalPath);
   const deferred = pendingFeedbackAttempt(state);

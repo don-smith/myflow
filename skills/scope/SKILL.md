@@ -127,9 +127,9 @@ The alignment artifact must include: intent, desired outcome, non-goals, accepta
 
 ## Stage boundary
 
-Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. Pass `--repository-root <git-root>` on every subcommand — the same `<git-root>` resolved in step 1 — because the command otherwise records against its own working directory, which on an install is the skill folder rather than the target repository. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-- After creating `workstream.md`: `enter --stage Scope --activity scope --workstream <workstream-id>`. The first entry creates the workstream. Enter a selected research or prototype interval the same way, with `--activity research` or `--activity prototype`.
+- After creating `workstream.md`: `enter --stage Scope --activity scope --workstream <workstream-id> --repository-root <git-root>`. The first entry creates the workstream. Enter a selected research or prototype interval with the same full command and `--activity research` or `--activity prototype` in place of `--activity scope`; it completes the open activity and reuses the open Scope attempt.
 - When the developer accepts the alignment artifact: `accept --artifact <path>`.
 - Before leaving Scope: ask the stage question, then `exit --feedback <answer>`.
 - When Scope owns a correction that downstream work has already started: `return`. Record `return --event owner-ready` only when the outcome and acceptance criteria are ready for downstream work.

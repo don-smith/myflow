@@ -376,3 +376,46 @@ test("a Close exit ends the workstream in one command", async (t) => {
   assert.equal(validation.state.closed, true);
   assert.equal(validation.state.feedback.filter(({ status }) => status === "recorded").length, 5);
 });
+
+test("one stage attempt takes a second activity, in Plan and in Verify", async (t) => {
+  const context = await fixture();
+  t.after(() => rm(context.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
+
+  await run(context, "enter", "--stage", "Scope", "--activity", "scope");
+  await run(context, "exit", "--stage", "Scope", "--activity", "scope", "--feedback", "smooth");
+
+  // Plan: `design` opens the attempt and `planning` continues it, the sequence `design` and
+  // `plan` both document. Its `source` differs between the two activities, so a second
+  // `stage.entered` built from the passed activity misses the duplicate lookup entirely and
+  // the reducer rejects it as an overlapping open attempt.
+  await run(context, "enter", "--stage", "Plan", "--activity", "design");
+  const planning = await run(context, "enter", "--stage", "Plan", "--activity", "planning");
+  assert.deepEqual(kinds(planning), ["stage.entered", "activity.completed", "activity.entered"]);
+  assert.equal(planning.events[0].duplicate, true, "the Plan attempt is entered once, whatever the activity");
+  await run(context, "exit", "--stage", "Plan", "--activity", "planning", "--feedback", "smooth");
+
+  await run(context, "enter", "--stage", "Implement", "--activity", "phase", "--label", "phase-1");
+  await run(context, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "pending");
+
+  // Verify: `verification` opens the attempt and `review` continues it. Here the two
+  // activities share a `source`, so the duplicate is found and the failure was the
+  // historical-rewrite guard instead.
+  await run(context, "enter", "--stage", "Verify", "--activity", "verification");
+  const review = await run(context, "enter", "--stage", "Verify", "--activity", "review");
+  assert.deepEqual(kinds(review), ["stage.entered", "activity.completed", "activity.entered"]);
+  assert.equal(review.events[0].duplicate, true, "the Verify attempt is entered once, whatever the activity");
+
+  const validation = await validateLifecycleJournal(context.journalPath);
+  assert.equal(validation.valid, true, JSON.stringify(validation.errors));
+
+  const attemptsFor = (stage) => validation.state.attempts.filter(({ canonicalStage }) => canonicalStage === stage);
+  const activitiesFor = (stage) =>
+    validation.state.activities
+      .filter(({ canonicalStage }) => canonicalStage === stage)
+      .map(({ owningActivity }) => owningActivity);
+
+  assert.deepEqual(attemptsFor("Plan").map(({ openingActivity }) => openingActivity), ["design"]);
+  assert.deepEqual(activitiesFor("Plan"), ["design", "planning"]);
+  assert.deepEqual(attemptsFor("Verify").map(({ openingActivity }) => openingActivity), ["verification"]);
+  assert.deepEqual(activitiesFor("Verify"), ["verification", "review"]);
+});

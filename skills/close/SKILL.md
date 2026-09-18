@@ -18,9 +18,9 @@ Close consumes Verify evidence; it does not repeat validation or force ceremonia
 
 ## Stage boundary
 
-Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. Pass `--repository-root <git-root>` on every subcommand — the same `<git-root>` resolved in step 1 — because the command otherwise records against its own working directory, which on an install is the skill folder rather than the target repository. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-- After the passing Verify handoff: `enter --stage Close --activity closeout --workstream <workstream-id>`.
+- After the passing Verify handoff: `enter --stage Close --activity closeout --workstream <workstream-id> --repository-root <git-root>`.
 - When the closeout summary is accepted: `accept --artifact <path>`.
 - To end the workstream: ask the stage question, then `exit --feedback <answer> --terminal-reason workstream-closed`. That one call records the private stage pulse, `activity-completed`, `stage-completed`, and `workstream-closed` in order. Feedback failure blocks none of them.
 - If Close discovers new evidence: `return` to the owning stage and exit with `--terminal-reason superseded` instead. Do not close the workstream with an open correction.

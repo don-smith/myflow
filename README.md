@@ -51,9 +51,9 @@ Without that, nothing is lost: run `myflow artifacts import` later from a sessio
 
 ### Cursor
 
-Cursor does not import skills on their own. Import `don-smith/myflow` in **Customize** with **From GitHub Repository**, then install the plugin. Skills are invoked as `/scope`, `/plan`, and so on.
+Cursor has no one-step install yet. Copy the skills you want from `skills/` into `.cursor/skills/` in your project; they are then invoked as `/scope`, `/plan`, and so on.
 
-Cursor reads its own `.cursor-plugin/marketplace.json`, which this repository does not ship yet. Until it does, copy the skills you want into `.cursor/skills/` in your project.
+Cursor's own plugin import — **Customize** → **From GitHub Repository** — reads a `.cursor-plugin/marketplace.json` that this repository does not ship, because the schema has not been confirmed against Cursor's own documentation. Until it is, that path does not work and the manual copy above is the supported one.
 
 ### Pi
 
@@ -108,7 +108,7 @@ myflow artifacts init --location checkout
 
 The remote is a Git repository you create and own. **Keep it private.** Artifacts quote code and record decisions. MyFlow warns when it can tell a remote is public, and it names no particular repository anywhere.
 
-Only workstreams, repository maps, and onboarding records are ever pushed. Your configuration, credentials, and private stage feedback stay on the machine, enforced by both the store's `.gitignore` and the sync command.
+Only workstreams — including their stage feedback — repository maps, and onboarding records are ever pushed. Your configuration, credentials, and raw observations stay on the machine, enforced by both the store's `.gitignore` and the sync command.
 
 | Command | What it does |
 |---|---|

@@ -41,9 +41,9 @@ A design artifact records the chosen solution shape and its consequences. It doe
 
 ## Stage boundary
 
-Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key and syncs the workstream; never write lifecycle JSONL directly.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. Pass `--repository-root <git-root>` on every subcommand — the same `<git-root>` resolved in step 1 — because the command otherwise records against its own working directory, which on an install is the skill folder rather than the target repository. It derives every idempotency key and syncs the workstream; never write lifecycle JSONL directly.
 
-- On entry: `enter --stage Plan --activity design --workstream <workstream-id>`. A resumed design activity in the same Plan attempt does not create another stage attempt.
+- On entry: `enter --stage Plan --activity design --workstream <workstream-id> --repository-root <git-root>`. A resumed design activity in the same Plan attempt does not create another stage attempt.
 - When the developer accepts the design: `accept --artifact <path>`.
 - Design does not exit the Plan stage. Planning owns `exit` and the stage question; entering the planning activity completes the design activity.
 - When Design owns a correction: `return`, with `--event owner-ready` when the architecture is ready. If Design proves the outcome changed, reroute to Scope rather than changing ownership silently.

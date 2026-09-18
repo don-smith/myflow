@@ -17,10 +17,10 @@ Verify execution against the supplied accepted plan. This is Stage 4; it consume
 
 ## Stage boundary
 
-Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. Pass `--repository-root <git-root>` on every subcommand — the same `<git-root>` resolved in step 1 — because the command otherwise records against its own working directory, which on an install is the skill folder rather than the target repository. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-- On entry: `enter --stage Verify --activity verification --workstream <workstream-id>`. Its receipt reports pending Implement feedback. Ask that one deferred question before substantive Verify work, then rerun the same `enter` with `--feedback <answer>` to record it against the Implement attempt. Feedback failure does not block verification or the stage transition; leave pending coverage visible and continue.
-- Switching to review: `enter --activity review`, which completes the verification activity.
+- On entry: `enter --stage Verify --activity verification --workstream <workstream-id> --repository-root <git-root>`. Its receipt reports pending Implement feedback. Ask that one deferred question before substantive Verify work, then rerun the same `enter` with `--feedback <answer>` to record it against the Implement attempt. Feedback failure does not block verification or the stage transition; leave pending coverage visible and continue.
+- Switching to review: `enter --stage Verify --activity review --workstream <workstream-id> --repository-root <git-root>`, which completes the verification activity and reuses the open Verify attempt.
 - When the validation report and the linked review artifact are accepted: `accept --artifact <path>` for each.
 - Before leaving Verify: ask the stage question, then `exit --feedback <answer>`. Use `--terminal-reason superseded` when evidence sends the work back instead of forward.
 - For a correction: `return`. Verify records `--event closed` after a passing re-verification.

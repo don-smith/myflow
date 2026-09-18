@@ -62,9 +62,9 @@ If Plan discovers that a supposedly lightweight change needs a new seam, public 
 
 ## Stage boundary
 
-Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
+Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. Pass `--repository-root <git-root>` on every subcommand — the same `<git-root>` resolved in step 1 — because the command otherwise records against its own working directory, which on an install is the skill folder rather than the target repository. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
-- Before planning work: `enter --stage Plan --activity planning --workstream <workstream-id>`. This opens the Plan attempt when design did not, and completes an open design activity.
+- Before planning work: `enter --stage Plan --activity planning --workstream <workstream-id> --repository-root <git-root>`. This opens the Plan attempt when design did not, and completes an open design activity.
 - When the developer accepts the ready plan: `accept --artifact <path>`.
 - Before leaving Plan: ask the stage question, then `exit --feedback <answer>`.
 - When planning detects that architecture or outcome ownership changed: `return`, before completing the current attempt. Record `--event owner-ready` when this Plan attempt owns an active correction.
