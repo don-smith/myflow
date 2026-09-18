@@ -99,6 +99,33 @@ An event's `source` is the free-form name of the skill that recorded it, so it i
 
 The journal path defaults to `<workstream-root>/<workstream-id>/lifecycle/events.jsonl`; `--journal <path>` overrides it. Use `node skills/myflow/scripts/lifecycle-journal.mjs validate --workstream-id <id> --repository-root <git-root>` to validate a journal and inspect its reduced state. Validation detects schema errors, illegal transitions, broken links, and incomplete crash tails without mutating the journal.
 
+### Stage-boundary command
+
+Stages do not assemble lifecycle calls. Every stage edge goes through one command,
+`skills/myflow/scripts/stage-boundary.mjs`, which a stage skill runs from its own directory as
+`../myflow/scripts/stage-boundary.mjs`.
+
+| Subcommand | Records |
+|---|---|
+| `enter --workstream <id> --stage <S> --activity <a>` | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt. Syncs. |
+| `accept --artifact <workstream-relative path>` | `artifact-accepted`, with the artifact's digest. |
+| `exit --feedback <smooth\|some-friction\|rough\|skipped\|pending>` | the feedback request when it was shown, the private feedback record, `feedback-recorded`, `activity-completed`, and `stage-completed`. `--terminal-reason` selects `advanced` (the default), `superseded`, `abandoned`, or `workstream-closed`. Syncs. |
+| `return --owning-stage <S> --owning-activity <a> --trigger-source <t> --change-kind <k>` | `return-opened`, and with `--event`, the later `return-rerouted`, `return-owner-ready`, `return-resumed`, and `return-closed` events of the same episode. |
+
+The command derives every idempotency key from the workstream, the canonical stage, the stage
+attempt, the owning activity, and the action. A skill never invents a key and never appends to
+`lifecycle/events.jsonl` by hand. Rerunning a subcommand is a duplicate, not a second record.
+Each run prints one JSON receipt naming every event, whether it was new, the feedback result,
+and the sync result.
+
+`lifecycle-journal.mjs` remains the low-level interface for the events the boundary command does
+not own: `stage-blocked`, `stage-unblocked`, and `verification-completed`.
+
+The stage question, the private feedback record, Implement's deferred question, and the rule that
+both the question and the sync are non-blocking are stated once in
+`skills/myflow/references/stage-boundary.md`. The command records the host and the session
+identifier when the environment names them, and nothing at all when it does not.
+
 ### Existing artifacts and retention
 
 Existing flat `.myflow/artifacts/` directories are legacy layout. Do not bulk-move them: links, active sessions, or repository policy may still depend on their paths. New workstreams use the workstream layout. A repository may archive or purge completed workstreams only according to its mapped retention policy; the manifest makes that decision and any later migration auditable.
@@ -128,7 +155,7 @@ Where frontmatter is used, `kind`, `workstream`, `stage`, `status`, creation/upd
 | Onboarding | Repository map; run report; pending evaluation | Confirmed sources, material unknowns, readiness, safe next action | Scope or a recommended specialist |
 | Scope | Alignment artifact | Intent, audience/outcome, non-goals, observable acceptance criteria, risk/classification, constraints, and selected depth | Design disposition and Plan, optionally through selected specialists |
 | Plan | Executable plan; standalone design only when justified | Design disposition, implementation phases, verification map, commit strategy, manual checks, and rehydration | Fresh session → Implement |
-| Implement | Updated plan checkpoint or implementation summary; phase commits | Completed phases and commit hashes, checks/evidence, deviations, remaining manual verification, current working tree state; the same parent session immediately loads Verify (`/skill:verify` is recovery/rehydration only) | Verify |
+| Implement | Updated plan checkpoint or implementation summary; phase commits | Completed phases and commit hashes, checks/evidence, deviations, remaining manual verification, current working tree state; the same parent session immediately loads Verify (invoking `verify` by hand is recovery/rehydration only) | Verify |
 | Verify | Validation report, linked review artifact, and manual-verification brief where needed | Verdict, criterion coverage, automated evidence, exact implementation scope, accepted-plan provenance, defects/deviations, and human checks still required | Close, or a corrective loop |
 | Close | Repository-specific delivery/status/documentation updates and a closeout summary when needed | Linked passing review evidence, what shipped, closeout decisions, final commit/integration state, resolved tabled items, and follow-up destinations | End workstream or begin a new Scope |
 
@@ -161,13 +188,13 @@ The user and Scope decide the depth in situ. A stage may increase depth when evi
 ## Boundary and recovery rules
 
 1. **Establish the workstream before durable Scope output.** Scope proposes the workstream ID from the topic and asks only when it cannot safely infer one. It records the chosen ID in `workstream.md`. When repository policy permits, Scope offers an isolated branch/worktree before finalizing the alignment artifact; otherwise it records the trunk/current-checkout path.
-2. **Record the lifecycle mutation.** Append each actual state change through `lifecycle-journal.mjs`, keep the receipt, and update `workstream.md` as the current-state projection. Never rewrite earlier events or accepted artifacts.
+2. **Record the lifecycle mutation.** Record each stage edge through `stage-boundary.mjs`, keep its receipt, and update `workstream.md` as the current-state projection. Never invent an idempotency key, never edit `lifecycle/events.jsonl` by hand, and never rewrite earlier events or accepted artifacts.
 3. **Complete the producing stage first.** Mark its artifact `ready` only when its required decision/evidence is present. Mark it `blocked` when a material unresolved question prevents safe continuation.
 4. **Rehydrate at the boundary.** A fresh session runs `resolve-repository-map.mjs discover`, reads its selected map when `found`, then reads `workstream.md`, the authoritative upstream artifact, linked specialist evidence needed for the next stage, and the current Git state.
 5. **Use an implementation checkpoint between phases.** Each green plan phase is committed. The checkpoint records its commit hash, automated evidence, outstanding manual verification, and next phase.
 6. **Use handoffs only mid-stage.** A handoff names the current stage and artifact, summarizes the live working set, and never becomes a competing specification.
 7. **Route corrections to their owner.** An implementation defect returns to Implement; an unexecutable or incorrect plan returns to Plan; a changed architectural decision returns to Design; a changed outcome or acceptance criterion returns to Scope. When failed Verify returns an implementation defect after all original phases are complete, create one bounded corrective phase from the linked findings. A fresh-context implementation subagent owns the corrective phase. The parent delegates it fresh; after the corrective phase is green, commit it, update the plan and workstream checkpoints, and immediately rerun complete Verify. Keep one correction episode across any owner reroute. Record owner readiness and downstream resumption, then re-run downstream verification before closure.
-8. **Enter Verify without a user gate.** After the final green phase, the same parent session reads the installed `verify` skill and executes it immediately. `/skill:verify` is recovery/rehydration guidance only.
+8. **Enter Verify without a user gate.** After the final green phase, the same parent session reads the installed `verify` skill and executes it immediately. Invoking `verify` by hand is recovery/rehydration guidance only.
 9. **Do not close on unverified work.** Verify completes automated validation and fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity review lanes, then writes a separate artifact with plan/scope provenance. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence rather than trusting the validation report's top-level verdict. Repository-specific policy may add gates.
 
 ## Lightweight plan template

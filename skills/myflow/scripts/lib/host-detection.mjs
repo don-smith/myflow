@@ -21,9 +21,12 @@
  * - `claude-code`: observed directly on 2026-09-18; the value matched the session
  *   identifier this repository's journal had been recording by hand.
  *
- * Codex, Cursor, Kilo Code, and OpenCode are deliberately absent. Their session
- * variables, if they have any, are confirmed during the Phase 7 install smoke
- * tests and added then.
+ * Codex, Cursor, Kilo Code, and OpenCode are deliberately absent. A documentation
+ * sweep of all four on 2026-09-18 found no published session variable, so none was
+ * added. The check is one line per agent and belongs to the install smoke tests: run
+ * the boundary command's `enter` in a scratch workstream and see whether the receipt
+ * carries an `executionRef`. An agent that exports nothing stays absent, which is the
+ * documented behaviour rather than a gap.
  */
 export const KNOWN_HOSTS = Object.freeze([
   Object.freeze({ host: "pi", sessionVariable: "PI_SESSION_ID" }),

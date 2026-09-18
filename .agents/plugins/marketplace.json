@@ -1,0 +1,20 @@
+{
+  "name": "myflow",
+  "interface": {
+    "displayName": "MyFlow"
+  },
+  "plugins": [
+    {
+      "name": "myflow",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

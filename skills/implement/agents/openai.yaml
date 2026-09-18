@@ -1,2 +1,6 @@
 # Codex: implement is developer-invoked only. The model must not trigger it on its own.
-allow_implicit_invocation: false
+# https://learn.chatgpt.com/docs/build-skills - "allow_implicit_invocation (default: true):
+# When false, Codex won't implicitly invoke the skill based on user prompt; explicit
+# $skill invocation still works."
+policy:
+  allow_implicit_invocation: false

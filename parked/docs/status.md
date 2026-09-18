@@ -1,6 +1,6 @@
 # MyFlow Status
 
-> **Workflow-refactor status is maintained in [MyFlow workflow status and alignment](myflow-workflow-status-and-alignment.md).** The entries below are historical notes from the prior workflow model and are not the current skill map or alignment backlog.
+> **Historical. Parked, not shipped.** Workflow status is maintained in [MyFlow workflow status and alignment](../../docs/myflow-workflow-status-and-alignment.md). The entries below are notes from the prior workflow model. They are not the current skill map or alignment backlog, and several skills they name are parked or retired.
 
 ## Recently Completed
 

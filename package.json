@@ -1,15 +1,16 @@
 {
   "name": "myflow",
   "version": "3.0.0",
-  "description": "myflow — a single 5-stage pipeline for AI-assisted software development, from discovery through landing.",
+  "description": "MyFlow: an artifact-led, five-stage workflow for AI-assisted software development. Scope, Plan, Implement, Verify, Close.",
   "keywords": [
     "pi-package",
     "pi-extension",
     "myflow",
     "skills",
     "workflow",
-    "landing",
-    "closeout"
+    "planning",
+    "code-review",
+    "artifacts"
   ],
   "license": "MIT",
   "author": "Don Smith",
@@ -20,6 +21,10 @@
   "files": [
     "LICENSE",
     "README.md",
+    "plugin.json",
+    ".claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    ".agents/plugins/marketplace.json",
     "docs/artifact-and-stage-boundary-contract.md",
     "docs/myflow-workflow-status-and-alignment.md",
     "skills",
