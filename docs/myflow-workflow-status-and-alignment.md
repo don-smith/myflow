@@ -67,14 +67,6 @@ After the final green phase, Implement reads the installed `verify` skill and ex
 - `discover` is the deeper requirements branch Scope selects when the concept is still fuzzy. It questions in `grill-me` rounds and returns to Scope.
 - `research`, `prototype`, `domain-modeling`, and `tdd` are the remaining specialists. Scope selects only the ones the work needs.
 
-### Retired from MyFlow
-
-`as-built-documentation`, `to-spec`, `to-tickets`, `loop-me`, `triage`, `test-driven-development`, and `systematic-debugging` are retired. Retained skills must not require them.
-
-### Parked, not retired
-
-The core ships 20 skills. Material this core no longer ships is preserved outside the repository: the specialist skills (including `architecture-review`, `improve-codebase-architecture`, `unslop`, `epiphany-tabling`, and `observing-myflow`), the subagent definitions, the telemetry extension, the `ask-user-question` Pi extension, and the observation, evaluation, and publication tests. None of it is packaged, tested, or referenced by a core skill. A future workstream revives anything that earns its place back.
-
 ## Alignment inventory
 
 | Area | Target contract | Status / next action |
@@ -89,7 +81,6 @@ The core ships 20 skills. Material this core no longer ships is preserved outsid
 | Architecture specialists and recovery/learning | Resolver-aware sources, reusable artifacts, design handoff, proportionate recovery | **Aligned initial sweep.** |
 | Artifact store and stage boundary | User-configured artifact location and optional private remote; one boundary command per stage edge; host and session recorded only where the environment names them | **Aligned.** Confirmed host rows are added as each agent is smoke-tested. |
 | Packaging | One skill tree, one documented install step per agent, no per-agent skill copies | **Aligned.** Per-agent install smoke tests are the outstanding evidence. |
-| Observation and evaluation | Parked. Pull-based JSONL observation, exports, and rollups are preserved outside the repository | **Parked.** Comparative use and Langfuse telemetry remain follow-up work. |
 | Documentation | README/public overview agrees with active workflow | **Aligned with desk scenarios.** |
 
 ## Ordered work
@@ -98,9 +89,9 @@ The core ships 20 skills. Material this core no longer ships is preserved outsid
 2. **Workstream artifact layout and Scope → Plan slice** — establish the workstream ID/layout and retain the aligned optional-specialist/design-disposition/Plan interface. **Initial implementation complete.** This was documentation and skill-instruction work, not a pilot in another repository.
 3. **Implement → Verify, Close, and retained-skill slices** — resolver-aware checkpoints, automatic Verify transition, three-lane code review with independent P0/P1 verification, exact-scope commit-list support, review-evidence Close gate, corrective-phase contract, proportionate closeout, and initial retained-skill sweep. **Complete** (delivered by proactive-code-review workstream; 9 commits; 93 contract tests).
 4. **Public documentation and scenario testing** — README/contract/status coherence plus trivial, medium, and structural desk scenarios. **Complete.**
-5. **Real end-to-end pilot** — the first bounded product workstream completed and produced the initial `observing-myflow` skill, collector, and report contract. **Complete.**
+5. **Real end-to-end pilot** — the first bounded product workstream completed and produced the initial observation and report contract. **Complete.**
 6. **Portable core** — slim the package to 20 agent-neutral skills, move workstream artifacts into a user-configured store with an optional private remote, record every stage edge through one boundary command, and ship one documented install step per agent. **Complete, pending per-agent install smoke tests.**
-7. **Next action: install smoke tests and comparative pilots** — install the package in each agent the developer runs, confirm the user-only skills and the session variables, then use workstream observations to test whether the recorded improvement hypotheses recur. Keep Langfuse telemetry redesign deferred until JSONL evidence shows a concrete need.
+7. **Next action: install smoke tests and comparative pilots** — install the package in each agent the developer runs, confirm the user-only skills and the session variables, then use workstream observations to test whether the recorded improvement hypotheses recur.
 
 ## Operating rule
 

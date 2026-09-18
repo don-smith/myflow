@@ -188,8 +188,6 @@ Twenty skills, the artifact-store and stage-boundary scripts they call, and the 
 | `.agents/plugins/marketplace.json` | Codex, as the catalog `codex plugin marketplace add` reads |
 | `package.json` (`pi`, `bin`, `files`) | Pi, and `npm`/`npx` |
 
-Material this core no longer ships lives outside the repository: the specialist skills, the subagent definitions, the telemetry extension, the historical documents, and the observation, evaluation, and publication tests. None of it is packaged, tested, or referenced by a core skill.
-
 MyFlow has no runtime dependencies. Every script under `skills/` imports only Node builtins and its own siblings, so a clone installs with any package manager and needs no install step at all.
 
 ## Development

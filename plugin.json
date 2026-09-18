@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "myflow",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "An artifact-led, five-stage workflow: Scope, Plan, Implement, Verify, Close. Twenty skills that let a fresh session continue work without conversation history.",
   "author": {
     "name": "Don Smith",

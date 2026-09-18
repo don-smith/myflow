@@ -1,6 +1,6 @@
 {
   "name": "myflow",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "MyFlow: an artifact-led, five-stage workflow for AI-assisted software development. Scope, Plan, Implement, Verify, Close.",
   "keywords": [
     "pi-package",

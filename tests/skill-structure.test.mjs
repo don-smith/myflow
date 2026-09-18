@@ -33,29 +33,6 @@ export const CORE_SKILLS = [
   "verify",
 ];
 
-/** Skills parked outside this repository. A core skill may not reference one. */
-export const PARKED_SKILLS = [
-  "architecture-review",
-  "capturing-learnings",
-  "changelog",
-  "epiphany-tabling",
-  "improve-codebase-architecture",
-  "langfuse",
-  "observing-myflow",
-  "resolving-merge-conflicts",
-  "setup-pre-commit",
-  "setup-ts-deep-modules",
-  "unslop",
-  "wait-what",
-  "wayfinder",
-  "wizard",
-  "writing-retros",
-  "writing-skills",
-];
-
-/** Names that are merged or renamed away. Kept so rule 3 still catches them once the directory is gone. */
-export const RETIRED_SKILLS = ["create-handoff", "grill-with-docs", "grilling", "resume-handoff", "validate"];
-
 /** The Agent Skills frontmatter keys a portable skill may declare. */
 export const ALLOWED_FRONTMATTER_KEYS = [
   "argument-hint",
@@ -347,8 +324,8 @@ function isBundledReferenceName(token) {
  */
 export async function lintSkillTree(root, options = {}) {
   const core = options.core ?? CORE_SKILLS;
-  const parked = options.parked ?? PARKED_SKILLS;
-  const retired = options.retired ?? RETIRED_SKILLS;
+  const parked = options.parked ?? [];
+  const retired = options.retired ?? [];
   const repositoryRootPath = resolve(root);
   const skillsRoot = join(repositoryRootPath, "skills");
   const skillNames = await listSkillDirectories(skillsRoot);

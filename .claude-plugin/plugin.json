@@ -2,7 +2,7 @@
   "name": "myflow",
   "displayName": "MyFlow",
   "description": "An artifact-led, five-stage workflow: Scope, Plan, Implement, Verify, Close. Twenty skills that let a fresh session continue work without conversation history.",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "author": {
     "name": "Don Smith",
     "url": "https://github.com/don-smith"

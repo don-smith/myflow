@@ -81,7 +81,7 @@ Onboarding remains outside a workstream because it may happen before an ID exist
 
 ### Lifecycle journal
 
-The authoritative lifecycle journal uses `myflow-lifecycle/v1`. `workstream.md` is its current-state projection, while stage artifacts remain authoritative for decisions and detailed evidence. Lifecycle writes do not depend on Pi or Langfuse.
+The authoritative lifecycle journal uses `myflow-lifecycle/v1`. `workstream.md` is its current-state projection, while stage artifacts remain authoritative for decisions and detailed evidence. Lifecycle writes do not depend on any host or external service.
 
 Every workstream mutation goes through `skills/myflow/scripts/lifecycle-journal.mjs`. Skills pass semantic arguments to a mutation subcommand. They must not assemble or edit event JSON. The writer resolves canonical repository identity, validates the transition and any artifact reference relative to the repository root or, by default, the workstream directory, calculates artifact digests and stable IDs, links the prior event, acquires an append lock, and returns a receipt. An idempotent retry returns the original receipt. A retry that changes historical content fails. The writer removes an incomplete crash tail before a new append, but rejects malformed complete records and broken event chains.
 
