@@ -33,7 +33,7 @@ export const CORE_SKILLS = [
   "verify",
 ];
 
-/** Skills that move under `parked/`. A core skill may not reference one. */
+/** Skills parked outside this repository. A core skill may not reference one. */
 export const PARKED_SKILLS = [
   "architecture-review",
   "capturing-learnings",

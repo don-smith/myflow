@@ -73,7 +73,7 @@ After the final green phase, Implement reads the installed `verify` skill and ex
 
 ### Parked, not retired
 
-The core ships 20 skills. Material this core no longer ships is preserved under `parked/`: the specialist skills (including `architecture-review`, `improve-codebase-architecture`, `unslop`, `epiphany-tabling`, and `observing-myflow`), the subagent definitions, the telemetry extension, and the observation, evaluation, and publication tests. Nothing under `parked/` is packaged, tested, or referenced by a core skill. A future workstream revives anything that earns its place back.
+The core ships 20 skills. Material this core no longer ships is preserved outside the repository: the specialist skills (including `architecture-review`, `improve-codebase-architecture`, `unslop`, `epiphany-tabling`, and `observing-myflow`), the subagent definitions, the telemetry extension, the `ask-user-question` Pi extension, and the observation, evaluation, and publication tests. None of it is packaged, tested, or referenced by a core skill. A future workstream revives anything that earns its place back.
 
 ## Alignment inventory
 
@@ -89,7 +89,7 @@ The core ships 20 skills. Material this core no longer ships is preserved under 
 | Architecture specialists and recovery/learning | Resolver-aware sources, reusable artifacts, design handoff, proportionate recovery | **Aligned initial sweep.** |
 | Artifact store and stage boundary | User-configured artifact location and optional private remote; one boundary command per stage edge; host and session recorded only where the environment names them | **Aligned.** Confirmed host rows are added as each agent is smoke-tested. |
 | Packaging | One skill tree, one documented install step per agent, no per-agent skill copies | **Aligned.** Per-agent install smoke tests are the outstanding evidence. |
-| Observation and evaluation | Parked. Pull-based JSONL observation, exports, and rollups are preserved under `parked/` | **Parked.** Comparative use and Langfuse telemetry remain follow-up work. |
+| Observation and evaluation | Parked. Pull-based JSONL observation, exports, and rollups are preserved outside the repository | **Parked.** Comparative use and Langfuse telemetry remain follow-up work. |
 | Documentation | README/public overview agrees with active workflow | **Aligned with desk scenarios.** |
 
 ## Ordered work

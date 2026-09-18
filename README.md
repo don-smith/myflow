@@ -61,9 +61,11 @@ Cursor's own plugin import — **Customize** → **From GitHub Repository** — 
 pi install git:github.com/don-smith/myflow
 ```
 
-Restart Pi afterwards. Pi reads the skills and the optional extension from `package.json`.
+Restart Pi afterwards. Pi reads the skills from `package.json`.
 
-The package declares one optional Pi extension: a structured question tool the model uses instead of guessing. It is non-blocking: every skill that uses it falls back to a plain-text question when the extension is absent. Use `pi config` to enable or disable it, `pi list` to inspect installed packages, and `pi remove <source>` to unregister. Pi packages execute extensions, so install only sources you trust.
+The package declares no Pi extension, so nothing here executes code in your Pi session. Use `pi list` to inspect installed packages and `pi remove <source>` to unregister.
+
+Where a skill would rather ask a structured question than a plain-text one, it asks through whatever structured question facility the host provides, and falls back to plain text when there is none. That is host-neutral: MyFlow ships no question UI of its own.
 
 To load a local checkout for one session instead, run `pi -e .` from the repository root.
 
@@ -177,7 +179,7 @@ The last two rows are a real limitation, not an oversight. If you run Kilo Code 
 
 ## What ships
 
-Twenty skills, the artifact-store and stage-boundary scripts they call, the two contract documents, and one optional Pi extension. Four manifests describe the same `skills/` tree to four ecosystems:
+Twenty skills, the artifact-store and stage-boundary scripts they call, and the two contract documents. Four manifests describe the same `skills/` tree to four ecosystems:
 
 | Manifest | Read by |
 |---|---|
@@ -186,12 +188,14 @@ Twenty skills, the artifact-store and stage-boundary scripts they call, the two 
 | `.agents/plugins/marketplace.json` | Codex, as the catalog `codex plugin marketplace add` reads |
 | `package.json` (`pi`, `bin`, `files`) | Pi, and `npm`/`npx` |
 
-Material this core no longer ships is preserved under `parked/`: the specialist skills, the subagent definitions, the telemetry extension, the historical documents, and the observation, evaluation, and publication tests. Nothing under `parked/` is packaged, tested, or referenced by a core skill.
+Material this core no longer ships lives outside the repository: the specialist skills, the subagent definitions, the telemetry extension, the historical documents, and the observation, evaluation, and publication tests. None of it is packaged, tested, or referenced by a core skill.
+
+MyFlow has no runtime dependencies. Every script under `skills/` imports only Node builtins and its own siblings, so a clone installs with any package manager and needs no install step at all.
 
 ## Development
 
 ```bash
-bun run test           # root suite and package suites
+bun run test           # the test suite
 npm pack --dry-run     # what the package ships
 claude plugin validate .
 ```

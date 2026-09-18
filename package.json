@@ -4,7 +4,6 @@
   "description": "MyFlow: an artifact-led, five-stage workflow for AI-assisted software development. Scope, Plan, Implement, Verify, Close.",
   "keywords": [
     "pi-package",
-    "pi-extension",
     "myflow",
     "skills",
     "workflow",
@@ -28,18 +27,7 @@
     "docs/artifact-and-stage-boundary-contract.md",
     "docs/myflow-workflow-status-and-alignment.md",
     "skills",
-    "packages/config",
-    "packages/ask-user-question",
-    "!packages/**/node_modules",
-    "!packages/**/*.test.ts",
-    "!packages/**/test",
-    "!packages/**/docs",
-    "!skills/**/*.test.*",
-    "!packages/**/CHANGELOG.md",
-    "!packages/**/vitest.config.ts"
-  ],
-  "workspaces": [
-    "packages/*"
+    "!skills/**/*.test.*"
   ],
   "repository": {
     "type": "git",
@@ -52,24 +40,10 @@
   "pi": {
     "skills": [
       "./skills"
-    ],
-    "extensions": [
-      "./packages/ask-user-question/index.ts"
     ]
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
-    "typebox": "*"
   },
   "scripts": {
     "lint": "echo 'No lint configured yet'",
-    "test": "bun run test:root && bun run test:packages",
-    "test:root": "node --test tests/*.test.mjs skills/code-review/_helpers/review-range.test.mjs",
-    "test:packages": "bun run --filter @myflow/test-utils --filter @myflow/ask-user-question test"
-  },
-  "devDependencies": {
-    "vitest": "*"
+    "test": "node --test tests/*.test.mjs skills/code-review/_helpers/review-range.test.mjs"
   }
 }
