@@ -108,12 +108,16 @@ subcommand also takes `--repository-root <git-root>` naming the repository being
 it the command falls back to its own working directory and records under MyFlow's identity, or
 fails when the install is not a Git repository.
 
-| Subcommand | Records |
-|---|---|
-| `enter --workstream <id> --stage <S> --activity <a> --repository-root <git-root>` | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt. Syncs. |
-| `accept --artifact <workstream-relative path>` | `artifact-accepted`, with the artifact's digest. |
-| `exit --feedback <smooth\|some-friction\|rough\|skipped\|pending>` | the feedback request when it was shown, the private feedback record, `feedback-recorded`, `activity-completed`, and `stage-completed`. `--terminal-reason` selects `advanced` (the default), `superseded`, `abandoned`, or `workstream-closed`. Syncs. |
-| `return --owning-stage <S> --owning-activity <a> --trigger-source <t> --change-kind <k>` | `return-opened`, and with `--event`, the later `return-rerouted`, `return-owner-ready`, `return-resumed`, and `return-closed` events of the same episode. |
+The three stage facts travel with it, so every subcommand takes `--workstream <id> --stage <S>
+--activity <a> --repository-root <git-root>`. The table lists only what each subcommand requires
+on top of those four.
+
+| Subcommand | Also required | Records |
+|---|---|---|
+| `enter` | — | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt. Syncs. |
+| `accept` | `--artifact <workstream-relative path>` | `artifact-accepted`, with the artifact's digest. |
+| `exit` | `--feedback <smooth\|some-friction\|rough\|skipped\|pending>` | the feedback request when it was shown, the private feedback record, `feedback-recorded`, `activity-completed`, and `stage-completed`. `--terminal-reason` selects `advanced` (the default), `superseded`, `abandoned`, or `workstream-closed`. Syncs. |
+| `return` | `--owning-stage <S> --owning-activity <a> --trigger-source <t> --change-kind <k>` | `return-opened`, and with `--event`, the later `return-rerouted`, `return-owner-ready`, `return-resumed`, and `return-closed` events of the same episode. |
 
 The command derives every idempotency key from the workstream, the canonical stage, the stage
 attempt, the owning activity, and the action. A skill never invents a key and never appends to

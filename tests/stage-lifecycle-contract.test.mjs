@@ -38,16 +38,38 @@ test("every stage records its boundary through the one boundary command", async 
     assert.ok(document);
   }
 
-  // Each stage names the entry it makes; `exit` belongs to whichever activity closes the stage.
+  // Each stage names the entry it makes, in full: without `--repository-root` the command
+  // records against the skill folder rather than the target repository, so the flag is part of
+  // the documented invocation and not an optional extra.
+  const suffix = "--workstream <workstream-id> --repository-root <git-root>";
   for (const [name, entry] of Object.entries({
-    Scope: "enter --stage Scope --activity scope",
-    Design: "enter --stage Plan --activity design",
-    Plan: "enter --stage Plan --activity planning",
-    Implement: "enter --stage Implement --activity phase",
-    Verify: "enter --stage Verify --activity verification",
-    Close: "enter --stage Close --activity closeout",
+    Scope: `enter --stage Scope --activity scope ${suffix}`,
+    Design: `enter --stage Plan --activity design ${suffix}`,
+    Plan: `enter --stage Plan --activity planning ${suffix}`,
+    Implement: `enter --stage Implement --activity phase ${suffix}`,
+    Verify: `enter --stage Verify --activity verification ${suffix}`,
+    Close: `enter --stage Close --activity closeout ${suffix}`,
   })) {
     assert.match(skills[name], new RegExp(entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${name} must name its entry`);
+  }
+
+  // The six entries above are not the only documented copies: Verify documents its switch to
+  // review and Scope its research and prototype intervals. Pin every one of them, so dropping
+  // the flag from any single copy fails here rather than at an install's first boundary.
+  for (const name of Object.keys(skillPaths)) {
+    const entries = [...skills[name].matchAll(/`enter --stage[^`]*`/g)].map(([invocation]) => invocation);
+    assert.ok(entries.length > 0, `${name} must document at least one entry`);
+    for (const invocation of entries) {
+      assert.ok(
+        invocation.includes("--repository-root <git-root>"),
+        `${name} documents an entry without --repository-root: ${invocation}`,
+      );
+    }
+    assert.match(
+      skills[name],
+      /Pass `--repository-root <git-root>` on every subcommand/,
+      `${name} must state that every subcommand takes the repository root`,
+    );
   }
   for (const name of ["Scope", "Plan", "Implement", "Verify", "Close"]) {
     assert.match(skills[name], /`exit --feedback|`exit` with/, `${name} must name its exit`);

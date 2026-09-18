@@ -21,9 +21,13 @@ sync result. Keep the returned event and attempt IDs in the stage checkpoint.
 
 ## Subcommands
 
-| Subcommand | Required | Records |
+The three stage facts travel with `--repository-root`, so every subcommand takes `--stage`,
+`--activity`, `--workstream`, and `--repository-root`. The table lists only what each subcommand
+requires on top of those four, and the stage skills' examples elide them the same way.
+
+| Subcommand | Also required | Records |
 |---|---|---|
-| `enter` | `--stage`, `--activity`, `--workstream`, `--repository-root` | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt before opening the new one. Syncs. |
+| `enter` | — | `stage-entered` and `activity-entered`. Creates the workstream on the first entry, which must be Scope. Completes an activity still open in the same attempt before opening the new one. Syncs. |
 | `accept` | `--artifact <workstream-relative path>` | `artifact-accepted`, with the artifact's digest. |
 | `exit` | `--feedback <smooth\|some-friction\|rough\|skipped\|pending>` | `feedback-requested` when the question was shown, the private feedback, `feedback-recorded`, `activity-completed`, and `stage-completed --terminal-reason advanced`. Syncs. |
 | `return` | `--owning-stage`, `--owning-activity`, `--trigger-source`, `--change-kind` | `return-opened`, and with `--event`, the `return-rerouted`, `return-owner-ready`, `return-resumed`, and `return-closed` events. The episode ID is derived and reused. |

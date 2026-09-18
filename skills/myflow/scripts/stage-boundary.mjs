@@ -9,15 +9,15 @@
  * developer's answer. They never invent an idempotency key and never choose an event
  * order, because both are derived here.
  *
- * Usage:
- *   stage-boundary.mjs enter  --stage <S> --activity <a> --workstream <id>
- *                            [--label <activity label>] [--feedback <answer> [--note <sentence>]]
- *   stage-boundary.mjs accept --stage <S> --activity <a> --workstream <id> --artifact <path>
- *   stage-boundary.mjs exit   --stage <S> --activity <a> --workstream <id>
- *                             --feedback <smooth|some-friction|rough|skipped|pending>
- *                            [--note <sentence>] [--terminal-reason <reason>]
- *   stage-boundary.mjs return --stage <S> --activity <a> --workstream <id>
- *                            [--event <opened|rerouted|owner-ready|resumed|closed>] ...
+ * Usage: every subcommand takes the same four flags, and each line below adds its own.
+ *   stage-boundary.mjs <enter|accept|exit|return>
+ *                      --stage <S> --activity <a> --workstream <id> --repository-root <git-root>
+ *
+ *   enter  [--label <activity label>] [--feedback <answer> [--note <sentence>]]
+ *   accept --artifact <path>
+ *   exit   --feedback <smooth|some-friction|rough|skipped|pending>
+ *         [--note <sentence>] [--terminal-reason <reason>]
+ *   return [--event <opened|rerouted|owner-ready|resumed|closed>] ...
  *
  * Every invocation writes one JSON object to stdout. Rerunning an invocation is safe:
  * the derived keys make each event a duplicate rather than a second record.
@@ -640,7 +640,7 @@ const VALUE_FLAGS = new Map([
   ["--change-kind", "changeKind"],
 ]);
 
-const usage = `usage: stage-boundary.mjs <enter|accept|exit|return> --workstream <id> --stage <stage> --activity <activity> [options]
+const usage = `usage: stage-boundary.mjs <enter|accept|exit|return> --workstream <id> --stage <stage> --activity <activity> --repository-root <git-root> [options]
   enter  [--label <activity label>] [--feedback <answer> [--note <sentence>]]
   accept --artifact <repository-relative path>
   exit   --feedback <${FEEDBACK_ANSWERS.join("|")}> [--note <sentence>] [--terminal-reason <${TERMINAL_REASONS.join("|")}>]

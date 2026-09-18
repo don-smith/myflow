@@ -111,10 +111,20 @@ async function buildEvent(input, state, previousEventId, existing) {
     occurredAt: existing?.occurredAt ?? semanticInput.occurredAt ?? new Date().toISOString(),
     previousEventId: existing?.previousEventId ?? previousEventId,
   };
-  Object.assign(event, existing ? {
-    attemptId: existing.attemptId,
-    attemptOrdinal: existing.attemptOrdinal,
-  } : eventAttemptMetadata(state, { ...event, targetAttemptId }));
+  if (existing) {
+    // The historical event wins for everything it already decided. `attemptId` and
+    // `attemptOrdinal` are its position in the journal; `executionRef` is the host
+    // session that emitted it — provenance, not intent, and absent altogether under an
+    // unrecognised host. Rebuilding any of them from the current invocation makes a
+    // rerun from a second session differ from the record it is meant to duplicate, and
+    // the comparison below then reads that as a rewrite of history.
+    event.attemptId = existing.attemptId;
+    event.attemptOrdinal = existing.attemptOrdinal;
+    if ("executionRef" in existing) event.executionRef = existing.executionRef;
+    else delete event.executionRef;
+  } else {
+    Object.assign(event, eventAttemptMetadata(state, { ...event, targetAttemptId }));
+  }
   event.eventId = lifecycleEventId(event);
   if (artifactPath !== undefined) event.artifactRef = await artifactReference(repositoryRoot, artifactPath, artifactRoots);
   return event;

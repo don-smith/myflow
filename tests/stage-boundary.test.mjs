@@ -381,8 +381,14 @@ test("one stage attempt takes a second activity, in Plan and in Verify", async (
   const context = await fixture();
   t.after(() => rm(context.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
 
+  // Scope: `scope` opens the attempt and `research` continues it, the pair
+  // `skills/scope/SKILL.md` documents. It shares `stage.entered`'s duplicate path with the
+  // other two stages, so it is asserted here rather than assumed from them.
   await run(context, "enter", "--stage", "Scope", "--activity", "scope");
-  await run(context, "exit", "--stage", "Scope", "--activity", "scope", "--feedback", "smooth");
+  const research = await run(context, "enter", "--stage", "Scope", "--activity", "research");
+  assert.deepEqual(kinds(research), ["stage.entered", "activity.completed", "activity.entered"]);
+  assert.equal(research.events[0].duplicate, true, "the Scope attempt is entered once, whatever the activity");
+  await run(context, "exit", "--stage", "Scope", "--activity", "research", "--feedback", "smooth");
 
   // Plan: `design` opens the attempt and `planning` continues it, the sequence `design` and
   // `plan` both document. Its `source` differs between the two activities, so a second
@@ -418,4 +424,69 @@ test("one stage attempt takes a second activity, in Plan and in Verify", async (
   assert.deepEqual(activitiesFor("Plan"), ["design", "planning"]);
   assert.deepEqual(attemptsFor("Verify").map(({ openingActivity }) => openingActivity), ["verification"]);
   assert.deepEqual(activitiesFor("Verify"), ["verification", "review"]);
+  assert.deepEqual(attemptsFor("Scope").map(({ openingActivity }) => openingActivity), ["scope"]);
+  assert.deepEqual(activitiesFor("Scope"), ["scope", "research"]);
+});
+
+test("rerunning a subcommand from a different host session is still a duplicate", async (t) => {
+  const context = await fixture({ remote: false });
+  t.after(() => rm(context.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
+
+  // MyFlow stages span sessions by construction: a stage entered in one session is resumed
+  // in another, and `executionRef` — the one field that varies between them — is set from
+  // the environment with no option controlling it. Every other test in this file runs with
+  // every host session variable deleted, which pins that field at the single value under
+  // which a cross-session rerun cannot differ. These runs vary it deliberately.
+  const runAs = (session, ...args) =>
+    run({ ...context, env: { ...context.env, ...(session ? { CLAUDE_CODE_SESSION_ID: session } : {}) } }, ...args);
+  const refOf = (session) => ({ host: "claude-code", emittingSessionId: session });
+
+  // absent -> set. The workstream's first entry carries no execution reference at all.
+  const opened = await run(context, "enter", "--stage", "Scope", "--activity", "scope");
+  assert.equal(opened.executionRef, undefined);
+  const reopened = await runAs("claude-session-a", "enter", "--stage", "Scope", "--activity", "scope");
+  assert.deepEqual(reopened.executionRef, refOf("claude-session-a"));
+  assert.ok(duplicates(reopened).every(Boolean), `the identical enter must be a duplicate: ${JSON.stringify(reopened.events)}`);
+
+  // set -> a different set, the shape a resumed stage actually takes.
+  const reopenedAgain = await runAs("claude-session-b", "enter", "--stage", "Scope", "--activity", "scope");
+  assert.ok(duplicates(reopenedAgain).every(Boolean), `a third session must also be a duplicate: ${JSON.stringify(reopenedAgain.events)}`);
+
+  // A non-`enter` subcommand, reran across two sessions.
+  const alignment = join(context.workstreamDirectory, "scope", "alignment.md");
+  await mkdir(join(context.workstreamDirectory, "scope"), { recursive: true });
+  await writeFile(alignment, "# Alignment\n");
+  const accept = ["accept", "--stage", "Scope", "--activity", "scope", "--artifact", "scope/alignment.md"];
+  await runAs("claude-session-a", ...accept);
+  const acceptedAgain = await runAs("claude-session-b", ...accept);
+  assert.ok(duplicates(acceptedAgain).every(Boolean), `accept must be a duplicate across sessions: ${JSON.stringify(acceptedAgain.events)}`);
+
+  // The load-bearing half of the same guard is untouched: when the artifact's bytes change,
+  // the rerun is a rewrite of history and is refused, from any session.
+  await writeFile(alignment, "# Alignment, revised\n");
+  await assert.rejects(
+    () => runAs("claude-session-c", ...accept),
+    /would rewrite a historical event/,
+    "accept after the artifact changes must still fail on the digest",
+  );
+  await writeFile(alignment, "# Alignment\n");
+
+  // set -> absent, the direction that is not a workaround either.
+  const exit = ["exit", "--stage", "Scope", "--activity", "scope", "--feedback", "smooth"];
+  await runAs("claude-session-a", ...exit);
+  const exitedAgain = await runAs(null, ...exit);
+  assert.ok(duplicates(exitedAgain).every(Boolean), `exit must be a duplicate with the variable unset: ${JSON.stringify(exitedAgain.events)}`);
+
+  // The documented mid-stage activity switch, across a session boundary.
+  await runAs("claude-session-a", "enter", "--stage", "Plan", "--activity", "design");
+  const planning = await runAs("claude-session-b", "enter", "--stage", "Plan", "--activity", "planning");
+  assert.deepEqual(kinds(planning), ["stage.entered", "activity.completed", "activity.entered"]);
+  assert.equal(planning.events[0].duplicate, true, "the Plan attempt is entered once, whatever session continues it");
+
+  // The journal keeps the first emitter's provenance and discards every later candidate.
+  const events = (await readFile(context.journalPath, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+  const entered = (stage) => events.find(({ kind, canonicalStage }) => kind === "stage.entered" && canonicalStage === stage);
+  assert.equal(entered("Scope").executionRef, undefined, "the first Scope entry had no execution reference and keeps none");
+  assert.deepEqual(entered("Plan").executionRef, refOf("claude-session-a"), "the Plan entry keeps its first emitter");
+  assert.equal((await validateLifecycleJournal(context.journalPath)).valid, true);
 });

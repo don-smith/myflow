@@ -91,17 +91,38 @@ const TABLE_SEPARATOR = /^[\s|:-]+$/;
 /** A table with one host row documents that host; only a table that maps several is neutral. */
 const MINIMUM_MAPPED_HOSTS = 2;
 
+/**
+ * The agents MyFlow documents, as a reader sees them written. This roster is local to the
+ * lint on purpose. It is not `KNOWN_HOSTS` from `host-detection.mjs`: that list holds only the
+ * agents publishing a session variable, deliberately, so reusing it here would reject a
+ * legitimate Codex-and-Cursor table and would couple a documentation check to a telemetry
+ * roster maintained against different criteria. An agent MyFlow documents belongs here whether
+ * or not it exports anything.
+ */
+const DOCUMENTED_AGENTS = ["claude code", "codex", "cursor", "opencode", "pi", "kilo code"];
+
 const firstCell = (line) => line.trim().replace(/^\|/, "").split("|")[0].trim();
 
-/** Whether a contiguous table block is keyed by agent and maps at least two distinct hosts. */
+/** The agents named in one first cell; a cell may list several, comma separated. */
+const agentsInCell = (cell) =>
+  cell
+    .split(",")
+    .map((name) => name.trim().replace(/[`*_]/g, "").toLowerCase())
+    .filter((name) => DOCUMENTED_AGENTS.includes(name));
+
+/**
+ * Whether a contiguous table block is keyed by agent and names at least two agents MyFlow
+ * documents. Counting distinct non-empty first cells is not enough: a table whose rows are
+ * keyed by anything at all — two arbitrary words — satisfies that and earns the exclusion
+ * without mapping a single host.
+ */
 function mapsEveryHost(block) {
   if (!AGENT_KEYED_HEADER.test(block[0])) return false;
   const hosts = new Set(
     block
       .slice(1)
       .filter((line) => !TABLE_SEPARATOR.test(line))
-      .map(firstCell)
-      .filter((cell) => cell !== ""),
+      .flatMap((line) => agentsInCell(firstCell(line))),
   );
   return hosts.size >= MINIMUM_MAPPED_HOSTS;
 }
@@ -384,48 +405,46 @@ export async function lintSkillTree(root, options = {}) {
   // `SKILL.md`. Such a file is still shipped and still instructs. The owning skill is the
   // top-level directory under `skills/`, which is what a bundled reference resolves against;
   // rule 3 then applies only where that directory is a core skill.
-  {
-    for (const file of await listMarkdownFiles(skillsRoot)) {
-      const segments = toPosix(relative(skillsRoot, file)).split("/");
-      const name = segments.length > 1 ? segments[0] : "";
-      const skillDirectory = name === "" ? skillsRoot : join(skillsRoot, name);
-      const filePath = toPosix(relative(repositoryRootPath, file));
-      const document = await readFile(file, "utf8");
-      const fileDirectory = dirname(file);
+  for (const file of await listMarkdownFiles(skillsRoot)) {
+    const segments = toPosix(relative(skillsRoot, file)).split("/");
+    const name = segments.length > 1 ? segments[0] : "";
+    const skillDirectory = name === "" ? skillsRoot : join(skillsRoot, name);
+    const filePath = toPosix(relative(repositoryRootPath, file));
+    const document = await readFile(file, "utf8");
+    const fileDirectory = dirname(file);
 
-      const spans = inlineCodeSpans(document);
+    const spans = inlineCodeSpans(document);
 
-      const instructional = withoutAgentKeyedTables(document);
-      for (const { label, pattern } of AGENT_SYNTAX_PATTERNS) {
-        if (pattern.test(instructional)) add(RULES.agentSyntax, filePath, `agent-specific syntax: ${label}`);
+    const instructional = withoutAgentKeyedTables(document);
+    for (const { label, pattern } of AGENT_SYNTAX_PATTERNS) {
+      if (pattern.test(instructional)) add(RULES.agentSyntax, filePath, `agent-specific syntax: ${label}`);
+    }
+
+    const tokens = [
+      ...spans.flatMap((span) => span.split(/\s+/)).map((token) => ({ token, bare: false })),
+      ...fencedCodeWords(document).map((token) => ({ token, bare: false })),
+      ...markdownLinkTargets(document).map((token) => ({ token, bare: true })),
+    ];
+    for (const { token, bare } of tokens) {
+      const context = { skillDirectory, fileDirectory, repositoryRootPath };
+      const reference = resolveReference(token, { ...context, bare: bare || isBundledReferenceName(token) });
+      if (!reference) continue;
+      try {
+        await readFile(reference.absolute);
+      } catch (error) {
+        if (error.code === "EISDIR") continue;
+        add(RULES.references, filePath, `missing reference: ${reference.relativePath}`);
       }
+    }
 
-      const tokens = [
-        ...spans.flatMap((span) => span.split(/\s+/)).map((token) => ({ token, bare: false })),
-        ...fencedCodeWords(document).map((token) => ({ token, bare: false })),
-        ...markdownLinkTargets(document).map((token) => ({ token, bare: true })),
-      ];
-      for (const { token, bare } of tokens) {
-        const context = { skillDirectory, fileDirectory, repositoryRootPath };
-        const reference = resolveReference(token, { ...context, bare: bare || isBundledReferenceName(token) });
-        if (!reference) continue;
-        try {
-          await readFile(reference.absolute);
-        } catch (error) {
-          if (error.code === "EISDIR") continue;
-          add(RULES.references, filePath, `missing reference: ${reference.relativePath}`);
-        }
-      }
-
-      if (!coreSet.has(name)) continue;
-      for (const span of spans) {
-        const referenced = span.trim();
-        if (referenced === name || !knownSkillNames.has(referenced)) continue;
-        if (parkedSet.has(referenced)) {
-          add(RULES.skillReferences, filePath, `parked skill referenced: ${referenced}`);
-        } else if (!present.has(referenced)) {
-          add(RULES.skillReferences, filePath, `unknown skill referenced: ${referenced}`);
-        }
+    if (!coreSet.has(name)) continue;
+    for (const span of spans) {
+      const referenced = span.trim();
+      if (referenced === name || !knownSkillNames.has(referenced)) continue;
+      if (parkedSet.has(referenced)) {
+        add(RULES.skillReferences, filePath, `parked skill referenced: ${referenced}`);
+      } else if (!present.has(referenced)) {
+        add(RULES.skillReferences, filePath, `unknown skill referenced: ${referenced}`);
       }
     }
   }
@@ -644,6 +663,57 @@ test("a table is excused only when it is headed by agent and maps more than one 
     ["skills/clean-stage/SKILL.md: agent-specific syntax: /skill:"],
     "an identical line outside the mapping table is still an instruction in one host's syntax",
   );
+
+  // The justification is "this table maps every supported host", so the rows have to name
+  // hosts. A table keyed by two arbitrary words satisfies "two distinct first cells" while
+  // mapping nothing at all, and must not be excused.
+  await writeFile(
+    stage,
+    original.concat(
+      "\n## Invoking\n\n| Agent | Invocation |\n|---|---|\n| banana | `/myflow:<skill>` |\n| kumquat | `${SKILL_DIR}/run` |\n",
+    ),
+  );
+  assert.deepEqual(
+    [...(await rule4())].sort(),
+    [
+      "skills/clean-stage/SKILL.md: agent-specific syntax: ${SKILL_DIR}",
+      "skills/clean-stage/SKILL.md: agent-specific syntax: /myflow:",
+    ],
+    "rows that name no agent map no host, whatever the header says",
+  );
+
+  // Nor does one filler row beside a single host re-earn the exclusion for a table that still
+  // documents exactly one host.
+  await writeFile(
+    stage,
+    original.concat(
+      "\n## Invoking\n\n| Agent | Invocation |\n|---|---|\n| Claude Code | `/myflow:<skill>` |\n| anything else | ask |\n",
+    ),
+  );
+  assert.ok(
+    (await rule4()).has("skills/clean-stage/SKILL.md: agent-specific syntax: /myflow:"),
+    "a filler row is not a second host",
+  );
+
+  // Agents are recognised however the document writes them: case varies, and one cell may
+  // carry a comma-separated pair, as the router's own table does for Cursor and OpenCode.
+  await writeFile(
+    stage,
+    original.concat(
+      "\n## Invoking\n\n| Agent | Invocation |\n|---|---|\n| Cursor, OpenCode | `/myflow:<skill>` |\n| PI | `/skill:<skill>` |\n",
+    ),
+  );
+  assert.deepEqual([...(await rule4())], [], "a genuine mapping table is still excused");
+
+  // The roster is the lint's own, not `KNOWN_HOSTS`: a table mapping two agents that publish
+  // no session variable is a legitimate mapping table and stays excused.
+  await writeFile(
+    stage,
+    original.concat(
+      "\n## Invoking\n\n| Agent | Invocation |\n|---|---|\n| Codex | `/myflow:<skill>` |\n| Cursor | `${SKILL_DIR}/run` |\n",
+    ),
+  );
+  assert.deepEqual([...(await rule4())], [], "the documentation roster is wider than the telemetry roster");
 });
 
 test("rule 4 catches the unbraced Claude Code spellings", async (t) => {
