@@ -4,6 +4,8 @@ MyFlow is an artifact-led development workflow packaged as a set of agent skills
 
 One skill tree serves every agent. There is no per-agent copy to keep in step.
 
+For the whole workflow on one page — the chain of artifacts, the stage gates, and every skill — see [don-smith.github.io/myflow](https://don-smith.github.io/myflow/).
+
 ## Install
 
 Pick the section for your agent, then read [First use in a repository](#first-use-in-a-repository).

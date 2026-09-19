@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MyFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #f6f8f7;
+    --surface: #ffffff;
+    --surface-2: #f0f3f2;
+    --ink: #151f1e;
+    --ink-soft: #55625f;
+    --ink-faint: #7d8987;
+    --line: #dde3e2;
+    --line-strong: #c6d0ce;
+    --accent: #0e6e66;
+    --accent-ink: #0b544e;
+    --accent-wash: #e4f0ee;
+    --s1: #8fa8a3;
+    --s2: #6b948d;
+    --s3: #497f78;
+    --s4: #2a6a66;
+    --s5: #12534f;
+    --shadow: 0 1px 2px rgba(21, 31, 30, .05), 0 8px 24px -16px rgba(21, 31, 30, .25);
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f1413;
+      --surface: #161b1a;
+      --surface-2: #1c2322;
+      --ink: #e7eceb;
+      --ink-soft: #9aa6a3;
+      --ink-faint: #76817f;
+      --line: #272f2e;
+      --line-strong: #364240;
+      --accent: #5ec5b8;
+      --accent-ink: #7ad5c9;
+      --accent-wash: #11302d;
+      --s1: #7a918d;
+      --s2: #71a69e;
+      --s3: #5fb8ac;
+      --s4: #4fc8b9;
+      --s5: #43d6c4;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f1413;
+    --surface: #161b1a;
+    --surface-2: #1c2322;
+    --ink: #e7eceb;
+    --ink-soft: #9aa6a3;
+    --ink-faint: #76817f;
+    --line: #272f2e;
+    --line-strong: #364240;
+    --accent: #5ec5b8;
+    --accent-ink: #7ad5c9;
+    --accent-wash: #11302d;
+    --s1: #7a918d;
+    --s2: #71a69e;
+    --s3: #5fb8ac;
+    --s4: #4fc8b9;
+    --s5: #43d6c4;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--ground); }
+
+  body {
+    margin: 0;
+    padding-block: 0 5rem;
+    padding-inline: 1.25rem;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 68rem; margin: 0 auto; }
+
+  h1, h2, h3, h4, .label, .rail-name, .pill, .stage-index {
+    font-family: var(--display);
+    font-weight: 600;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2.2rem, 6vw, 3.4rem);
+    font-weight: 700;
+    letter-spacing: -.035em;
+    line-height: 1.02;
+    text-wrap: balance;
+  }
+
+  h2 {
+    margin: 0 0 .35rem;
+    font-size: clamp(1.25rem, 2.6vw, 1.6rem);
+    letter-spacing: -.02em;
+    text-wrap: balance;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: -.012em;
+  }
+
+  p { margin: 0 0 .9rem; }
+  p:last-child { margin-bottom: 0; }
+
+  a { color: var(--accent-ink); text-underline-offset: .18em; }
+
+  code, .mono { font-family: var(--mono); font-size: .855em; }
+
+  code {
+    padding: .1em .36em;
+    border-radius: .3em;
+    background: var(--surface-2);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  .label {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .13em;
+    color: var(--ink-faint);
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding-block: 3.5rem 2.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .eyebrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .6rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .version {
+    font-family: var(--mono);
+    font-size: .7rem;
+    padding: .2em .55em;
+    border-radius: .3em;
+    background: var(--accent-wash);
+    color: var(--accent-ink);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+
+  .standfirst {
+    margin-top: 1.1rem;
+    max-width: 40rem;
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  .claims {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1.5rem;
+    margin-top: 2.25rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .claim-key {
+    font-family: var(--display);
+    font-size: .95rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin-bottom: .25rem;
+  }
+
+  .claim-body { font-size: .92rem; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ---------- sections ---------- */
+
+  section { padding-block: 3.25rem; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+
+  .section-head { max-width: 42rem; margin-bottom: 2rem; }
+  .section-head p { color: var(--ink-soft); }
+
+  /* ---------- the chain ---------- */
+
+  .chain { display: flex; flex-direction: column; gap: .75rem; }
+
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 3.25rem 1fr;
+    gap: 1.25rem;
+    padding: 1.4rem 1.5rem 1.4rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--stage, var(--accent));
+    border-radius: .2rem .6rem .6rem .2rem;
+    box-shadow: var(--shadow);
+  }
+
+  .stage-index {
+    font-family: var(--mono);
+    font-size: 1.6rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--stage);
+    padding-top: .15rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stage-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .5rem .75rem;
+    margin-bottom: .5rem;
+  }
+
+  .stage-skill {
+    font-family: var(--mono);
+    font-size: .78rem;
+    padding: .16em .5em;
+    border-radius: .3em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+
+  .stage-role { color: var(--ink-soft); max-width: 46rem; }
+
+  .io {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: .85rem 1.75rem;
+    margin-top: 1.1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--line-strong);
+  }
+
+  .io-item { display: flex; flex-direction: column; gap: .28rem; }
+
+  .io-key {
+    font-family: var(--display);
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .13em;
+    color: var(--ink-faint);
+  }
+
+  .io-val { font-size: .92rem; line-height: 1.45; }
+  .io-val .path { font-family: var(--mono); font-size: .82rem; color: var(--stage); word-break: break-word; }
+
+  .gate {
+    margin-top: 1rem;
+    padding: .7rem .9rem;
+    background: var(--surface-2);
+    border-radius: .35rem;
+    font-size: .89rem;
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+
+  .gate strong { color: var(--ink); font-family: var(--display); font-weight: 600; font-size: .82rem; letter-spacing: .01em; }
+
+  .link {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding-left: 1.4rem;
+    color: var(--ink-faint);
+    font-size: .82rem;
+    font-style: italic;
+  }
+
+  .link::before {
+    content: "";
+    width: 1px;
+    height: 1.5rem;
+    background: var(--line-strong);
+    flex: none;
+    margin-left: .9rem;
+  }
+
+  /* ---------- artifact tree ---------- */
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .tree {
+    padding: 1.4rem 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+
+  .tree pre {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: .8rem;
+    line-height: 1.85;
+    color: var(--ink-soft);
+  }
+
+  .tree .dir { color: var(--ink); font-weight: 500; }
+  .tree .note { color: var(--ink-faint); }
+  .tree .hl { color: var(--accent-ink); }
+
+  .notes { display: flex; flex-direction: column; gap: 1.35rem; }
+  .note-item { }
+  .note-item h4 { margin: 0 0 .3rem; font-size: .95rem; font-family: var(--display); font-weight: 600; }
+  .note-item p { font-size: .93rem; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ---------- practice cards ---------- */
+
+  .practices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16.5rem, 1fr));
+    gap: 1.25rem;
+  }
+
+  .practice {
+    padding: 1.3rem 1.4rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+  }
+
+  .practice h3 { margin-bottom: .45rem; font-size: 1rem; }
+  .practice p { font-size: .93rem; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ---------- skills ---------- */
+
+  .family { margin-bottom: 2.25rem; }
+  .family:last-child { margin-bottom: 0; }
+
+  .family-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .75rem;
+    padding-bottom: .6rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .family-head h3 { font-size: 1.05rem; }
+  .family-head .count { font-family: var(--mono); font-size: .75rem; color: var(--ink-faint); }
+
+  .skills { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1.1rem 2rem; }
+
+  .skill { display: grid; grid-template-columns: auto 1fr; gap: .2rem .7rem; align-items: baseline; }
+
+  .skill-name {
+    grid-column: 1 / -1;
+    font-family: var(--mono);
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--accent-ink);
+  }
+
+  .skill-desc { grid-column: 1 / -1; font-size: .9rem; line-height: 1.5; color: var(--ink-soft); }
+
+  /* ---------- journal vocabulary ---------- */
+
+  .vocab { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: .78rem;
+    font-weight: 400;
+    padding: .3em .65em;
+    border-radius: .3em;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-soft);
+  }
+
+  .pill.terminal { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent-ink); background: var(--accent-wash); }
+
+  /* ---------- footer ---------- */
+
+  footer {
+    padding-block: 2.5rem;
+    color: var(--ink-faint);
+    font-size: .87rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.5rem;
+    justify-content: space-between;
+    border-top: 1px solid var(--line);
+  }
+
+  @media (max-width: 760px) {
+    .split { grid-template-columns: 1fr; gap: 1.75rem; }
+    .stage { grid-template-columns: 1fr; gap: .6rem; padding: 1.2rem 1.15rem; }
+    .stage-index { font-size: 1.05rem; padding-top: 0; }
+    .link { padding-left: .6rem; }
+    .link::before { margin-left: .2rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">
+    <span class="label">Artifact-led development workflow</span>
+    <span class="version">v4.0.0</span>
+  </div>
+  <h1>MyFlow</h1>
+  <p class="standfirst">
+    Five stages, each ending in a written artifact. The artifact — not the conversation — is what
+    carries the work forward, so <strong>a fresh session can pick up where the last one stopped</strong>
+    without being told what happened.
+  </p>
+
+  <div class="claims">
+    <div>
+      <div class="claim-key">One skill tree</div>
+      <div class="claim-body">The same twenty skills serve every agent. There is no per-agent copy to keep in step.</div>
+    </div>
+    <div>
+      <div class="claim-key">No dependencies</div>
+      <div class="claim-body">Every script imports only Node builtins and its own siblings. Nothing to install, nothing to resolve.</div>
+    </div>
+    <div>
+      <div class="claim-key">Evidence, not assertion</div>
+      <div class="claim-body">Close reads linked passing review evidence and its provenance rather than trusting a verdict line.</div>
+    </div>
+    <div>
+      <div class="claim-key">Proportionate</div>
+      <div class="claim-body">A trivial change can stay in conversation. Depth is a decision Scope makes, not a fixed toll.</div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="section-head">
+    <h2>The chain</h2>
+    <p>
+      Each stage reads the artifact above it and writes the one below. Read the
+      <span class="mono">writes</span> column downward and you have the whole handoff: that column is
+      the workflow's actual interface.
+    </p>
+  </div>
+
+  <div class="chain">
+
+    <article class="stage" style="--stage: var(--s1)">
+      <div class="stage-index">00</div>
+      <div>
+        <div class="stage-title-row">
+          <h3>Onboard</h3>
+          <span class="stage-skill">onboard</span>
+          <span class="label">when needed</span>
+        </div>
+        <p class="stage-role">
+          Discover the repository's own instructions, policies, locations and local capabilities —
+          and name what is still unknown. Runs before a workstream exists, because its findings serve
+          many later ones.
+        </p>
+        <div class="io">
+          <div class="io-item">
+            <div class="io-key">Reads</div>
+            <div class="io-val">The repository, and whatever it already documents about itself</div>
+          </div>
+          <div class="io-item">
+            <div class="io-key">Writes</div>
+            <div class="io-val"><span class="path">repository-map.md</span> · <span class="path">onboarding/runs/</span> · <span class="path">onboarding/evaluations/</span></div>
+          </div>
+        </div>
+        <div class="gate">
+          <strong>Repository policy wins.</strong> The map points at authoritative sources rather than
+          copying them, and those sources win on conflict. A missing result is explicit — never an
+          invitation to invent policy.
+        </div>
+      </div>
+    </article>
+
+    <div class="link">the map is resolved again at every stage that needs repository policy</div>
+
+    <article class="stage" style="--stage: var(--s1)">
+      <div class="stage-index">01</div>
+      <div>
+        <div class="stage-title-row">
+          <h3>Scope</h3>
+          <span class="stage-skill">scope</span>
+        </div>
+        <p class="stage-role">
+          Establish the intended outcome, acceptance criteria and risk, collaboratively and code-light.
+          Scope decides how much workflow the work deserves, selects only the specialists it needs, and
+          offers an isolated branch or worktree where repository policy permits.
+        </p>
+        <div class="io">
+          <div class="io-item">
+            <div class="io-key">Reads</div>
+            <div class="io-val">A rough idea, and the resolved repository map</div>
+          </div>
+          <div class="io-item">
+            <div class="io-key">Writes</div>
+            <div class="io-val"><span class="path">&lt;workstream-id&gt;/scope/</span> — the alignment artifact</div>
+          </div>
+          <div class="io-item">
+            <div class="io-key">Also establishes</div>
+            <div class="io-val">The <strong>workstream ID</strong>, before any durable artifact is written</div>
+          </div>
+        </div>
+        <div class="gate">
+          <strong>Depth is chosen here.</strong> Truly trivial and uninterrupted work may stay in
+          conversation — but if it expands or pauses, a lightweight plan is written before it continues.
+        </div>
+      </div>
+    </article>
+
+    <div class="link">optional specialists return their evidence to Scope, Design or Plan</div>
+
+    <article class="stage" style="--stage: var(--s2)">
+      <div class="stage-index">02</div>
+      <div>
+        <div class="stage-title-row">
+          <h3>Plan</h3>
+          <span class="stage-skill">plan</span>
+          <span class="stage-skill">design</span>
+        </div>
+        <p class="stage-role">
+          Turn acceptance criteria into executable authority, including the verification map that Verify
+          will later execute. Every plan records a <strong>design disposition</strong>: locked into
+          existing architecture, localized design, or structural design required. Only the last one earns
+          a standalone design artifact.
+        </p>
+        <div class="io">
+          <div class="io-item">
+            <div class="io-key">Reads</div>
+            <div class="io-val"><span class="path">scope/</span>, plus <span class="path">research/</span> and <span class="path">design/</span> when used</div>
+          </div>
+          <div class="io-item">
+            <div class="io-key">Writes</div>
+            <div class="io-val"><span class="path">&lt;workstream-id&gt;/plan/</span> — phases and a verification map</div>
+          </div>
+        </div>
+        <div class="gate">
+          <strong>Outcomes before implementation details.</strong> The plan is authority for Implement,
+          not a description of it — so it is accepted before code is written, and stays immutable once it is.
+        </div>
+      </div>
+    </article>
+
+    <article class="stage" style="--stage: var(--s3)">
+      <div class="stage-index">03</div>
+      <div>
+        <div class="stage-title-row">
+          <h3>Implement</h3>
+          <span class="stage-skill">implement</span>
+          <span class="stage-skill">commit</span>
+        </div>
+        <p class="stage-role">
+          Execute the accepted plan phase by phase, autonomously. Each phase whose automated success
+          criteria are green gets its own commit, and a checkpoint records where the work stands.
+        </p>
+        <div class="io">
+          <div class="io-item">
+            <div class="io-key">Reads</div>
+            <div class="io-val"><span class="path">plan/</span> — the accepted plan and its phases</div>
+          </div>
+          <div class="io-item">
+            <div class="io-key">Writes</div>
+            <div class="io-val">Green-phase commits, and an implementation checkpoint</div>
+          </div>
+        </div>
+        <div class="gate">
+          <strong>Verify is not a separate errand.</strong> After the final green phase, Implement reads
+          the installed <code>verify</code> skill and runs it immediately, in the same parent session.
+          Invoking Verify by hand is recovery guidance, not a gate a person operates.
+        </div>
+      </div>
+    </article>
+
+    <article class="stage" style="--stage: var(--s4)">
+      <div class="stage-index">04</div>
+      <div>
+        <div class="stage-title-row">
+          <h3>Verify</h3>
+          <span class="stage-skill">verify</span>
+          <span class="stage-skill">code-review</span>
+        </div>
+        <p class="stage-role">
+          Execute the plan's verification map, then run code review over the exact implementation scope —
+          a commit range or commit list, never an approximation. Three lanes read the change in fresh
+          context: <strong>Correctness and Risk</strong>, <strong>Standards and Maintainability</strong>,
+          <strong>Spec Fidelity</strong>. Confirmed P0 and P1 findings block; P2 does not.
+        </p>
+        <div class="io">
+          <div class="io-item">
+            <div class="io-key">Reads</div>
+            <div class="io-val"><span class="path">plan/</span> and the exact implementation scope</div>
+          </div>
+          <div class="io-item">
+            <div class="io-key">Writes</div>
+            <div class="io-val"><span class="path">&lt;workstream-id&gt;/verify/</span> — report, review evidence, manual brief</div>
+          </div>
+        </div>
+        <div class="gate">
+          <strong>A finding is verified before it blocks.</strong> P0 and P1 candidates get independent
+          verification, so review pressure lands on real defects rather than on volume.
+        </div>
+      </div>
+    </article>
+
+    <article class="stage" style="--stage: var(--s5)">
+      <div class="stage-index">05</div>
+      <div>
+        <div class="stage-title-row">
+          <h3>Close</h3>
+          <span class="stage-skill">close</span>
+          <span class="stage-skill">technical-writing</span>
+        </div>
+        <p class="stage-role">
+          Make proportionate closeout decisions with the developer: what documentation the change actually
+          earned, what was learned, and how it is delivered. Close is collaborative by design — it is the
+          stage where the work rejoins the team.
+        </p>
+        <div class="io">
+          <div class="io-item">
+            <div class="io-key">Reads</div>
+            <div class="io-val">Linked passing review evidence, and its plan and scope provenance</div>
+          </div>
+          <div class="io-item">
+            <div class="io-key">Writes</div>
+            <div class="io-val"><span class="path">&lt;workstream-id&gt;/close/</span> — delivery and continuity record</div>
+          </div>
+        </div>
+        <div class="gate">
+          <strong>The gate is the evidence, not the verdict.</strong> Close inspects the linked review
+          evidence and where it came from, instead of trusting a report's top-level pass line.
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>What a workstream looks like on disk</h2>
+    <p>
+      A <strong>workstream</strong> is one bounded piece of work from Scope through Close. Everything it
+      produces lives in one directory, so its progress is visible without mixing it into older work.
+    </p>
+  </div>
+
+  <div class="split">
+    <div class="tree">
+<pre>&lt;workstream-root&gt;/
+└── <span class="dir">&lt;workstream-id&gt;/</span>
+    ├── <span class="hl">workstream.md</span>      <span class="note">index + current state</span>
+    ├── <span class="dir">lifecycle/</span>
+    │   └── events.jsonl   <span class="note">authoritative journal</span>
+    ├── <span class="dir">feedback/</span>
+    │   └── events.jsonl   <span class="note">private, never synced upward</span>
+    ├── <span class="dir">scope/</span>           <span class="note">alignment</span>
+    ├── <span class="dir">research/</span>        <span class="note">when a specialist was used</span>
+    ├── <span class="dir">design/</span>          <span class="note">only when structural</span>
+    ├── <span class="dir">plan/</span>            <span class="note">implementation authority</span>
+    ├── <span class="dir">verify/</span>          <span class="note">validation + review evidence</span>
+    ├── <span class="dir">close/</span>           <span class="note">delivery record</span>
+    └── <span class="dir">handoffs/</span>        <span class="note">temporary bookmark</span></pre>
+    </div>
+
+    <div class="notes">
+      <div class="note-item">
+        <h4>Artifacts are not product source</h4>
+        <p>
+          They are evidence about the work, so by default they live outside the repository, under
+          <code>~/.myflow</code>, optionally pushed to a private Git remote you own. Sandboxed agents
+          fall back to <code>.myflow/workstreams/</code> in the checkout and say so; <code>myflow artifacts
+          import</code> moves them home later.
+        </p>
+      </div>
+      <div class="note-item">
+        <h4>workstream.md is an index, not a second spec</h4>
+        <p>
+          It names the ID, the current stage, the authoritative current artifact and the related ones. It
+          is a projection of the journal — the stage artifacts remain authoritative for decisions.
+        </p>
+      </div>
+      <div class="note-item">
+        <h4>Handoffs are the exception</h4>
+        <p>
+          A fresh session normally resumes at a stage boundary from the manifest and the current artifact.
+          <code>handoff</code> exists only for an interruption <em>inside</em> a stage, and points back at
+          the authoritative artifact rather than replacing it.
+        </p>
+      </div>
+      <div class="note-item">
+        <h4>Only allowlisted paths sync</h4>
+        <p>
+          Maps, onboarding records and workstreams travel. Configuration, credentials and raw observations
+          stay on the machine — enforced by both the store's <code>.gitignore</code> and the sync command.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>One seam for every stage edge</h2>
+    <p>
+      No skill assembles journal events or invents an idempotency key. Every boundary goes through
+      <code>stage-boundary.mjs</code>, which validates the transition, digests the artifact, links the
+      previous event, takes an append lock and returns a receipt.
+    </p>
+  </div>
+
+  <div class="practices">
+    <div class="practice">
+      <h3>Four verbs</h3>
+      <p style="margin-bottom:.75rem">Each stage runs the same edge commands, so the journal reads the same way whichever stage wrote it.</p>
+      <div class="vocab">
+        <span class="pill">enter</span>
+        <span class="pill">accept</span>
+        <span class="pill">exit</span>
+        <span class="pill">return</span>
+      </div>
+    </div>
+    <div class="practice">
+      <h3>How an attempt ends</h3>
+      <p style="margin-bottom:.75rem">An attempt opens at <span class="mono">stage.entered</span> and closes exactly once. Overlapping open attempts are illegal.</p>
+      <div class="vocab">
+        <span class="pill terminal">advanced</span>
+        <span class="pill terminal">superseded</span>
+        <span class="pill terminal">abandoned</span>
+        <span class="pill terminal">workstream-closed</span>
+      </div>
+    </div>
+    <div class="practice">
+      <h3>Hiccups have context</h3>
+      <p>
+        Sometimes something unexpected surfaces in a later stage and the work has to return to an earlier
+        one to adjust. This is expected, and it often points to an opportunity for improvement. So the
+        owner, the stages involved, the fix and the evidence are captured for learning.
+      </p>
+    </div>
+    <div class="practice">
+      <h3>History is immutable</h3>
+      <p>
+        Accepted artifacts and completed attempts stay as they were, even when later evidence forces a
+        return. A retry that would change history fails; an idempotent retry returns the original receipt.
+      </p>
+    </div>
+    <div class="practice">
+      <h3>Feedback is private</h3>
+      <p>
+        Each boundary asks one optional question about how the stage went. The answer lands in the
+        workstream's <code>feedback/</code> folder. Only its coverage status ever reaches the journal, and a
+        declined answer never blocks the work.
+      </p>
+    </div>
+    <div class="practice">
+      <h3>Host-neutral by construction</h3>
+      <p>
+        Lifecycle writes depend on no host and no external service. Where a skill would rather ask a
+        structured question, it uses the host's facility if there is one and plain text if there is not —
+        the wording and the choices never change with the host.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>The twenty skills</h2>
+    <p>
+      Five stage orchestrators, a navigator, and the specialists Scope draws on only when the work needs
+      them. Selection is a decision, not a default.
+    </p>
+  </div>
+
+  <div class="family">
+    <div class="family-head">
+      <h3>Stage orchestrators</h3>
+      <span class="count">6</span>
+    </div>
+    <div class="skills">
+      <div class="skill"><div class="skill-name">onboard</div><div class="skill-desc">Introduce MyFlow to a repository, refresh its workflow knowledge, or recover a missing path or convention.</div></div>
+      <div class="skill"><div class="skill-name">scope</div><div class="skill-desc">Begin a workstream with right-sized, code-light scoping; establish the ID; select specialists; offer worktree or trunk.</div></div>
+      <div class="skill"><div class="skill-name">plan</div><div class="skill-desc">Produce the accepted, executable plan from an alignment artifact or a standalone design.</div></div>
+      <div class="skill"><div class="skill-name">implement</div><div class="skill-desc">Execute an accepted plan phase by phase in a fresh or resumed session.</div></div>
+      <div class="skill"><div class="skill-name">verify</div><div class="skill-desc">Verify the plan, collect review evidence, and produce a workstream-aware report.</div></div>
+      <div class="skill"><div class="skill-name">close</div><div class="skill-desc">Make proportionate closeout decisions, preserve continuity, and decide delivery with the developer.</div></div>
+    </div>
+  </div>
+
+  <div class="family">
+    <div class="family-head">
+      <h3>Navigation and continuity</h3>
+      <span class="count">2</span>
+    </div>
+    <div class="skills">
+      <div class="skill"><div class="skill-name">myflow</div><div class="skill-desc">The workflow map and navigation layer — where to start, and which stage the work is actually in. Not a competing stage.</div></div>
+      <div class="skill"><div class="skill-name">handoff</div><div class="skill-desc">Write or resume a lightweight handoff for a mid-stage pause. A backup for interruptions, not the primary mechanism.</div></div>
+    </div>
+  </div>
+
+  <div class="family">
+    <div class="family-head">
+      <h3>Specialists Scope may select</h3>
+      <span class="count">5</span>
+    </div>
+    <div class="skills">
+      <div class="skill"><div class="skill-name">discover</div><div class="skill-desc">Extract intent and requirements in grill-me rounds when Scope cannot yet state the outcome clearly, then return to Scope.</div></div>
+      <div class="skill"><div class="skill-name">research</div><div class="skill-desc">Investigate one codebase or external question, record the evidence, and return with a recommendation.</div></div>
+      <div class="skill"><div class="skill-name">prototype</div><div class="skill-desc">Build something throwaway to answer a design question — does this state model or this UI feel right?</div></div>
+      <div class="skill"><div class="skill-name">design</div><div class="skill-desc">Resolve material architectural decisions, and write a standalone design artifact only when structure demands it.</div></div>
+      <div class="skill"><div class="skill-name">domain-modeling</div><div class="skill-desc">Pin down domain terminology and boundaries when the language is unclear or still moving.</div></div>
+    </div>
+  </div>
+
+  <div class="family">
+    <div class="family-head">
+      <h3>Cross-cutting techniques</h3>
+      <span class="count">7</span>
+    </div>
+    <div class="skills">
+      <div class="skill"><div class="skill-name">grill-me</div><div class="skill-desc">Stress-test a plan, decision or idea relentlessly. The stage-agnostic entry point for collaborative decisions.</div></div>
+      <div class="skill"><div class="skill-name">tdd</div><div class="skill-desc">Shape testable seams during design and planning; run a test-first cycle during implementation when one is needed.</div></div>
+      <div class="skill"><div class="skill-name">codebase-design</div><div class="skill-desc">Shared deep-module vocabulary — interfaces, seams, and where the depth should go. Not a stage.</div></div>
+      <div class="skill"><div class="skill-name">diagnosing-bugs</div><div class="skill-desc">Evidence-first debugging for behavior that is broken, flaky or unexpectedly slow — before a durable fix is proposed.</div></div>
+      <div class="skill"><div class="skill-name">code-review</div><div class="skill-desc">Review a branch, range, PR or work in progress against its specification and the repository's standards.</div></div>
+      <div class="skill"><div class="skill-name">commit</div><div class="skill-desc">Create structured atomic commits, on request or at each green plan phase.</div></div>
+      <div class="skill"><div class="skill-name">technical-writing</div><div class="skill-desc">Diátaxis structure, Google developer style, STE instruction rules, Global English syntax — used by Close.</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>MyFlow v4.0.0 — artifact-led development workflow</span>
+  <span class="mono">docs/index.html</span>
+</footer>
+
+</div>
+</body>
+</html>
