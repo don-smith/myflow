@@ -10,7 +10,7 @@ For the whole workflow on one page — the chain of artifacts, the stage gates, 
 
 Pick the section for your agent, then read [First use in a repository](#first-use-in-a-repository).
 
-Every command below is taken from that host's own documentation. Only the Claude Code manifests are machine-checked so far (`claude plugin validate .`); the rest are being confirmed host by host, and this file records what each one actually does once it is.
+Every command below is taken from that host's own documentation. Installing into Claude Code, Codex, Cursor, and Pi has been confirmed by a real install; Kilo Code and OpenCode have not. The Claude Code manifests are additionally machine-checked (`claude plugin validate .`).
 
 ### Claude Code
 
@@ -53,9 +53,11 @@ Without that, nothing is lost: run `myflow artifacts import` later from a sessio
 
 ### Cursor
 
-Cursor has no one-step install yet. Copy the skills you want from `skills/` into `.cursor/skills/` in your project; they are then invoked as `/scope`, `/plan`, and so on.
+Cursor reads the portable Agent Plugins manifest (`plugin.json`) at the repository root, so MyFlow installs as one plugin through a marketplace. Add a marketplace pointing at `github.com/don-smith/myflow`, then install MyFlow from the plugin list it produces. Skills are invoked as `/scope`, `/plan`, and so on.
 
-Cursor's own plugin import — **Customize** → **From GitHub Repository** — reads a `.cursor-plugin/marketplace.json` that this repository does not ship, because the schema has not been confirmed against Cursor's own documentation. Until it is, that path does not work and the manual copy above is the supported one.
+`.cursor-plugin/marketplace.json` is Cursor's manifest for a repository that ships several plugins at once. MyFlow is a single plugin, so it does not need one.
+
+To skip the marketplace, copy the skills you want from `skills/` into `.cursor/skills/` in your project instead.
 
 ### Pi
 
@@ -186,7 +188,7 @@ Twenty skills, the artifact-store and stage-boundary scripts they call, and the 
 | Manifest | Read by |
 |---|---|
 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | Claude Code |
-| `plugin.json` (Agent Plugins 1.0.0) | Codex, and other clients of the portable format |
+| `plugin.json` (Agent Plugins 1.0.0) | Codex and Cursor, and other clients of the portable format |
 | `.agents/plugins/marketplace.json` | Codex, as the catalog `codex plugin marketplace add` reads |
 | `package.json` (`pi`, `bin`, `files`) | Pi, and `npm`/`npx` |
 
