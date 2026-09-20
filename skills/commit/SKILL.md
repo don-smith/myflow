@@ -1,7 +1,7 @@
 ---
 name: commit
 description: Create structured atomic commits. Use when the user asks to commit, or when Implement has completed a plan phase whose automated success criteria are green.
-argument-hint: [message]
+argument-hint: "[message]"
 ---
 
 # Commit Changes
