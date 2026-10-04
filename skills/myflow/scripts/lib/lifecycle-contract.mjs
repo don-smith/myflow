@@ -6,6 +6,7 @@ export const LIFECYCLE_SCHEMA_VERSION_2 = "myflow-lifecycle/v2";
 const V2_KINDS = Object.freeze([
   "action.observed", "action.resolved", "revision.opened", "attempt.suspended",
   "attempt.assessed", "attempt.resumed", "attempt.superseded",
+  "correction.opened", "correction.validated", "slice.started",
 ]);
 export const CANONICAL_STAGES = Object.freeze(["Scope", "Plan", "Implement", "Verify", "Close"]);
 export const TERMINAL_REASONS = Object.freeze([
@@ -111,6 +112,9 @@ const FIELDS_BY_KIND = Object.freeze({
   "attempt.assessed": ["episodeId", "disposition", "reusableEvidence", "invalidatedEvidence", "rerunChecks"],
   "attempt.resumed": ["episodeId"],
   "attempt.superseded": ["episodeId"],
+  "correction.opened": ["episodeId", "parentEpisodeId", "detectingStage", "detectingActivity", "initialOwningStage", "initialOwningActivity", "originAttemptId", "triggerSource", "changeKind", "evidenceRefs"],
+  "correction.validated": ["episodeId"],
+  "slice.started": ["sliceName", "precedingVerifyAttemptId", "planningBasisEventId", "scopeArtifactEventId", "designArtifactEventId"],
 });
 
 const REQUIRED_BY_KIND = Object.freeze({
@@ -142,6 +146,9 @@ const REQUIRED_BY_KIND = Object.freeze({
   "attempt.assessed": ["episodeId", "disposition", "reusableEvidence", "invalidatedEvidence", "rerunChecks", "artifactRef"],
   "attempt.resumed": ["episodeId"],
   "attempt.superseded": ["episodeId"],
+  "correction.opened": ["episodeId", "detectingStage", "detectingActivity", "initialOwningStage", "initialOwningActivity", "originAttemptId", "triggerSource", "changeKind", "evidenceRefs"],
+  "correction.validated": ["episodeId", "artifactRef"],
+  "slice.started": ["sliceName", "precedingVerifyAttemptId", "planningBasisEventId", "scopeArtifactEventId", "designArtifactEventId"],
 });
 
 export function canonicalJson(value) {
@@ -226,7 +233,8 @@ export function validateLifecycleEvent(event) {
   if (event.previousEventId !== null && typeof event.previousEventId !== "string") {
     throw new Error("previousEventId must be a string or null");
   }
-  const outsideAttempt = ["workstream.created", "workstream.closed", "action.observed", "action.resolved", "revision.opened"].includes(event.kind);
+  const outsideAttempt = ["workstream.created", "workstream.closed", "action.observed", "action.resolved", "revision.opened", "slice.started"].includes(event.kind) ||
+    (event.kind === "correction.opened" && event.attemptId === null);
   if (outsideAttempt) {
     if (event.attemptId !== null || event.attemptOrdinal !== null) {
       throw new Error(`${event.kind} must not identify a stage attempt`);
@@ -264,7 +272,7 @@ export function validateLifecycleEvent(event) {
   if (event.kind === "stage.completed" && !TERMINAL_REASONS.includes(event.terminalReason)) {
     throw new Error(`unsupported terminal reason: ${event.terminalReason}`);
   }
-  if (["artifact.accepted", "action.observed", "revision.opened", "attempt.assessed"].includes(event.kind)) {
+  if (["artifact.accepted", "action.observed", "revision.opened", "attempt.assessed", "correction.validated"].includes(event.kind)) {
     if (!event.artifactRef || typeof event.artifactRef !== "object" || Array.isArray(event.artifactRef)) {
       throw new Error(`${event.kind} requires artifactRef`);
     }
@@ -300,7 +308,17 @@ export function validateLifecycleEvent(event) {
     }
     if (!event.rerunChecks.length) throw new Error("assessment requires checks to rerun");
   }
-  if (event.kind === "return.opened") {
+  if (event.kind === "slice.started") {
+    for (const field of ["sliceName", "precedingVerifyAttemptId", "planningBasisEventId", "scopeArtifactEventId", "designArtifactEventId"]) requireString(event, field);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.sliceName)) throw new Error("slice name must be kebab-case");
+    if (event.canonicalStage !== "Plan" || event.owningActivity !== "planning") throw new Error("slice start belongs to Plan/planning");
+  }
+  if (event.kind === "correction.validated") requireString(event, "episodeId");
+  if (event.kind === "correction.opened") {
+    if (event.parentEpisodeId !== null) requireString(event, "parentEpisodeId");
+    requireString(event, "episodeId");
+  }
+  if (event.kind === "return.opened" || event.kind === "correction.opened") {
     if (!CANONICAL_STAGES.includes(event.detectingStage) || !CANONICAL_STAGES.includes(event.initialOwningStage)) {
       throw new Error("return.opened requires canonical detecting and owning stages");
     }
@@ -312,7 +330,7 @@ export function validateLifecycleEvent(event) {
     }
     if (!TRIGGER_SOURCES.includes(event.triggerSource)) throw new Error("return.opened has an invalid trigger source");
     if (!CHANGE_KINDS.includes(event.changeKind)) throw new Error("return.opened has an invalid change kind");
-    if (!Array.isArray(event.evidenceRefs)) throw new Error("return.opened evidenceRefs must be an array");
+    if (!Array.isArray(event.evidenceRefs) || event.evidenceRefs.some((ref) => typeof ref !== "string" || !ref)) throw new Error("return.opened evidenceRefs must be an array of references");
   }
   if (event.kind === "return.rerouted") {
     if (!CANONICAL_STAGES.includes(event.owningStage)) throw new Error("return.rerouted requires owningStage");

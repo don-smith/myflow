@@ -107,7 +107,7 @@ async function buildEvent(input, state, previousEventId, existing) {
     ...semanticInput
   } = input;
   const event = {
-    schemaVersion: ["action.observed", "action.resolved", "revision.opened", "attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded"].includes(semanticInput.kind)
+    schemaVersion: ["action.observed", "action.resolved", "revision.opened", "attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded", "correction.opened", "correction.validated", "slice.started"].includes(semanticInput.kind)
       ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION,
     ...semanticInput,
     occurredAt: existing?.occurredAt ?? semanticInput.occurredAt ?? new Date().toISOString(),
