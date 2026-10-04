@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 import { isAbsolute, posix } from "node:path";
 
 export const LIFECYCLE_SCHEMA_VERSION = "myflow-lifecycle/v1";
+export const LIFECYCLE_SCHEMA_VERSION_2 = "myflow-lifecycle/v2";
+const V2_KINDS = Object.freeze([
+  "action.observed", "action.resolved", "revision.opened", "attempt.suspended",
+  "attempt.assessed", "attempt.resumed", "attempt.superseded",
+]);
 export const CANONICAL_STAGES = Object.freeze(["Scope", "Plan", "Implement", "Verify", "Close"]);
 export const TERMINAL_REASONS = Object.freeze([
   "advanced",
@@ -34,6 +39,7 @@ export const EVENT_KINDS = Object.freeze([
   "workstream.closed",
   "feedback.requested",
   "feedback.recorded",
+  ...V2_KINDS,
 ]);
 export const TRIGGER_SOURCES = Object.freeze([
   "developer-report",
@@ -98,6 +104,13 @@ const FIELDS_BY_KIND = Object.freeze({
   "workstream.closed": [],
   "feedback.requested": [],
   "feedback.recorded": ["feedbackStatus", "privateRef"],
+  "action.observed": ["observationId", "sourceAttemptId", "actualFinding", "intendedAction", "intendedStage", "intendedActivity", "intendedOwner", "unresolvedReason"],
+  "action.resolved": ["observationId", "linkedEventIds", "linkedAttemptIds", "linkedArtifactEventIds"],
+  "revision.opened": ["revisionSourceAttemptId", "reason"],
+  "attempt.suspended": ["episodeId"],
+  "attempt.assessed": ["episodeId", "disposition", "reusableEvidence", "invalidatedEvidence", "rerunChecks"],
+  "attempt.resumed": ["episodeId"],
+  "attempt.superseded": ["episodeId"],
 });
 
 const REQUIRED_BY_KIND = Object.freeze({
@@ -122,6 +135,13 @@ const REQUIRED_BY_KIND = Object.freeze({
   "return.closed": ["episodeId"],
   "verification.completed": ["verificationStatus"],
   "feedback.recorded": ["feedbackStatus", "privateRef"],
+  "action.observed": ["observationId", "sourceAttemptId", "actualFinding", "intendedAction", "intendedStage", "intendedActivity", "intendedOwner", "unresolvedReason", "artifactRef"],
+  "action.resolved": ["observationId", "linkedEventIds", "linkedAttemptIds", "linkedArtifactEventIds"],
+  "revision.opened": ["revisionSourceAttemptId", "reason", "artifactRef"],
+  "attempt.suspended": ["episodeId"],
+  "attempt.assessed": ["episodeId", "disposition", "reusableEvidence", "invalidatedEvidence", "rerunChecks", "artifactRef"],
+  "attempt.resumed": ["episodeId"],
+  "attempt.superseded": ["episodeId"],
 });
 
 export function canonicalJson(value) {
@@ -139,7 +159,12 @@ export function digest(value) {
   return createHash("sha256").update(typeof value === "string" ? value : canonicalJson(value)).digest("hex");
 }
 
-export function lifecycleEventId({ repository, workstreamId, kind, source, idempotencyKey }) {
+export function lifecycleEventId(event) {
+  const { repository, workstreamId, kind, source, idempotencyKey } = event;
+  if (event.schemaVersion === LIFECYCLE_SCHEMA_VERSION_2) {
+    const { eventId, observationId, occurredAt, previousEventId, ...intent } = event;
+    return `evt_${digest(intent).slice(0, 32)}`;
+  }
   return `evt_${digest({ repository, workstreamId, kind, source, idempotencyKey }).slice(0, 32)}`;
 }
 
@@ -173,8 +198,8 @@ function requireString(event, field) {
 
 export function validateLifecycleEvent(event) {
   if (!event || typeof event !== "object" || Array.isArray(event)) throw new Error("event must be an object");
-  if (event.schemaVersion !== LIFECYCLE_SCHEMA_VERSION) {
-    throw new Error(`schemaVersion must be ${LIFECYCLE_SCHEMA_VERSION}`);
+  if (event.schemaVersion !== (V2_KINDS.includes(event.kind) ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION)) {
+    throw new Error(`schemaVersion does not match event kind: ${event.kind}`);
   }
   // `source` names the skill that recorded the event. It is deliberately not checked
   // against the current skill set: historical journals record retired names, such as
@@ -201,7 +226,7 @@ export function validateLifecycleEvent(event) {
   if (event.previousEventId !== null && typeof event.previousEventId !== "string") {
     throw new Error("previousEventId must be a string or null");
   }
-  const outsideAttempt = event.kind === "workstream.created" || event.kind === "workstream.closed";
+  const outsideAttempt = ["workstream.created", "workstream.closed", "action.observed", "action.resolved", "revision.opened"].includes(event.kind);
   if (outsideAttempt) {
     if (event.attemptId !== null || event.attemptOrdinal !== null) {
       throw new Error(`${event.kind} must not identify a stage attempt`);
@@ -239,9 +264,41 @@ export function validateLifecycleEvent(event) {
   if (event.kind === "stage.completed" && !TERMINAL_REASONS.includes(event.terminalReason)) {
     throw new Error(`unsupported terminal reason: ${event.terminalReason}`);
   }
-  if (event.kind === "artifact.accepted") {
+  if (["artifact.accepted", "action.observed", "revision.opened", "attempt.assessed"].includes(event.kind)) {
+    if (!event.artifactRef || typeof event.artifactRef !== "object" || Array.isArray(event.artifactRef)) {
+      throw new Error(`${event.kind} requires artifactRef`);
+    }
+    if (Object.keys(event.artifactRef).sort().join(",") !== "digest,path") throw new Error("artifactRef requires path and digest only");
     assertRepositoryRelativePath(event.artifactRef.path);
     if (!/^[a-f0-9]{64}$/.test(event.artifactRef.digest)) throw new Error("artifactRef requires a SHA-256 digest");
+  }
+  if (event.kind === "action.observed") {
+    if (event.observationId !== `observation_${event.eventId.slice(4)}`) throw new Error("observation identity mismatch");
+    for (const field of ["sourceAttemptId", "actualFinding", "intendedAction", "intendedOwner", "unresolvedReason"]) requireString(event, field);
+    if (["stage.completed", "verification.passed", "workstream.closed"].includes(event.intendedAction) ||
+        /completed|passed/.test(event.intendedAction)) throw new Error("observation cannot make a completion claim");
+    if (!/^[a-z]+(?:-[a-z]+)*$/.test(event.intendedAction)) throw new Error("invalid intended action");
+    if (!CANONICAL_STAGES.includes(event.intendedStage) ||
+        !ACTIVITY_BY_STAGE[event.intendedStage].includes(event.intendedActivity)) throw new Error("invalid intended owner activity");
+  }
+  if (event.kind === "action.resolved") {
+    requireString(event, "observationId");
+    for (const field of ["linkedEventIds", "linkedAttemptIds", "linkedArtifactEventIds"]) {
+      if (!Array.isArray(event[field]) || !event[field].length ||
+          event[field].some((id) => typeof id !== "string" || !id) ||
+          new Set(event[field]).size !== event[field].length) throw new Error(`${field} must contain unique links`);
+    }
+  }
+  if (event.kind === "revision.opened") {
+    requireString(event, "revisionSourceAttemptId"); requireString(event, "reason");
+  }
+  if (["attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded"].includes(event.kind)) requireString(event, "episodeId");
+  if (event.kind === "attempt.assessed") {
+    if (!["resume", "supersede"].includes(event.disposition)) throw new Error("invalid assessment disposition");
+    for (const field of ["reusableEvidence", "invalidatedEvidence", "rerunChecks"]) {
+      if (!Array.isArray(event[field]) || event[field].some((item) => typeof item !== "string" || !item)) throw new Error(`${field} must be an array of references`);
+    }
+    if (!event.rerunChecks.length) throw new Error("assessment requires checks to rerun");
   }
   if (event.kind === "return.opened") {
     if (!CANONICAL_STAGES.includes(event.detectingStage) || !CANONICAL_STAGES.includes(event.initialOwningStage)) {

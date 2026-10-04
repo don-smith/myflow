@@ -12,6 +12,7 @@ import { dirname, resolve, sep } from "node:path";
 
 import {
   LIFECYCLE_SCHEMA_VERSION,
+  LIFECYCLE_SCHEMA_VERSION_2,
   assertRepositoryRelativePath,
   canonicalJson,
   comparableLifecycleIntent,
@@ -106,7 +107,8 @@ async function buildEvent(input, state, previousEventId, existing) {
     ...semanticInput
   } = input;
   const event = {
-    schemaVersion: LIFECYCLE_SCHEMA_VERSION,
+    schemaVersion: ["action.observed", "action.resolved", "revision.opened", "attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded"].includes(semanticInput.kind)
+      ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION,
     ...semanticInput,
     occurredAt: existing?.occurredAt ?? semanticInput.occurredAt ?? new Date().toISOString(),
     previousEventId: existing?.previousEventId ?? previousEventId,
@@ -125,8 +127,9 @@ async function buildEvent(input, state, previousEventId, existing) {
   } else {
     Object.assign(event, eventAttemptMetadata(state, { ...event, targetAttemptId }));
   }
-  event.eventId = lifecycleEventId(event);
   if (artifactPath !== undefined) event.artifactRef = await artifactReference(repositoryRoot, artifactPath, artifactRoots);
+  event.eventId = lifecycleEventId(event);
+  if (event.kind === "action.observed") event.observationId = `observation_${event.eventId.slice(4)}`;
   return event;
 }
 
@@ -146,8 +149,9 @@ export async function appendLifecycleEvent(input) {
       recoveredCrashTail = true;
     }
     const state = reduceLifecycle(parsed.events);
-    const eventId = lifecycleEventId(input);
-    const existing = parsed.events.find((event) => event.eventId === eventId);
+    const existing = parsed.events.find((event) =>
+      event.repository.value === input.repository.value && event.workstreamId === input.workstreamId &&
+      event.kind === input.kind && event.source === input.source && event.idempotencyKey === input.idempotencyKey);
     const candidate = await buildEvent(input, state, state.lastEventId, existing);
     validateLifecycleEvent(candidate);
 

@@ -27,6 +27,13 @@ const COMMANDS = Object.freeze({
   "workstream-closed": "workstream.closed",
   "feedback-requested": "feedback.requested",
   "feedback-recorded": "feedback.recorded",
+  "action-observed": "action.observed",
+  "action-resolved": "action.resolved",
+  "revision-opened": "revision.opened",
+  "attempt-suspended": "attempt.suspended",
+  "attempt-assessed": "attempt.assessed",
+  "attempt-resumed": "attempt.resumed",
+  "attempt-superseded": "attempt.superseded",
 });
 
 const OPTION_NAMES = new Map([
@@ -56,6 +63,16 @@ const OPTION_NAMES = new Map([
   ["--feedback-status", "feedbackStatus"],
   ["--private-ref", "privateRef"],
   ["--attempt-id", "targetAttemptId"],
+  ["--source-attempt-id", "sourceAttemptId"],
+  ["--actual-finding", "actualFinding"],
+  ["--intended-action", "intendedAction"],
+  ["--intended-stage", "intendedStage"],
+  ["--intended-activity", "intendedActivity"],
+  ["--intended-owner", "intendedOwner"],
+  ["--unresolved-reason", "unresolvedReason"],
+  ["--observation-id", "resolutionObservationId"],
+  ["--revision-source-attempt-id", "revisionSourceAttemptId"],
+  ["--disposition", "disposition"],
   ["--execution-host", "executionHost"],
   ["--emitting-session", "emittingSessionId"],
   ["--grouping-session", "groupingSessionId"],
@@ -71,11 +88,16 @@ mutations: ${Object.keys(COMMANDS).join(", ")}`;
 function parseArguments(arguments_) {
   const [command, ...rest] = arguments_;
   if (command !== "validate" && !COMMANDS[command]) throw new Error(usage);
-  const options = { command, evidenceRefs: [] };
+  const options = { command, evidenceRefs: [], linkedEventIds: [], linkedAttemptIds: [],
+    linkedArtifactEventIds: [], reusableEvidence: [], invalidatedEvidence: [], rerunChecks: [] };
   for (let index = 0; index < rest.length; index += 2) {
     const flag = rest[index];
     const value = rest[index + 1];
     if (!value) throw new Error(usage);
+    const repeatable = { "--linked-event": "linkedEventIds", "--linked-attempt": "linkedAttemptIds",
+      "--linked-artifact-event": "linkedArtifactEventIds", "--reusable-evidence": "reusableEvidence",
+      "--invalidated-evidence": "invalidatedEvidence", "--rerun-check": "rerunChecks" }[flag];
+    if (repeatable) { options[repeatable].push(value); continue; }
     if (flag === "--evidence-ref") {
       options.evidenceRefs.push(value);
       continue;
@@ -135,10 +157,18 @@ async function main() {
       ...eventOptions
     } = options;
     delete eventOptions.journalPath;
-    if (eventOptions.evidenceRefs.length === 0) delete eventOptions.evidenceRefs;
+    delete eventOptions.resolutionObservationId;
+    for (const name of ["evidenceRefs", "linkedEventIds", "linkedAttemptIds", "linkedArtifactEventIds",
+      "reusableEvidence", "invalidatedEvidence", "rerunChecks"]) {
+      if (eventOptions[name].length === 0 &&
+          !(command === "attempt-assessed" && ["reusableEvidence", "invalidatedEvidence", "rerunChecks"].includes(name))) {
+        delete eventOptions[name];
+      }
+    }
     const executionRef = executionReference(options);
     const result = await appendLifecycleEvent({
       ...eventOptions,
+      ...(options.resolutionObservationId ? { observationId: options.resolutionObservationId } : {}),
       journalPath,
       repositoryRoot: repositoryContext.root,
       ...(workstreamDirectory ? { artifactRoots: [workstreamDirectory] } : {}),

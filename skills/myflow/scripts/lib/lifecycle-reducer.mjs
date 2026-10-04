@@ -21,6 +21,7 @@ export function initialLifecycleState() {
     workstreamId: null,
     currentStage: null,
     currentAttemptId: null,
+    lastTerminalAttemptId: null,
     currentActivityId: null,
     currentBlockId: null,
     lastEventId: null,
@@ -31,6 +32,13 @@ export function initialLifecycleState() {
     executionRefs: [],
     returns: [],
     feedback: [],
+    observations: [],
+    unresolvedObservations: [],
+    revision: null,
+    activeRouteEpisodeId: null,
+    pendingVerificationEpisodeIds: [],
+    nextLegalActions: [],
+    eventLinks: [],
     returnEpisodeCount: 0,
     stageReturnCount: 0,
     activityReturnCount: 0,
@@ -65,7 +73,16 @@ function classifyBackwardEdge(fromStage, fromActivity, toStage, toActivity) {
 }
 
 function assertAttemptMetadata(state, event) {
-  if (event.kind === "workstream.created" || event.kind === "workstream.closed") return;
+  if (["workstream.created", "workstream.closed", "action.observed", "action.resolved", "revision.opened"].includes(event.kind)) return;
+  if (["attempt.assessed", "attempt.resumed", "attempt.superseded"].includes(event.kind)) {
+    const episode = findEpisode(state, event.episodeId);
+    const target = state.attempts.find(({ attemptId }) => attemptId === episode.originAttemptId);
+    if (event.attemptId !== target?.attemptId || event.attemptOrdinal !== target.ordinal ||
+        event.canonicalStage !== target.canonicalStage || event.owningActivity !== episode.detectingActivity) {
+      throw new Error("target attempt metadata is invalid");
+    }
+    return;
+  }
   const attempt = currentAttempt(state);
   if (event.kind === "stage.entered") return;
   if (event.kind === "feedback.requested" || event.kind === "feedback.recorded") {
@@ -94,8 +111,13 @@ function assertAttemptMetadata(state, event) {
 }
 
 export function eventAttemptMetadata(state, input) {
-  if (input.kind === "workstream.created" || input.kind === "workstream.closed") {
+  if (["workstream.created", "workstream.closed", "action.observed", "action.resolved", "revision.opened"].includes(input.kind)) {
     return { attemptId: null, attemptOrdinal: null };
+  }
+  if (["attempt.assessed", "attempt.resumed", "attempt.superseded"].includes(input.kind)) {
+    const episode = findEpisode(state, input.episodeId);
+    const target = state.attempts.find(({ attemptId }) => attemptId === episode.originAttemptId);
+    return { attemptId: target.attemptId, attemptOrdinal: target.ordinal };
   }
   if (input.kind === "stage.entered") {
     const ordinal = state.attempts.filter(({ canonicalStage }) => canonicalStage === input.canonicalStage).length + 1;
@@ -139,6 +161,112 @@ export function applyLifecycleEvent(previousState, event) {
   assertAttemptMetadata(state, event);
 
   switch (event.kind) {
+    case "action.observed": {
+      if (!state.created) throw new Error("observation requires a workstream");
+      const source = state.attempts.find(({ attemptId }) => attemptId === event.sourceAttemptId);
+      if (!source) throw new Error("unknown source attempt");
+      if (event.sourceAttemptId !== (state.currentAttemptId ?? state.lastTerminalAttemptId)) {
+        throw new Error("observation must identify the current or last completed attempt");
+      }
+      if (event.canonicalStage !== source.canonicalStage) throw new Error("observation source stage mismatch");
+      state.observations.push({ observationId: event.observationId, eventId: event.eventId,
+        sourceAttemptId: source.attemptId, actualFinding: event.actualFinding,
+        intendedAction: event.intendedAction, intendedOwner: event.intendedOwner,
+        intendedStage: event.intendedStage, intendedActivity: event.intendedActivity,
+        evidence: event.artifactRef, unresolvedReason: event.unresolvedReason, resolution: null });
+      break;
+    }
+    case "action.resolved": {
+      const observation = state.observations.find(({ observationId }) => observationId === event.observationId);
+      if (!observation || observation.resolution) throw new Error("unknown or already resolved observation");
+      const findLink = (id) => {
+        const link = state.eventLinks.find(({ eventId }) => eventId === id);
+        if (!link || state.eventLinks.findIndex(({ eventId }) => eventId === id) <=
+            state.eventLinks.findIndex(({ eventId }) => eventId === observation.eventId)) {
+          throw new Error(`unknown linked event after observation: ${id}`);
+        }
+        return link;
+      };
+      const transitions = event.linkedEventIds.map(findLink);
+      if (transitions.some(({ kind }) => !["stage.entered", "attempt.resumed", "attempt.superseded"].includes(kind))) {
+        throw new Error("resolution links must name actual attempt transitions");
+      }
+      const artifacts = event.linkedArtifactEventIds.map(findLink);
+      if (artifacts.some(({ kind }) => kind !== "artifact.accepted")) throw new Error("resolution requires accepted artifact events");
+      for (const id of event.linkedAttemptIds) {
+        if (!state.attempts.some(({ attemptId }) => attemptId === id) ||
+            ![...transitions, ...artifacts].some(({ attemptId }) => attemptId === id)) {
+          throw new Error(`resolution links an unrelated attempt: ${id}`);
+        }
+      }
+      if ([...transitions, ...artifacts].some(({ attemptId }) => !event.linkedAttemptIds.includes(attemptId))) {
+        throw new Error("resolution must identify every linked attempt");
+      }
+      observation.resolution = { eventId: event.eventId, linkedEventIds: event.linkedEventIds,
+        linkedAttemptIds: event.linkedAttemptIds, linkedArtifactEventIds: event.linkedArtifactEventIds };
+      break;
+    }
+    case "revision.opened": {
+      if (!state.created || state.currentAttemptId || state.revision || state.activeRouteEpisodeId) {
+        throw new Error("revision requires no open attempt or active route");
+      }
+      const source = state.attempts.find(({ attemptId }) => attemptId === state.lastTerminalAttemptId);
+      if (!source || source.attemptId !== event.revisionSourceAttemptId || source.status !== "advanced" ||
+          source.canonicalStage !== event.canonicalStage || source.openingActivity !== event.owningActivity) {
+        throw new Error("revision must link the last completed stage attempt");
+      }
+      state.revision = { sourceAttemptId: source.attemptId, eventId: event.eventId,
+        reason: event.reason, evidence: event.artifactRef };
+      break;
+    }
+    case "attempt.suspended": {
+      const episode = findEpisode(state, event.episodeId);
+      if (state.activeRouteEpisodeId !== episode.episodeId || episode.originAttemptId !== event.attemptId ||
+          episode.suspendedAt || event.owningActivity !== episode.detectingActivity ||
+          state.currentActivityId || state.currentBlockId) {
+        throw new Error("suspension requires the active detecting attempt without open activity or block");
+      }
+      const attempt = currentAttempt(state);
+      attempt.status = "suspended";
+      episode.suspendedAt = event.occurredAt;
+      state.currentAttemptId = null;
+      break;
+    }
+    case "attempt.assessed": {
+      const episode = findEpisode(state, event.episodeId);
+      const attempt = state.attempts.find(({ attemptId }) => attemptId === event.attemptId);
+      if (!episode.suspendedAt || !episode.ownerReadyAt || episode.assessment || attempt.status !== "suspended" ||
+          state.currentAttemptId || event.owningActivity !== episode.detectingActivity) {
+        throw new Error("assessment requires completed owner work and a suspended detecting attempt");
+      }
+      episode.assessment = { eventId: event.eventId, disposition: event.disposition,
+        artifactRef: event.artifactRef, reusableEvidence: event.reusableEvidence,
+        invalidatedEvidence: event.invalidatedEvidence, rerunChecks: event.rerunChecks };
+      break;
+    }
+    case "attempt.resumed":
+    case "attempt.superseded": {
+      const episode = findEpisode(state, event.episodeId);
+      const attempt = state.attempts.find(({ attemptId }) => attemptId === event.attemptId);
+      const disposition = event.kind === "attempt.resumed" ? "resume" : "supersede";
+      if (state.currentAttemptId || attempt.status !== "suspended" || episode.assessment?.disposition !== disposition ||
+          state.activeRouteEpisodeId !== episode.episodeId || episode.disposedAt) {
+        throw new Error("attempt disposition requires a matching assessment and no active attempt");
+      }
+      episode.disposedAt = event.occurredAt;
+      if (disposition === "resume") {
+        attempt.status = "open";
+        state.currentAttemptId = attempt.attemptId;
+        state.currentStage = attempt.canonicalStage;
+      } else {
+        attempt.status = "superseded";
+        attempt.terminalReason = "superseded";
+        attempt.completedAt = event.occurredAt;
+        attempt.completedEventId = event.eventId;
+        state.lastTerminalAttemptId = attempt.attemptId;
+      }
+      break;
+    }
     case "workstream.created": {
       if (state.created) throw new Error("workstream.created must be the first event");
       if (event.canonicalStage !== "Scope" || event.owningActivity !== "scope") {
@@ -163,21 +291,30 @@ export function applyLifecycleEvent(previousState, event) {
       if (state.attempts.length === 0 && event.canonicalStage !== "Scope") {
         throw new Error("the first canonical stage attempt must be Scope");
       }
-      const prior = state.attempts.at(-1);
-      const activeEpisode = state.returns.find(({ status }) => status !== "closed");
-      if (activeEpisode) {
+      const activeEpisode = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
+      const prior = state.attempts.find(({ attemptId }) => attemptId === state.lastTerminalAttemptId) ?? state.attempts.at(-1);
+      const routePrior = state.attempts.at(-1)?.status === "suspended" ? state.attempts.at(-1) : prior;
+      if (state.revision) {
+        if (prior?.attemptId !== state.revision.sourceAttemptId || event.canonicalStage !== prior.canonicalStage ||
+            event.owningActivity !== prior.openingActivity) throw new Error("revision must enter its source stage");
+      } else if (activeEpisode) {
         const ownerIndex = stageIndex(activeEpisode.owner.stage);
         const enteredIndex = stageIndex(event.canonicalStage);
-        const priorIndex = stageIndex(prior.canonicalStage);
+        const priorIndex = stageIndex(routePrior.canonicalStage);
         const entersOwner =
           enteredIndex < priorIndex &&
           enteredIndex === ownerIndex &&
-          prior.status === "superseded";
-        const advancesDownstream = enteredIndex === priorIndex + 1 && prior.status === "advanced";
+          (routePrior.status === "superseded" || routePrior.status === "suspended");
+        const advancesDownstream = enteredIndex === priorIndex + 1 && routePrior.status === "advanced";
+        const replacesSuspendedDetector = activeEpisode.disposedAt &&
+          routePrior.attemptId === activeEpisode.originAttemptId && routePrior.status === "superseded" &&
+          event.canonicalStage === activeEpisode.detectingStage &&
+          state.attempts.slice(state.attempts.findIndex(({ attemptId }) => attemptId === activeEpisode.originAttemptId) + 1)
+            .some(({ canonicalStage, status }) => canonicalStage === activeEpisode.owner.stage && status === "advanced");
         if (
           enteredIndex < ownerIndex ||
           enteredIndex > stageIndex("Verify") ||
-          (!entersOwner && !advancesDownstream)
+          (!entersOwner && !advancesDownstream && !replacesSuspendedDetector)
         ) {
           throw new Error("stage entry must follow the active correction route one canonical stage at a time");
         }
@@ -198,12 +335,14 @@ export function applyLifecycleEvent(previousState, event) {
         enteredAt: event.occurredAt,
         enteredEventId: event.eventId,
         status: "open",
+        revisionSourceAttemptId: state.revision?.sourceAttemptId ?? null,
         terminalReason: null,
         completedAt: null,
         completedEventId: null,
       });
       state.currentStage = event.canonicalStage;
       state.currentAttemptId = event.attemptId;
+      state.revision = null;
       break;
     }
     case "activity.entered": {
@@ -270,7 +409,7 @@ export function applyLifecycleEvent(previousState, event) {
         throw new Error("only a Close attempt may end with workstream-closed");
       }
       const attempt = currentAttempt(state);
-      const activeEpisode = state.returns.find(({ status }) => status !== "closed");
+      const activeEpisode = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
       if (
         activeEpisode &&
         event.canonicalStage === activeEpisode.owner.stage &&
@@ -284,6 +423,7 @@ export function applyLifecycleEvent(previousState, event) {
       attempt.completedAt = event.occurredAt;
       attempt.completedEventId = event.eventId;
       state.currentAttemptId = null;
+      state.lastTerminalAttemptId = attempt.attemptId;
       break;
     }
     case "return.opened": {
@@ -304,6 +444,7 @@ export function applyLifecycleEvent(previousState, event) {
         event.initialOwningStage,
         event.initialOwningActivity,
       );
+      state.activeRouteEpisodeId = event.episodeId;
       state.returns.push({
         episodeId: event.episodeId,
         originAttemptId: event.originAttemptId,
@@ -376,6 +517,10 @@ export function applyLifecycleEvent(previousState, event) {
       const episode = findEpisode(state, event.episodeId);
       if (!episode.ownerReadyAt) throw new Error("return resumption requires owner readiness");
       if (episode.resumedAt) throw new Error("downstream resumption has already been recorded");
+      if (episode.suspendedAt && (!episode.disposedAt ||
+          state.attempts.find(({ attemptId }) => attemptId === episode.originAttemptId)?.status === "suspended")) {
+        throw new Error("suspended return requires an assessed attempt disposition");
+      }
       const sameStageReturn = episode.owner.stage === episode.detectingStage;
       const expectedStage = sameStageReturn
         ? episode.detectingStage
@@ -390,6 +535,8 @@ export function applyLifecycleEvent(previousState, event) {
       episode.resumedStage = event.canonicalStage;
       episode.resumedActivity = event.owningActivity;
       episode.status = "resumed";
+      state.activeRouteEpisodeId = null;
+      state.pendingVerificationEpisodeIds.push(episode.episodeId);
       break;
     }
     case "verification.completed": {
@@ -414,6 +561,7 @@ export function applyLifecycleEvent(previousState, event) {
       }
       episode.closedAt = event.occurredAt;
       episode.status = "closed";
+      state.pendingVerificationEpisodeIds = state.pendingVerificationEpisodeIds.filter((id) => id !== episode.episodeId);
       break;
     }
     case "feedback.requested": {
@@ -473,6 +621,20 @@ export function applyLifecycleEvent(previousState, event) {
     });
   }
   state.lastEventId = event.eventId;
+  state.eventLinks.push({ eventId: event.eventId, kind: event.kind, attemptId: event.attemptId });
+  state.unresolvedObservations = state.observations.filter(({ resolution }) => !resolution);
+  const activeRoute = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
+  state.nextLegalActions = state.currentAttemptId
+    ? activeRoute?.ownerReadyAt && !activeRoute.resumedAt &&
+      state.currentStage !== activeRoute.owner.stage ? ["return.resumed"]
+      : state.pendingVerificationEpisodeIds.length && state.currentStage === "Verify"
+      ? state.pendingVerificationEpisodeIds.every((id) => state.returns.find(({ episodeId }) => episodeId === id)?.reverifiedAt)
+        ? ["return.closed"] : ["verification.completed"]
+      : ["activity.entered", "stage.completed", "action.observed"]
+    : state.revision ? ["stage.entered"]
+      : activeRoute?.assessment ? [activeRoute.assessment.disposition === "resume" ? "attempt.resumed" : "attempt.superseded"]
+        : activeRoute?.suspendedAt && activeRoute.ownerReadyAt ? ["attempt.assessed"]
+          : activeRoute ? ["stage.entered"] : ["stage.entered", "revision.opened", "action.observed"];
   return state;
 }
 

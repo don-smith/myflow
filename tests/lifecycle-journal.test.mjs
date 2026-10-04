@@ -674,6 +674,23 @@ test("lifecycle CLI exposes validation and every semantic mutation without accep
     "scope-accepted",
   ], cliOptions);
   assert.equal(JSON.parse(accepted.stdout).event.artifactRef.path, "scope/alignment.md");
+  const observed = await execFile(process.execPath, [lifecycleCli.pathname, "action-observed", ...common,
+    "--source-attempt-id", validation.state.currentAttemptId, "--actual-finding", "new research",
+    "--intended-action", "revise", "--intended-stage", "Scope", "--intended-activity", "scope",
+    "--intended-owner", "alignment owner", "--unresolved-reason", "awaiting decision",
+    "--artifact", "scope/alignment.md", "--idempotency-key", "observed-cli"], cliOptions);
+  const observation = JSON.parse(observed.stdout);
+  assert.match(observation.event.observationId, /^observation_/);
+  assert.equal(observation.event.attemptId, null);
+  const observedRetry = await execFile(process.execPath, [lifecycleCli.pathname, "action-observed", ...common,
+    "--source-attempt-id", validation.state.currentAttemptId, "--actual-finding", "new research",
+    "--intended-action", "revise", "--intended-stage", "Scope", "--intended-activity", "scope",
+    "--intended-owner", "alignment owner", "--unresolved-reason", "awaiting decision",
+    "--artifact", "scope/alignment.md", "--idempotency-key", "observed-cli"], cliOptions);
+  assert.equal(JSON.parse(observedRetry.stdout).duplicate, true);
+  const afterObservation = await execFile(process.execPath, [lifecycleCli.pathname, "validate",
+    "--repository-root", repositoryRoot, "--workstream-id", "cli-fixture"], cliOptions);
+  assert.equal(JSON.parse(afterObservation.stdout).state.unresolvedObservations.length, 1);
 });
 
 test("chain validation detects changed historical records", async () => {
@@ -704,4 +721,165 @@ test("a journal that records a retired skill name as its source stays valid", as
   assert.equal(validation.state.currentStage, "Verify");
   const { events } = await readLifecycleJournal(context.journalPath);
   assert.equal(events.at(-1).source, "validate");
+});
+
+// New persisted records must be distinguishable from historical v1 transitions.
+async function observed(context, overrides = {}) {
+  const sourceAttemptId = overrides.sourceAttemptId ??
+    (await validateLifecycleJournal(context.journalPath)).state.attempts.at(-1).attemptId;
+  return context.append("action.observed", {
+    schemaVersion: "myflow-lifecycle/v2",
+    canonicalStage: "Scope", owningActivity: "scope", sourceAttemptId,
+    actualFinding: "A later research result changed the premise",
+    intendedAction: "revise", intendedStage: "Scope", intendedActivity: "scope",
+    intendedOwner: "alignment owner", unresolvedReason: "awaiting correction route",
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md", ...overrides,
+  });
+}
+
+test("a completed Scope can open a linked revision without a fictional Plan event", async () => {
+  const context = await fixture();
+  await createAndEnterScope(context);
+  const source = (await validateLifecycleJournal(context.journalPath)).state.currentAttemptId;
+  await context.append("stage.completed", { canonicalStage: "Scope", owningActivity: "scope", terminalReason: "advanced" });
+  await context.append("revision.opened", { schemaVersion: "myflow-lifecycle/v2", canonicalStage: "Scope",
+    owningActivity: "scope", revisionSourceAttemptId: source, reason: "new research",
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
+  await context.append("stage.entered", { canonicalStage: "Scope", owningActivity: "scope" });
+  const state = (await validateLifecycleJournal(context.journalPath)).state;
+  assert.deepEqual(state.attempts.map(({ canonicalStage }) => canonicalStage), ["Scope", "Scope"]);
+  assert.equal(state.attempts[1].revisionSourceAttemptId, source);
+  assert.equal(state.attempts[0].status, "advanced");
+});
+
+test("an observation after a terminal attempt remains unresolved until later actual links", async () => {
+  const context = await fixture();
+  await createAndEnterScope(context);
+  await context.append("stage.completed", { canonicalStage: "Scope", owningActivity: "scope", terminalReason: "advanced" });
+  const before = await readFile(context.journalPath);
+  const observation = await observed(context);
+  assert.equal(observation.event.attemptId, null);
+  assert.equal(observation.event.schemaVersion, "myflow-lifecycle/v2");
+  assert.equal((await validateLifecycleJournal(context.journalPath)).state.unresolvedObservations.length, 1);
+  assert.deepEqual((await readFile(context.journalPath)).subarray(0, before.length), before);
+  const source = observation.event.sourceAttemptId;
+  await context.append("revision.opened", { schemaVersion: "myflow-lifecycle/v2", canonicalStage: "Scope",
+    owningActivity: "scope", revisionSourceAttemptId: source, reason: "new research",
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
+  const entry = await context.append("stage.entered", { canonicalStage: "Scope", owningActivity: "scope" });
+  const accepted = await context.append("artifact.accepted", { canonicalStage: "Scope", owningActivity: "scope",
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
+  await assert.rejects(context.append("action.resolved", { schemaVersion: "myflow-lifecycle/v2",
+    canonicalStage: "Scope", owningActivity: "scope", observationId: observation.event.observationId,
+    linkedEventIds: ["evt_missing"], linkedAttemptIds: [entry.event.attemptId],
+    linkedArtifactEventIds: [accepted.event.eventId] }), /unknown linked event/);
+  await assert.rejects(context.append("action.resolved", { schemaVersion: "myflow-lifecycle/v2",
+    canonicalStage: "Scope", owningActivity: "scope", observationId: observation.event.observationId,
+    linkedEventIds: [entry.event.eventId], linkedAttemptIds: [source],
+    linkedArtifactEventIds: [accepted.event.eventId] }), /unrelated attempt/);
+  const resolution = await context.append("action.resolved", { schemaVersion: "myflow-lifecycle/v2",
+    canonicalStage: "Scope", owningActivity: "scope", observationId: observation.event.observationId,
+    linkedEventIds: [entry.event.eventId], linkedAttemptIds: [entry.event.attemptId],
+    linkedArtifactEventIds: [accepted.event.eventId] });
+  assert.equal(resolution.event.attemptId, null);
+  const state = (await validateLifecycleJournal(context.journalPath)).state;
+  assert.equal(state.unresolvedObservations.length, 0);
+  assert.deepEqual(state.observations[0].resolution.linkedAttemptIds, [entry.event.attemptId]);
+  assert.deepEqual((await readFile(context.journalPath)).subarray(0, before.length), before);
+});
+
+test("observations reject invalid sources, evidence, false completion, and conflicting retries", async () => {
+  const context = await fixture(); await createAndEnterScope(context);
+  await assert.rejects(observed(context, { sourceAttemptId: "attempt_missing" }), /unknown source attempt/);
+  await assert.rejects(observed(context, { intendedAction: "stage.completed" }), /completion claim/);
+  await assert.rejects(observed(context, { actualFinding: "" }), /actualFinding/);
+  const first = await observed(context, { idempotencyKey: "same-observation" });
+  const retry = await observed(context, { idempotencyKey: "same-observation" });
+  assert.equal(retry.duplicate, true);
+  assert.equal(retry.event.observationId, first.event.observationId);
+  await assert.rejects(observed(context, { idempotencyKey: "same-observation", actualFinding: "different" }),
+    /rewrite a historical event/);
+  const text = await readFile(context.journalPath, "utf8");
+  await writeFile(context.journalPath, text.replace('"unresolvedReason":"awaiting correction route"',
+    '"unresolvedReason":"altered"'));
+  assert.equal((await validateLifecycleJournal(context.journalPath)).valid, false);
+});
+
+test("a suspended detecting attempt resumes only after a digested impact assessment; route is not its pending Verify gate", async () => {
+  const context = await fixture(); await reachVerify(context);
+  const verify = (await validateLifecycleJournal(context.journalPath)).state.currentAttemptId;
+  await context.append("return.opened", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-1", detectingStage: "Verify", detectingActivity: "verification",
+    initialOwningStage: "Implement", initialOwningActivity: "phase", originAttemptId: verify,
+    triggerSource: "verification-evidence", changeKind: "implementation", evidenceRefs: ["failed check"] });
+  await context.append("attempt.suspended", { schemaVersion: "myflow-lifecycle/v2", canonicalStage: "Verify",
+    owningActivity: "verification", episodeId: "return-1" });
+  await context.append("stage.entered", { canonicalStage: "Implement", owningActivity: "phase" });
+  await context.append("return.owner-ready", { canonicalStage: "Implement", owningActivity: "phase", episodeId: "return-1" });
+  await context.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" });
+  await assert.rejects(context.append("attempt.resumed", { schemaVersion: "myflow-lifecycle/v2",
+    canonicalStage: "Verify", owningActivity: "verification", episodeId: "return-1" }), /assessment/);
+  await context.append("attempt.assessed", { schemaVersion: "myflow-lifecycle/v2", canonicalStage: "Verify",
+    owningActivity: "verification", episodeId: "return-1", disposition: "resume",
+    reusableEvidence: ["previous plan"], invalidatedEvidence: ["failing check"], rerunChecks: ["test"],
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
+  await context.append("attempt.resumed", { schemaVersion: "myflow-lifecycle/v2", canonicalStage: "Verify",
+    owningActivity: "verification", episodeId: "return-1" });
+  await context.append("return.resumed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "return-1" });
+  const state = (await validateLifecycleJournal(context.journalPath)).state;
+  assert.equal(state.currentAttemptId, verify);
+  assert.equal(state.attempts.filter(({ canonicalStage }) => canonicalStage === "Verify").length, 1);
+  assert.equal(state.activeRouteEpisodeId, null);
+  assert.deepEqual(state.pendingVerificationEpisodeIds, ["return-1"]);
+  assert.deepEqual(state.nextLegalActions, ["verification.completed"]);
+  await assert.rejects(context.append("return.closed", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-1" }), /passing re-verification/);
+  await context.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-1", verificationStatus: "passed" });
+  await context.append("return.closed", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-1" });
+  assert.deepEqual((await validateLifecycleJournal(context.journalPath)).state.pendingVerificationEpisodeIds, []);
+  await context.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification",
+    terminalReason: "advanced" });
+  await context.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" });
+  assert.equal((await validateLifecycleJournal(context.journalPath)).state.currentStage, "Close");
+});
+
+test("legacy v1 retry after terminal transition leaves original bytes and receipt unchanged", async () => {
+  const context = await fixture(); await createAndEnterScope(context);
+  const values = { canonicalStage: "Scope", owningActivity: "scope", idempotencyKey: "v1-retry" };
+  const original = await context.append("feedback.requested", values);
+  await context.append("stage.completed", { canonicalStage: "Scope", owningActivity: "scope", terminalReason: "advanced" });
+  const bytes = await readFile(context.journalPath);
+  const retry = await context.append("feedback.requested", values);
+  assert.equal(retry.duplicate, true);
+  assert.deepEqual(retry.event, original.event);
+  assert.deepEqual(await readFile(context.journalPath), bytes);
+});
+
+test("assessed suspension can supersede the old Verify and enter a linked new Verify", async () => {
+  const context = await fixture(); await reachVerify(context);
+  const previous = (await validateLifecycleJournal(context.journalPath)).state.currentAttemptId;
+  await context.append("return.opened", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-new-verify", detectingStage: "Verify", detectingActivity: "verification",
+    initialOwningStage: "Implement", initialOwningActivity: "phase", originAttemptId: previous,
+    triggerSource: "verification-evidence", changeKind: "implementation", evidenceRefs: ["failure"] });
+  await context.append("attempt.suspended", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "return-new-verify" });
+  await context.append("stage.entered", { canonicalStage: "Implement", owningActivity: "phase" });
+  await context.append("return.owner-ready", { canonicalStage: "Implement", owningActivity: "phase", episodeId: "return-new-verify" });
+  await context.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" });
+  await context.append("attempt.assessed", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-new-verify", disposition: "supersede", reusableEvidence: [],
+    invalidatedEvidence: ["review"], rerunChecks: ["full review"],
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
+  await assert.rejects(context.append("attempt.resumed", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-new-verify" }), /matching assessment/);
+  await context.append("attempt.superseded", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "return-new-verify" });
+  await context.append("stage.entered", { canonicalStage: "Verify", owningActivity: "verification" });
+  await context.append("return.resumed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "return-new-verify" });
+  const state = (await validateLifecycleJournal(context.journalPath)).state;
+  assert.equal(state.attempts.find(({ attemptId }) => attemptId === previous).status, "superseded");
+  assert.equal(state.attempts.filter(({ canonicalStage }) => canonicalStage === "Verify").length, 2);
+  assert.deepEqual(state.pendingVerificationEpisodeIds, ["return-new-verify"]);
 });
