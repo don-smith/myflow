@@ -10,7 +10,7 @@
  * order, because both are derived here.
  *
  * Usage: every subcommand takes the same four flags, and each line below adds its own.
- *   stage-boundary.mjs <enter|accept|exit|return>
+ *   stage-boundary.mjs <enter|accept|exit|return|correct|slice>
  *                      --stage <S> --activity <a> --workstream <id> --repository-root <git-root>
  *
  *   enter  [--label <activity label>] [--feedback <answer> [--note <sentence>]]
@@ -18,6 +18,9 @@
  *   exit   --feedback <smooth|some-friction|rough|skipped|pending>
  *         [--note <sentence>] [--terminal-reason <reason>]
  *   return [--event <opened|rerouted|owner-ready|resumed|closed>] ...
+ *   correct --action <observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve> ...
+ *   slice --slice <name> --artifact <evidence> --planning-basis <accepted event ID>
+ *         --scope-basis <accepted event ID> --design-basis <accepted event ID>
  *
  * Every invocation writes one JSON object to stdout. Rerunning an invocation is safe:
  * the derived keys make each event a duplicate rather than a second record.
@@ -26,6 +29,7 @@
  * does not own (blocks, verification results, and hand-made corrections).
  */
 
+import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -139,9 +143,7 @@ function attemptFor(state, canonicalStage) {
     }
     return open;
   }
-  const last = state.attempts.filter(({ canonicalStage: stage }) => stage === canonicalStage).at(-1);
-  if (!last) throw new Error(`no ${canonicalStage} stage attempt; run enter --stage ${canonicalStage} first`);
-  return last;
+  throw new Error(`no open ${canonicalStage} attempt; the ended attempt cannot accept new work (retry an existing receipt or use correct)`);
 }
 
 /**
@@ -310,7 +312,14 @@ async function recordFeedback(context, { attempt, answer, note, hostCapability }
   const finalized = state.feedback.some(
     (entry) => entry.attemptId === attempt.attemptId && ["recorded", "skipped"].includes(entry.status),
   );
-  if (finalized) return { ok: true, status: "already-final", attemptId: attempt.attemptId };
+  if (finalized) {
+    const saved = (await readFile(join(context.workstreamDirectory, "feedback", "events.jsonl"), "utf8"))
+      .trim().split("\n").map((line) => JSON.parse(line))
+      .find(({ attemptId, status: savedStatus }) => attemptId === attempt.attemptId && savedStatus !== "pending");
+    if (answer !== "pending" && (saved?.status !== status || saved?.rating !== rating ||
+        saved?.note !== note?.trim())) throw new Error("conflicting feedback retry for terminal attempt");
+    return { ok: true, status: "already-final", attemptId: attempt.attemptId };
+  }
 
   try {
     if (shown) {
@@ -377,6 +386,11 @@ async function enter(context, options) {
   // byte. The attempt's `openingActivity` is the activity that opened it; using the passed one
   // would build the same key with different content and trip the historical-rewrite guard —
   // which is what made the documented mid-stage activity switch impossible.
+  if (!state.currentAttemptId && state.attempts.at(-1)?.canonicalStage === canonicalStage &&
+      state.attempts.at(-1)?.status !== "abandoned" && !state.revision && !state.pendingSlice &&
+      !state.activeRouteEpisodeId) {
+    throw new Error(`${canonicalStage} attempt has ended; use correct or slice for a new attempt`);
+  }
   const openAttempt = state.attempts.find(
     ({ attemptId, canonicalStage: stage }) => attemptId === state.currentAttemptId && stage === canonicalStage,
   );
@@ -439,7 +453,16 @@ async function accept(context, options) {
   assertStageAndActivity(canonicalStage, owningActivity);
   if (!options.artifactPath) throw usageError("accept requires --artifact <path>");
   const state = await loadState(context.journalPath);
-  const attempt = attemptFor(state, canonicalStage);
+  const attempt = state.currentAttemptId ? attemptFor(state, canonicalStage) :
+    state.attempts.filter(({ canonicalStage: stage }) => stage === canonicalStage).at(-1);
+  if (!attempt) throw new Error(`no ${canonicalStage} attempt`);
+  if (!state.currentAttemptId) {
+    const previous = state.acceptedArtifacts.find(({ attemptId, owningActivity: activity, artifactRef }) =>
+      attemptId === attempt.attemptId && activity === owningActivity && artifactRef.path === options.artifactPath);
+    if (!previous || state.lastTerminalAttemptId !== attempt.attemptId) {
+      throw new Error(`${canonicalStage} attempt has ended; cannot accept new work`);
+    }
+  }
   await record(context, {
     kind: "artifact.accepted",
     canonicalStage,
@@ -449,7 +472,7 @@ async function accept(context, options) {
     attemptOrdinal: attempt.ordinal,
     artifactPath: options.artifactPath,
   });
-  return {};
+  return { sync: await syncWorkstream(context) };
 }
 
 async function exit(context, options) {
@@ -461,7 +484,21 @@ async function exit(context, options) {
     throw usageError(`--terminal-reason must be one of ${TERMINAL_REASONS.join(", ")}`);
   }
   const state = await loadState(context.journalPath);
-  const attempt = attemptFor(state, canonicalStage);
+  const attempt = state.currentAttemptId ? attemptFor(state, canonicalStage) :
+    state.attempts.filter(({ canonicalStage: stage }) => stage === canonicalStage).at(-1);
+  if (!attempt || (!state.currentAttemptId && state.lastTerminalAttemptId !== attempt.attemptId)) {
+    throw new Error(`${canonicalStage} attempt has ended; no terminal retry is available`);
+  }
+  if (!state.currentAttemptId) {
+    if (attempt.terminalReason !== terminalReason) throw new Error("conflicting terminal retry: reason changed");
+    const previous = state.feedback.find(({ attemptId, status }) => attemptId === attempt.attemptId && status !== "requested");
+    const requestedStatus = options.feedback === "pending" ? "pending" : options.feedback === "skipped" ? "skipped" : "recorded";
+    if (previous?.status !== requestedStatus) throw new Error("conflicting terminal retry: feedback changed");
+    const privateRecords = JSON.parse(`[${(await readFile(join(context.workstreamDirectory, "feedback", "events.jsonl"), "utf8")).trim().split("\n").join(",")}]`);
+    const saved = privateRecords.find(({ attemptId, status }) => attemptId === attempt.attemptId && status === requestedStatus);
+    if (!saved || saved.rating !== (RATINGS.includes(options.feedback) ? options.feedback : undefined) ||
+        saved.note !== options.note?.trim()) throw new Error("conflicting terminal retry: feedback changed");
+  }
 
   const feedback = await recordFeedback(context, {
     attempt: {
@@ -591,7 +628,261 @@ async function returnEvent(context, options) {
   return { episodeId };
 }
 
-const COMMANDS = { enter, accept, exit, return: returnEvent };
+// Every semantic action derives identity from a source attempt and evidence, never from
+// a caller-supplied ordinal or journal key. An observation survives even when a route
+// cannot yet be represented as a canonical transition.
+function sourceFor(state, options) {
+  const id = options.sourceAttemptId ?? state.currentAttemptId ?? state.lastTerminalAttemptId;
+  const source = state.attempts.find(({ attemptId }) => attemptId === id);
+  if (!source) throw new Error("no current or last completed source attempt");
+  if (id !== state.currentAttemptId && id !== state.lastTerminalAttemptId) {
+    throw new Error("source must be the current or last completed attempt");
+  }
+  return source;
+}
+
+function intentKey(context, source, action, artifact) {
+  return stageBoundaryKey({ workstreamId: context.workstreamId, canonicalStage: source.canonicalStage,
+    attemptOrdinal: source.ordinal, owningActivity: source.openingActivity, action, detail: artifact });
+}
+
+function actionKey(context, action, identity) {
+  return stageBoundaryKey({ workstreamId: context.workstreamId, canonicalStage: "Scope",
+    attemptOrdinal: 1, owningActivity: "scope", action, detail: identity });
+}
+
+async function semanticRecord(context, fields, action, identity) {
+  const { canonicalStage, owningActivity, ...rest } = fields;
+  const idempotencyKey = actionKey(context, action, identity);
+  const result = await appendLifecycleEvent({ ...rest, canonicalStage, owningActivity,
+    journalPath: context.journalPath, repositoryRoot: context.repositoryRoot,
+    artifactRoots: [context.workstreamDirectory], repository: context.repository,
+    workstreamId: context.workstreamId, source: sourceSkill(canonicalStage, owningActivity), idempotencyKey,
+    ...(context.executionRef ? { executionRef: context.executionRef } : {}) });
+  context.receipts.push({ kind: fields.kind, eventId: result.event.eventId, idempotencyKey,
+    attemptId: result.event.attemptId, attemptOrdinal: result.event.attemptOrdinal, duplicate: result.duplicate });
+  return result.event;
+}
+
+async function intentObservation(context, options, intendedAction, intendedStage, intendedActivity) {
+  const state = await loadState(context.journalPath);
+  const { events } = await readLifecycleJournal(context.journalPath);
+  if (options.observationId) {
+    const previous = events.find(({ kind, observationId }) => kind === "action.observed" && observationId === options.observationId);
+    if (!previous || (previous.intendedAction !== intendedAction &&
+        !(previous.intendedAction === "observe" && intendedAction === "route")) ||
+        previous.sourceAttemptId !== (options.sourceAttemptId ?? previous.sourceAttemptId) ||
+        (options.artifactPath && previous.artifactRef.path !== options.artifactPath) ||
+        (options.finding && previous.actualFinding !== options.finding)) {
+      throw new Error("unknown or conflicting observation ID");
+    }
+    return previous;
+  }
+  if (!options.artifactPath) throw usageError(`${intendedAction} requires --artifact <evidence path>`);
+  if (!options.finding || !options.owner) throw usageError(`${intendedAction} requires --finding and --owner`);
+  const activeSource = options.sourceAttemptId ?? state.currentAttemptId ?? state.lastTerminalAttemptId;
+  const matches = ({ kind, artifactRef, intendedAction: intended, canonicalStage }) =>
+    kind === "action.observed" && artifactRef.path === options.artifactPath && intended === intendedAction &&
+    canonicalStage === (intendedAction === "start-slice" ? "Verify" : options.canonicalStage);
+  const previous = events.findLast((event) => matches(event) && event.sourceAttemptId === activeSource) ??
+    (state.currentStage !== (intendedAction === "start-slice" ? "Verify" : options.canonicalStage) ? events.findLast(matches) : undefined);
+  const source = previous ? state.attempts.find(({ attemptId }) => attemptId === previous.sourceAttemptId) : sourceFor(state, options);
+  if (!source || (options.sourceAttemptId && options.sourceAttemptId !== source.attemptId)) throw new Error("conflicting source attempt");
+  const key = intentKey(context, source, intendedAction, options.artifactPath);
+  // The key is based on the source and evidence path, so changing a finding, owner,
+  // or evidence bytes on retry is a historical-intent conflict in the locked store.
+  if (source.canonicalStage !== options.canonicalStage && intendedAction !== "start-slice") {
+    throw usageError("source stage must match --stage");
+  }
+  return semanticRecord(context, { kind: "action.observed", canonicalStage: source.canonicalStage,
+    owningActivity: intendedAction === "start-slice" ? source.openingActivity : options.owningActivity,
+    sourceAttemptId: source.attemptId,
+    actualFinding: options.finding, intendedAction, intendedStage, intendedActivity,
+    intendedOwner: options.owner, unresolvedReason: "awaiting canonical route", artifactPath: options.artifactPath,
+  }, "intent", key);
+}
+
+function semanticReceipt(context, state, observation, disposition, cause, nextAction) {
+  const attempt = state.attempts.find(({ attemptId }) => attemptId === state.currentAttemptId);
+  const source = state.attempts.find(({ attemptId }) => attemptId === observation?.sourceAttemptId);
+  return { disposition, ...(observation ? { observationId: observation.observationId } : {}),
+    ...(cause ? { cause } : {}), nextAction: nextAction ?? state.nextLegalActions,
+    sourceAttempt: source ? { attemptId: source.attemptId, canonicalStage: source.canonicalStage, ordinal: source.ordinal } : null,
+    currentAttempt: attempt ? { attemptId: attempt.attemptId, canonicalStage: attempt.canonicalStage, ordinal: attempt.ordinal } : null,
+    pendingObligations: state.pendingVerificationEpisodeIds,
+    unresolvedIds: state.unresolvedObservations.map(({ observationId }) => observationId),
+  };
+}
+
+async function finishSemantic(context, observation, disposition, cause, nextAction) {
+  const state = await loadState(context.journalPath);
+  return { ...semanticReceipt(context, state, observation, disposition, cause, nextAction),
+    sync: await syncWorkstream(context) };
+}
+
+async function enterSemanticAttempt(context, stage, activity, identity) {
+  const state = await loadState(context.journalPath);
+  if (!state.currentAttemptId) {
+    await semanticRecord(context, { kind: "stage.entered", canonicalStage: stage, owningActivity: activity },
+      "stage-entry", identity);
+  }
+  const current = await loadState(context.journalPath);
+  if (current.currentStage !== stage) throw new Error(`cannot enter ${stage}: another attempt is active`);
+  if (!current.currentActivityId) {
+    await semanticRecord(context, { kind: "activity.entered", canonicalStage: stage, owningActivity: activity },
+      "activity-entry", identity);
+  }
+}
+
+async function correct(context, options) {
+  const action = options.action;
+  if (!["observe", "route", "revise", "ready", "assess", "resume", "supersede", "validate", "pass", "close", "resolve"].includes(action)) {
+    throw usageError("correct requires --action observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve");
+  }
+  const { canonicalStage, owningActivity } = options;
+  assertStageAndActivity(canonicalStage, owningActivity);
+  if (["observe", "route", "revise"].includes(action)) {
+    const stage = options.owningStage ?? canonicalStage;
+    const activity = options.routeActivity ?? owningActivity;
+    assertStageAndActivity(stage, activity);
+    if (action === "route" && (!TRIGGER_SOURCES.includes(options.triggerSource) || !CHANGE_KINDS.includes(options.changeKind))) {
+      throw usageError("route requires --trigger-source and --change-kind");
+    }
+    const observation = await intentObservation(context, options, action, stage, activity);
+    if (action === "observe") return finishSemantic(context, observation, "provisional", "record-only observation", "route with --observation-id after owner is known");
+    const identity = observation.observationId;
+    const episodeId = `episode_${digest(identity).slice(0, 24)}`;
+    try {
+      let state = await loadState(context.journalPath);
+      const source = state.attempts.find(({ attemptId }) => attemptId === observation.sourceAttemptId);
+      if (action === "revise") {
+        if (!state.revision && !state.attempts.some(({ revisionSourceAttemptId }) => revisionSourceAttemptId === source.attemptId)) {
+          await semanticRecord(context, { kind: "revision.opened", canonicalStage: source.canonicalStage,
+            owningActivity: source.openingActivity, revisionSourceAttemptId: source.attemptId,
+            reason: observation.actualFinding, artifactPath: observation.artifactRef.path }, "revision", identity);
+        }
+        await enterSemanticAttempt(context, source.canonicalStage, source.openingActivity, identity);
+        return { episodeId: null, ...await finishSemantic(context, observation, "canonical", undefined, "accept revised stage evidence") };
+      }
+      let episode = state.returns.find(({ episodeId: id }) => id === episodeId);
+      if (!episode) {
+        const parentEpisodeId = state.activeRouteEpisodeId && state.currentAttemptId &&
+          state.currentAttemptId !== state.returns.find(({ episodeId: id }) => id === state.activeRouteEpisodeId)?.originAttemptId
+          ? state.activeRouteEpisodeId : null;
+        await semanticRecord(context, { kind: "correction.opened", canonicalStage: source.canonicalStage,
+          owningActivity: observation.owningActivity, episodeId, parentEpisodeId,
+          detectingStage: source.canonicalStage, detectingActivity: observation.owningActivity,
+          initialOwningStage: stage, initialOwningActivity: activity, originAttemptId: source.attemptId,
+          triggerSource: options.triggerSource, changeKind: options.changeKind,
+          evidenceRefs: [observation.artifactRef.path] }, "correction", identity);
+      } else {
+        if (episode.owner.stage !== stage || episode.owner.activity !== activity ||
+            episode.changeKind !== options.changeKind || episode.triggerSource !== options.triggerSource) {
+          // A provisional intent can be routed to a newly determined owner; an already
+          // recorded route cannot silently change its causal history.
+          throw new Error("conflicting correction route for observation");
+        }
+        const routeIndex = state.eventLinks.findIndex(({ eventId }) => eventId === episode.routes[0].eventId);
+        if (state.attempts.some(({ canonicalStage: enteredStage, enteredEventId }) =>
+          enteredStage === stage && state.eventLinks.findIndex(({ eventId }) => eventId === enteredEventId) > routeIndex)) {
+          return { episodeId, ...await finishSemantic(context, observation, "canonical", undefined, "record owner readiness after corrective work") };
+        }
+      }
+      state = await loadState(context.journalPath);
+      episode = state.returns.find(({ episodeId: id }) => id === episodeId);
+      if (!episode.postTerminal && !episode.suspendedAt) {
+        if (state.currentActivityId) await completeOpenActivity(context, state);
+        await semanticRecord(context, { kind: "attempt.suspended", canonicalStage: source.canonicalStage,
+          owningActivity: episode.detectingActivity, episodeId }, "suspend", identity);
+      }
+      await enterSemanticAttempt(context, stage, activity, identity);
+      return { episodeId, ...await finishSemantic(context, observation, "canonical", undefined, "record owner readiness after corrective work") };
+    } catch (error) {
+      // Only a rejected *route* is provisional. Invalid journal integrity, an altered
+      // observation or a retry that changes an already recorded route must still fail.
+      if (/rewrite|conflict|integrity|crash tail/.test(error.message)) throw error;
+      return { episodeId, ...await finishSemantic(context, observation, "provisional", error.message,
+        `continue authorized work in artifacts; retry correct --action ${action} --observation-id ${identity} when routing is possible`) };
+    }
+  }
+  const state = await loadState(context.journalPath);
+  const episode = state.returns.find(({ episodeId }) => episodeId === options.episodeId);
+  if (action !== "resolve" && !episode) throw new Error("correct action requires --episode-id from the route receipt");
+  const identity = options.episodeId;
+  const source = episode && state.attempts.find(({ attemptId }) => attemptId === episode.originAttemptId);
+  const observation = state.observations.find(({ observationId }) =>
+    observationId === (options.observationId ?? state.observations.find(({ observationId: id }) => `episode_${digest(id).slice(0, 24)}` === identity)?.observationId));
+  if (action === "resolve") {
+    if (!options.observationId || !options.linkedEventIds?.length || !options.linkedAttemptIds?.length || !options.linkedArtifactEventIds?.length) {
+      throw usageError("resolve requires --observation-id and linked events, attempts and accepted artifact events");
+    }
+    await semanticRecord(context, { kind: "action.resolved", canonicalStage, owningActivity,
+      observationId: options.observationId, linkedEventIds: options.linkedEventIds,
+      linkedAttemptIds: options.linkedAttemptIds, linkedArtifactEventIds: options.linkedArtifactEventIds }, "resolve", options.observationId);
+  } else if (action === "ready") {
+    await semanticRecord(context, { kind: "return.owner-ready", canonicalStage, owningActivity, episodeId: identity }, "owner-ready", identity);
+  } else if (action === "assess") {
+    if (!options.artifactPath || !options.rerunChecks?.length) throw usageError("assess requires --artifact and --rerun-check");
+    await semanticRecord(context, { kind: "attempt.assessed", canonicalStage: source.canonicalStage,
+      owningActivity: episode.detectingActivity, episodeId: identity, disposition: options.disposition,
+      reusableEvidence: options.reusableEvidence ?? [], invalidatedEvidence: options.invalidatedEvidence ?? [],
+      rerunChecks: options.rerunChecks, artifactPath: options.artifactPath }, "assess", identity);
+  } else if (["resume", "supersede"].includes(action)) {
+    if (action === "supersede" && options.feedback !== undefined && !FEEDBACK_ANSWERS.includes(options.feedback)) {
+      throw usageError(`--feedback must be one of ${FEEDBACK_ANSWERS.join(", ")}`);
+    }
+    await semanticRecord(context, { kind: `attempt.${action === "resume" ? "resumed" : "superseded"}`,
+      canonicalStage: source.canonicalStage, owningActivity: episode.detectingActivity,
+      episodeId: identity }, "disposition", identity);
+    const feedback = action === "supersede" ? await recordFeedback(context, {
+      attempt: { attemptId: source.attemptId, attemptOrdinal: source.ordinal,
+        canonicalStage: source.canonicalStage, owningActivity: episode.detectingActivity },
+      answer: options.feedback ?? "pending", note: options.note, hostCapability: options.hostCapability,
+    }) : undefined;
+    await enterSemanticAttempt(context, source.canonicalStage, episode.detectingActivity, identity);
+    await semanticRecord(context, { kind: "return.resumed", canonicalStage: source.canonicalStage,
+      owningActivity: episode.detectingActivity, episodeId: identity }, "return-resumed", identity);
+    return { episodeId: identity, ...(feedback ? { feedback } : {}),
+      ...await finishSemantic(context, observation, "canonical") };
+  } else if (action === "validate") {
+    if (!options.artifactPath) throw usageError("validate requires --artifact");
+    await semanticRecord(context, { kind: "correction.validated", canonicalStage, owningActivity,
+      episodeId: identity, artifactPath: options.artifactPath }, "local-validation", identity);
+  } else if (action === "pass") {
+    await semanticRecord(context, { kind: "verification.completed", canonicalStage, owningActivity,
+      episodeId: identity, verificationStatus: "passed" }, "verification-pass", identity);
+  } else if (action === "close") {
+    await semanticRecord(context, { kind: "return.closed", canonicalStage, owningActivity,
+      episodeId: identity }, "episode-closure", identity);
+  }
+  return { episodeId: identity, ...await finishSemantic(context, observation, "canonical") };
+}
+
+async function slice(context, options) {
+  if (options.canonicalStage !== "Plan" || options.owningActivity !== "planning") {
+    throw usageError("slice starts at Plan/planning");
+  }
+  if (!options.sliceName || !options.planningBasisEventId || !options.scopeArtifactEventId || !options.designArtifactEventId) {
+    throw usageError("slice requires --slice, --planning-basis, --scope-basis and --design-basis");
+  }
+  const observation = await intentObservation(context, { ...options, finding: options.finding ?? `Start ${options.sliceName}`,
+    owner: options.owner ?? "planning owner" }, "start-slice", "Plan", "planning");
+  const identity = observation.observationId;
+  try {
+    const state = await loadState(context.journalPath);
+    await semanticRecord(context, { kind: "slice.started", canonicalStage: "Plan", owningActivity: "planning",
+      sliceName: options.sliceName, precedingVerifyAttemptId: observation.sourceAttemptId,
+      planningBasisEventId: options.planningBasisEventId, scopeArtifactEventId: options.scopeArtifactEventId,
+      designArtifactEventId: options.designArtifactEventId }, "slice-start", identity);
+    await enterSemanticAttempt(context, "Plan", "planning", identity);
+    return finishSemantic(context, observation, "canonical", undefined, "accept the detailed plan for this slice");
+  } catch (error) {
+    if (/rewrite|conflict|integrity|crash tail/.test(error.message)) throw error;
+    return finishSemantic(context, observation, "provisional", error.message, "retain the planned slice in artifacts; retry after a passing Verify and valid basis");
+  }
+}
+
+const COMMANDS = { enter, accept, exit, return: returnEvent, correct, slice };
 
 /**
  * Run one stage-boundary command.
@@ -604,6 +895,7 @@ export async function runStageBoundary(options) {
   if (!run) throw usageError(`unknown command: ${options.command}`);
   const context = await boundaryContext(options);
   const outcome = await run(context, options);
+  if (context.receipts.length && !outcome.sync) outcome.sync = await syncWorkstream(context);
   return {
     schemaVersion: STAGE_BOUNDARY_SCHEMA_VERSION,
     command: options.command,
@@ -638,27 +930,46 @@ const VALUE_FLAGS = new Map([
   ["--owning-activity", "routeActivity"],
   ["--trigger-source", "triggerSource"],
   ["--change-kind", "changeKind"],
+  ["--action", "action"],
+  ["--source-attempt-id", "sourceAttemptId"],
+  ["--observation-id", "observationId"],
+  ["--finding", "finding"],
+  ["--owner", "owner"],
+  ["--disposition", "disposition"],
+  ["--slice", "sliceName"],
+  ["--planning-basis", "planningBasisEventId"],
+  ["--scope-basis", "scopeArtifactEventId"],
+  ["--design-basis", "designArtifactEventId"],
 ]);
 
-const usage = `usage: stage-boundary.mjs <enter|accept|exit|return> --workstream <id> --stage <stage> --activity <activity> --repository-root <git-root> [options]
+const usage = `usage: stage-boundary.mjs <enter|accept|exit|return|correct|slice> --workstream <id> --stage <stage> --activity <activity> --repository-root <git-root> [options]
   enter  [--label <activity label>] [--feedback <answer> [--note <sentence>]]
   accept --artifact <repository-relative path>
   exit   --feedback <${FEEDBACK_ANSWERS.join("|")}> [--note <sentence>] [--terminal-reason <${TERMINAL_REASONS.join("|")}>]
   return [--event <${RETURN_EVENTS.join("|")}>] [--owning-stage <stage> --owning-activity <activity>]
-         [--trigger-source <source>] [--change-kind <kind>] [--evidence-ref <ref>]... [--episode-id <id>]`;
+         [--trigger-source <source>] [--change-kind <kind>] [--evidence-ref <ref>]... [--episode-id <id>]
+  correct --action <observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve>
+          [--finding <actual finding> --owner <owner> --artifact <evidence>]
+          [--observation-id <receipt ID>] [--episode-id <receipt ID>] [--disposition <resume|supersede>]
+          [--rerun-check <check>]... [--linked-event <ID>]... [--linked-attempt <ID>]...
+          [--linked-artifact-event <ID>]...
+  slice   --stage Plan --activity planning --slice <name> --artifact <evidence>
+          --planning-basis <accepted event ID> --scope-basis <accepted event ID> --design-basis <accepted event ID>`;
 
 export function parseArguments(arguments_) {
   const [command, ...rest] = arguments_;
   if (!COMMANDS[command]) throw usageError(usage);
-  const options = { command, evidenceRefs: [] };
+  const options = { command, evidenceRefs: [], linkedEventIds: [], linkedAttemptIds: [],
+    linkedArtifactEventIds: [], reusableEvidence: [], invalidatedEvidence: [], rerunChecks: [] };
   for (let index = 0; index < rest.length; index += 2) {
     const flag = rest[index];
     const value = rest[index + 1];
     if (value === undefined) throw usageError(usage);
-    if (flag === "--evidence-ref") {
-      options.evidenceRefs.push(value);
-      continue;
-    }
+    const repeatable = { "--evidence-ref": "evidenceRefs", "--linked-event": "linkedEventIds",
+      "--linked-attempt": "linkedAttemptIds", "--linked-artifact-event": "linkedArtifactEventIds",
+      "--reusable-evidence": "reusableEvidence", "--invalidated-evidence": "invalidatedEvidence",
+      "--rerun-check": "rerunChecks" }[flag];
+    if (repeatable) { options[repeatable].push(value); continue; }
     const name = VALUE_FLAGS.get(flag);
     if (!name) throw usageError(`unknown option: ${flag}`);
     options[name] = value;

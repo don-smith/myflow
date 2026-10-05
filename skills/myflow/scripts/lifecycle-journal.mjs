@@ -34,6 +34,9 @@ const COMMANDS = Object.freeze({
   "attempt-assessed": "attempt.assessed",
   "attempt-resumed": "attempt.resumed",
   "attempt-superseded": "attempt.superseded",
+  "correction-opened": "correction.opened",
+  "correction-validated": "correction.validated",
+  "slice-started": "slice.started",
 });
 
 const OPTION_NAMES = new Map([
@@ -50,6 +53,12 @@ const OPTION_NAMES = new Map([
   ["--block-id", "blockId"],
   ["--reason", "reason"],
   ["--episode-id", "episodeId"],
+  ["--parent-episode-id", "parentEpisodeId"],
+  ["--slice", "sliceName"],
+  ["--preceding-verify-attempt", "precedingVerifyAttemptId"],
+  ["--planning-basis", "planningBasisEventId"],
+  ["--scope-basis", "scopeArtifactEventId"],
+  ["--design-basis", "designArtifactEventId"],
   ["--detecting-stage", "detectingStage"],
   ["--detecting-activity", "detectingActivity"],
   ["--owning-stage", "initialOwningStage"],
@@ -168,6 +177,7 @@ async function main() {
     const executionRef = executionReference(options);
     const result = await appendLifecycleEvent({
       ...eventOptions,
+      ...(command === "correction-opened" && eventOptions.parentEpisodeId === undefined ? { parentEpisodeId: null } : {}),
       ...(options.resolutionObservationId ? { observationId: options.resolutionObservationId } : {}),
       journalPath,
       repositoryRoot: repositoryContext.root,

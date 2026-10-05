@@ -490,3 +490,242 @@ test("rerunning a subcommand from a different host session is still a duplicate"
   assert.deepEqual(entered("Plan").executionRef, refOf("claude-session-a"), "the Plan entry keeps its first emitter");
   assert.equal((await validateLifecycleJournal(context.journalPath)).valid, true);
 });
+
+async function evidence(context, path = "finding.md") {
+  await writeFile(join(context.workstreamDirectory, path), `# ${path}\n`);
+  return path;
+}
+
+async function journeyToVerify(context) {
+  for (const [stage, activity] of [["Scope", "scope"], ["Plan", "planning"], ["Implement", "phase"]]) {
+    await run(context, "enter", "--stage", stage, "--activity", activity);
+    await run(context, "exit", "--stage", stage, "--activity", activity, "--feedback", "skipped");
+  }
+  return run(context, "enter", "--stage", "Verify", "--activity", "verification");
+}
+
+test("intent-first correction resumes Verify with an immutable observation and safe cross-session retry", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c);
+  await evidence(c);
+  const intent = ["correct", "--action", "route", "--stage", "Verify", "--activity", "verification", "--artifact", "finding.md", "--finding", "failed check", "--owner", "implementer", "--owning-stage", "Implement", "--owning-activity", "phase", "--trigger-source", "verification-evidence", "--change-kind", "implementation"];
+  const initial = await run(c, ...intent);
+  assert.equal(initial.disposition, "canonical");
+  assert.deepEqual(kinds(initial).slice(0, 2), ["action.observed", "correction.opened"]);
+  assert.match(initial.observationId, /^observation_/);
+  assert.equal(initial.currentAttempt.canonicalStage, "Implement");
+  const before = await readFile(c.journalPath, "utf8");
+  c.env.PI_SESSION_ID = "later-session";
+  const retry = await run(c, ...intent);
+  assert.equal(retry.observationId, initial.observationId);
+  assert.equal(retry.disposition, "canonical");
+  assert.equal(await readFile(c.journalPath, "utf8"), before);
+  await assert.rejects(run(c, ...intent.map((arg) => arg === "failed check" ? "changed finding" : arg)), /rewrite|conflict/);
+
+  await run(c, "correct", "--action", "ready", "--stage", "Implement", "--activity", "phase", "--episode-id", initial.episodeId);
+  await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped");
+  const afterOwnerExit = await run(c, ...intent);
+  assert.equal(afterOwnerExit.disposition, "canonical", "retry after owner exit retains the original route");
+  assert.equal(afterOwnerExit.observationId, initial.observationId);
+  await run(c, "correct", "--action", "assess", "--stage", "Verify", "--activity", "verification", "--episode-id", initial.episodeId,
+    "--artifact", "finding.md", "--disposition", "resume", "--rerun-check", "fresh check");
+  const resumed = await run(c, "correct", "--action", "resume", "--stage", "Verify", "--activity", "verification", "--episode-id", initial.episodeId);
+  assert.equal(resumed.currentAttempt.attemptId, initial.sourceAttempt.attemptId);
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.deepEqual(state.pendingVerificationEpisodeIds, [initial.episodeId]);
+  await run(c, "correct", "--action", "pass", "--stage", "Verify", "--activity", "verification", "--episode-id", initial.episodeId);
+  await run(c, "correct", "--action", "close", "--stage", "Verify", "--activity", "verification", "--episode-id", initial.episodeId);
+  assert.equal((await validateLifecycleJournal(c.journalPath)).state.returns[0].status, "closed");
+});
+
+test("record-only provisional correction reconciles later truthful attempts, not historical bytes", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c);
+  await evidence(c);
+  const provisional = await run(c, "correct", "--action", "route", "--stage", "Verify", "--activity", "verification", "--artifact", "finding.md", "--finding", "uncertain owner", "--owner", "researcher", "--owning-stage", "Scope", "--owning-activity", "scope", "--trigger-source", "developer-report", "--change-kind", "implementation");
+  assert.equal(provisional.disposition, "provisional");
+  assert.deepEqual(kinds(provisional), ["action.observed"]);
+  assert.equal(provisional.currentAttempt.canonicalStage, "Verify");
+  assert.equal(provisional.unresolvedIds.length, 1);
+  assert.ok(provisional.nextAction);
+  const original = await readFile(c.journalPath, "utf8");
+  const routed = await run(c, "correct", "--action", "route", "--stage", "Verify", "--activity", "verification", "--observation-id", provisional.observationId,
+    "--owning-stage", "Implement", "--owning-activity", "phase", "--trigger-source", "developer-report", "--change-kind", "implementation");
+  assert.equal(routed.disposition, "canonical");
+  assert.ok((await readFile(c.journalPath, "utf8")).startsWith(original));
+  assert.equal((await validateLifecycleJournal(c.journalPath)).state.unresolvedObservations.length, 1);
+});
+
+test("named next slice starts Plan without correction or invented acceptance", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await evidence(c, "scope.md"); await evidence(c, "design.md"); await evidence(c, "plan.md");
+  await run(c, "enter", "--stage", "Scope", "--activity", "scope");
+  const scope = await run(c, "accept", "--stage", "Scope", "--activity", "scope", "--artifact", "scope.md");
+  await run(c, "exit", "--stage", "Scope", "--activity", "scope", "--feedback", "skipped");
+  await run(c, "enter", "--stage", "Plan", "--activity", "design");
+  const design = await run(c, "accept", "--stage", "Plan", "--activity", "design", "--artifact", "design.md");
+  await run(c, "enter", "--stage", "Plan", "--activity", "planning");
+  const plan = await run(c, "accept", "--stage", "Plan", "--activity", "planning", "--artifact", "plan.md");
+  await run(c, "exit", "--stage", "Plan", "--activity", "planning", "--feedback", "skipped");
+  await run(c, "enter", "--stage", "Implement", "--activity", "phase");
+  await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped");
+  await run(c, "enter", "--stage", "Verify", "--activity", "verification");
+  const journal = new URL("../skills/myflow/scripts/lifecycle-journal.mjs", import.meta.url).pathname;
+  await execFile(process.execPath, [journal, "verification-completed", "--workstream-id", WORKSTREAM, "--repository-root", c.repo, "--stage", "Verify", "--activity", "verification", "--source", "verify", "--idempotency-key", "initial-pass", "--verification-status", "passed"], { env: c.env });
+  await run(c, "exit", "--stage", "Verify", "--activity", "verification", "--feedback", "skipped");
+  const next = await run(c, "slice", "--stage", "Plan", "--activity", "planning", "--slice", "rollout-east", "--artifact", "plan.md",
+    "--planning-basis", plan.events[0].eventId, "--scope-basis", scope.events[0].eventId, "--design-basis", design.events[0].eventId);
+  assert.equal(next.disposition, "canonical");
+  assert.deepEqual(kinds(next).slice(0, 2), ["action.observed", "slice.started"]);
+  assert.equal(next.currentAttempt.canonicalStage, "Plan");
+  const repeated = await run(c, "slice", "--stage", "Plan", "--activity", "planning", "--slice", "rollout-east", "--artifact", "plan.md",
+    "--planning-basis", plan.events[0].eventId, "--scope-basis", scope.events[0].eventId, "--design-basis", design.events[0].eventId);
+  assert.equal(repeated.observationId, next.observationId);
+  assert.equal(repeated.disposition, "canonical");
+  assert.equal((await validateLifecycleJournal(c.journalPath)).state.slices[0].status, "planning");
+});
+
+test("ended attempt rejects new accept, enter and exit without claiming a stage", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await evidence(c);
+  await run(c, "enter", "--stage", "Scope", "--activity", "scope");
+  await run(c, "exit", "--stage", "Scope", "--activity", "scope", "--feedback", "skipped");
+  const before = await readFile(c.journalPath, "utf8");
+  await assert.rejects(run(c, "enter", "--stage", "Scope", "--activity", "scope"), /ended|terminal/);
+  await assert.rejects(run(c, "accept", "--stage", "Scope", "--activity", "scope", "--artifact", "finding.md"), /ended|terminal/);
+  await assert.rejects(run(c, "exit", "--stage", "Scope", "--activity", "scope", "--feedback", "smooth"), /conflict|ended|terminal/);
+  assert.equal(await readFile(c.journalPath, "utf8"), before);
+});
+
+test("completed Scope revision and linked resolution have no fictional Plan visit", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await evidence(c);
+  await run(c, "enter", "--stage", "Scope", "--activity", "scope");
+  await run(c, "exit", "--stage", "Scope", "--activity", "scope", "--feedback", "skipped");
+  const original = (await validateLifecycleJournal(c.journalPath)).state.attempts[0].attemptId;
+  const revised = await run(c, "correct", "--action", "revise", "--stage", "Scope", "--activity", "scope", "--artifact", "finding.md",
+    "--finding", "new research", "--owner", "scope owner");
+  assert.equal(revised.disposition, "canonical");
+  assert.deepEqual(kinds(revised).slice(0, 3), ["action.observed", "revision.opened", "stage.entered"]);
+  assert.equal(revised.currentAttempt.canonicalStage, "Scope");
+  const accepted = await run(c, "accept", "--stage", "Scope", "--activity", "scope", "--artifact", "finding.md");
+  const transition = revised.events.find(({ kind }) => kind === "stage.entered");
+  const resolved = await run(c, "correct", "--action", "resolve", "--stage", "Scope", "--activity", "scope",
+    "--observation-id", revised.observationId, "--linked-event", transition.eventId,
+    "--linked-attempt", revised.currentAttempt.attemptId, "--linked-artifact-event", accepted.events[0].eventId);
+  assert.deepEqual(resolved.unresolvedIds, []);
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.attempts.length, 2);
+  assert.equal(state.attempts[1].revisionSourceAttemptId, original);
+  assert.equal(state.attempts[0].status, "advanced");
+  assert.ok(state.attempts.every(({ canonicalStage }) => canonicalStage === "Scope"));
+});
+
+test("nested child validates locally before parent resumes and closes child-first", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c);
+  await evidence(c); await evidence(c, "child.md");
+  const route = async (stage, activity, artifact, ownerStage, ownerActivity, changeKind) => run(c,
+    "correct", "--action", "route", "--stage", stage, "--activity", activity, "--artifact", artifact,
+    "--finding", artifact, "--owner", "owner", "--owning-stage", ownerStage,
+    "--owning-activity", ownerActivity, "--trigger-source", "verification-evidence", "--change-kind", changeKind);
+  const parent = await route("Verify", "verification", "finding.md", "Implement", "phase", "implementation");
+  const child = await route("Implement", "phase", "child.md", "Plan", "planning", "plan");
+  assert.equal(child.disposition, "canonical");
+  assert.equal(child.currentAttempt.canonicalStage, "Plan");
+  await run(c, "correct", "--action", "ready", "--stage", "Plan", "--activity", "planning", "--episode-id", child.episodeId);
+  await run(c, "exit", "--stage", "Plan", "--activity", "planning", "--feedback", "skipped");
+  await run(c, "correct", "--action", "assess", "--stage", "Implement", "--activity", "phase", "--episode-id", child.episodeId,
+    "--artifact", "child.md", "--disposition", "resume", "--rerun-check", "local test");
+  await run(c, "correct", "--action", "resume", "--stage", "Implement", "--activity", "phase", "--episode-id", child.episodeId);
+  await run(c, "correct", "--action", "ready", "--stage", "Implement", "--activity", "phase", "--episode-id", parent.episodeId);
+  await assert.rejects(run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped"), /local validation|child/);
+  // The child is validated in its resumed detecting attempt before that attempt advances.
+  await run(c, "correct", "--action", "validate", "--stage", "Implement", "--activity", "phase", "--episode-id", child.episodeId, "--artifact", "child.md");
+  await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped");
+  const feedback = (await readFile(c.feedbackPath, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(feedback.filter(({ canonicalStage }) => canonicalStage === "Implement").length, 2,
+    "each terminal Implement attempt has one private response, including after a failed exit retry");
+  await run(c, "correct", "--action", "assess", "--stage", "Verify", "--activity", "verification", "--episode-id", parent.episodeId,
+    "--artifact", "finding.md", "--disposition", "resume", "--rerun-check", "full review");
+  await run(c, "correct", "--action", "resume", "--stage", "Verify", "--activity", "verification", "--episode-id", parent.episodeId);
+  for (const episodeId of [child.episodeId, parent.episodeId]) {
+    await run(c, "correct", "--action", "pass", "--stage", "Verify", "--activity", "verification", "--episode-id", episodeId);
+  }
+  await assert.rejects(run(c, "correct", "--action", "close", "--stage", "Verify", "--activity", "verification", "--episode-id", parent.episodeId), /child first/);
+  await run(c, "correct", "--action", "close", "--stage", "Verify", "--activity", "verification", "--episode-id", child.episodeId);
+  await run(c, "correct", "--action", "close", "--stage", "Verify", "--activity", "verification", "--episode-id", parent.episodeId);
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.deepEqual(state.pendingVerificationEpisodeIds, []);
+  assert.equal(state.returns[1].parentEpisodeId, parent.episodeId);
+});
+
+test("post-terminal finding routes independently of prior pending route", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c);
+  await evidence(c);
+  const older = await run(c, "return", "--stage", "Verify", "--activity", "verification",
+    "--owning-stage", "Plan", "--owning-activity", "planning", "--trigger-source", "verification-evidence", "--change-kind", "plan");
+  const terminal = await run(c, "exit", "--stage", "Verify", "--activity", "verification", "--feedback", "skipped", "--terminal-reason", "superseded");
+  const routed = await run(c, "correct", "--action", "route", "--stage", "Verify", "--activity", "verification", "--artifact", "finding.md",
+    "--finding", "separate implementation defect", "--owner", "implementer", "--owning-stage", "Implement", "--owning-activity", "phase",
+    "--trigger-source", "developer-report", "--change-kind", "implementation");
+  assert.equal(routed.disposition, "canonical");
+  assert.equal(routed.sourceAttempt.attemptId, terminal.events.at(-1).attemptId);
+  assert.equal(routed.currentAttempt.canonicalStage, "Implement");
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.returns[0].episodeId, older.episodeId);
+  assert.equal(state.returns[0].status, "open");
+  assert.equal(state.returns[1].postTerminal, true);
+  assert.equal(state.attempts.find(({ attemptId }) => attemptId === routed.sourceAttempt.attemptId).status, "superseded");
+});
+
+test("assessed supersession ends the detecting attempt with one private feedback pulse", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c);
+  await evidence(c);
+  const routed = await run(c, "correct", "--action", "route", "--stage", "Verify", "--activity", "verification",
+    "--artifact", "finding.md", "--finding", "changed implementation", "--owner", "implementer",
+    "--owning-stage", "Implement", "--owning-activity", "phase", "--trigger-source", "verification-evidence", "--change-kind", "implementation");
+  await run(c, "correct", "--action", "ready", "--stage", "Implement", "--activity", "phase", "--episode-id", routed.episodeId);
+  await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped");
+  await run(c, "correct", "--action", "assess", "--stage", "Verify", "--activity", "verification", "--episode-id", routed.episodeId,
+    "--artifact", "finding.md", "--disposition", "supersede", "--rerun-check", "full review");
+  const disposition = ["correct", "--action", "supersede", "--stage", "Verify", "--activity", "verification",
+    "--episode-id", routed.episodeId, "--feedback", "rough", "--note", "The old basis changed."];
+  const first = await run(c, ...disposition);
+  assert.equal(first.feedback.status, "recorded");
+  assert.notEqual(first.currentAttempt.attemptId, routed.sourceAttempt.attemptId);
+  const retry = await run(c, ...disposition);
+  assert.equal(retry.feedback.status, "already-final");
+  await assert.rejects(run(c, ...disposition.map((arg) => arg === "rough" ? "smooth" : arg)), /conflicting feedback|note/);
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.attempts.find(({ attemptId }) => attemptId === routed.sourceAttempt.attemptId).status, "superseded");
+  assert.deepEqual(state.feedback.filter(({ attemptId, status }) => attemptId === routed.sourceAttempt.attemptId && status === "recorded").map(({ status }) => status), ["recorded"]);
+  const privateRecords = (await readFile(c.feedbackPath, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(privateRecords.filter(({ attemptId }) => attemptId === routed.sourceAttempt.attemptId).length, 1);
+  assert.doesNotMatch(await readFile(c.journalPath, "utf8"), /The old basis changed/);
+});
+
+test("observation remains local and reports remote sync failure", async (t) => {
+  const c = await fixture();
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await run(c, "enter", "--stage", "Scope", "--activity", "scope");
+  await evidence(c);
+  await rm(c.remotePath, { recursive: true, force: true });
+  const observed = await run(c, "correct", "--action", "observe", "--stage", "Scope", "--activity", "scope",
+    "--artifact", "finding.md", "--finding", "authorized work awaiting route", "--owner", "scope owner");
+  assert.equal(observed.disposition, "provisional");
+  assert.equal(observed.sync.ok, false);
+  const validation = await validateLifecycleJournal(c.journalPath);
+  assert.equal(validation.valid, true);
+  assert.deepEqual(validation.state.unresolvedObservations.map(({ observationId }) => observationId), [observed.observationId]);
+});

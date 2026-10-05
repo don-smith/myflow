@@ -94,12 +94,14 @@ function assertAttemptMetadata(state, event) {
       throw new Error(`${event.kind} target attempt metadata is invalid`);
     }
     if (target.attemptId !== state.currentAttemptId) {
-      if (
+      const supersededNow = target.attemptId === state.lastTerminalAttemptId &&
+        target.status === "superseded";
+      if (!supersededNow && (
         target.canonicalStage !== "Implement" ||
         state.currentStage !== "Verify" ||
         attempt?.canonicalStage !== "Verify"
-      ) {
-        throw new Error("closed-attempt feedback is allowed only for Implement at Verify entry");
+      )) {
+        throw new Error("closed-attempt feedback is allowed only for supersession or Implement at Verify entry");
       }
     }
     return;
