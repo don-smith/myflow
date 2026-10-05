@@ -44,7 +44,7 @@ import {
   digest,
   lifecycleEventId,
 } from "./lib/lifecycle-contract.mjs";
-import { reduceLifecycle } from "./lib/lifecycle-reducer.mjs";
+import { assertRoute, reduceLifecycle } from "./lib/lifecycle-reducer.mjs";
 import { appendLifecycleEvent, artifactReference, readLifecycleJournal } from "./lib/lifecycle-store.mjs";
 import { resolveRepositoryContext } from "./lib/repository-context.mjs";
 import { SKILL_BY_STAGE, recordStageFeedback } from "./record-stage-feedback.mjs";
@@ -394,12 +394,16 @@ async function enter(context, options) {
   const openAttempt = state.attempts.find(
     ({ attemptId, canonicalStage: stage }) => attemptId === state.currentAttemptId && stage === canonicalStage,
   );
-  await record(context, {
-    kind: "stage.entered",
-    canonicalStage,
-    owningActivity: openAttempt ? openAttempt.openingActivity : owningActivity,
-    action: "stage-entered",
-  });
+  const stageKey = keyFor(context, { kind: "stage.entered", canonicalStage,
+    owningActivity: openAttempt?.openingActivity ?? owningActivity,
+    attemptOrdinal: openAttempt?.ordinal ?? attemptOrdinalFor(state, canonicalStage), action: "stage-entered" });
+  const recordedEntry = openAttempt && (await readLifecycleJournal(context.journalPath)).events.find(
+    ({ eventId }) => eventId === openAttempt.enteredEventId);
+  // A semantic correction already entered this attempt with its own stable key.
+  if (!recordedEntry || recordedEntry.idempotencyKey === stageKey) {
+    await record(context, { kind: "stage.entered", canonicalStage,
+      owningActivity: openAttempt ? openAttempt.openingActivity : owningActivity, action: "stage-entered" });
+  }
 
   state = await loadState(context.journalPath);
   const deferred = pendingFeedbackAttempt(state);
@@ -426,6 +430,12 @@ async function enter(context, options) {
     action: "activity-entered",
     detail: options.label,
   });
+  const sameStageRoute = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
+  if (sameStageRoute?.ownerReadyAt && sameStageRoute.owner.stage === sameStageRoute.detectingStage &&
+      !sameStageRoute.suspendedAt && state.currentAttemptId === sameStageRoute.originAttemptId &&
+      owningActivity === sameStageRoute.detectingActivity && sameStageRoute.assessment?.disposition !== "resume") {
+    throw new Error("same-stage return requires a digested resume assessment before detecting activity entry");
+  }
   if (
     state.currentActivityId &&
     state.currentActivityId !== prospectiveActivityId(context, { canonicalStage, owningActivity, idempotencyKey: activityKey })
@@ -764,6 +774,7 @@ async function correct(context, options) {
     if (action === "route" && (!TRIGGER_SOURCES.includes(options.triggerSource) || !CHANGE_KINDS.includes(options.changeKind))) {
       throw usageError("route requires --trigger-source and --change-kind");
     }
+    if (action === "route") assertRoute(options.changeKind, stage, activity);
     const observation = await intentObservation(context, options, action, stage, activity);
     if (action === "observe") return finishSemantic(context, observation, "provisional", "record-only observation", "route with --observation-id after owner is known");
     const identity = observation.observationId;
@@ -818,9 +829,13 @@ async function correct(context, options) {
       await enterSemanticAttempt(context, stage, activity, identity);
       return { episodeId, ...await finishSemantic(context, observation, "canonical", undefined, "record owner readiness after corrective work") };
     } catch (error) {
-      // Only a rejected *route* is provisional. Invalid journal integrity, an altered
-      // observation or a retry that changes an already recorded route must still fail.
-      if (/rewrite|conflict|integrity|crash tail/.test(error.message)) throw error;
+      // Only known, authorized state conflicts defer a valid route. Validation,
+      // identity, and evidence failures must never be presented as authorization.
+      const deferredSource = error.message === "correction.opened stage does not match the open attempt" &&
+        (await loadState(context.journalPath)).attempts.some(({ attemptId, status }) =>
+          attemptId === observation.sourceAttemptId && status === "suspended");
+      if (action !== "route" || (!deferredSource &&
+          !/only the top correction route may open a child|distinct correction cannot bypass an active parent route|correction source must be the current or last superseded terminal attempt|stage entry must follow the active correction route/.test(error.message))) throw error;
       return { episodeId, ...await finishSemantic(context, observation, "provisional", error.message,
         `continue authorized work in artifacts; retry correct --action ${action} --observation-id ${identity} when routing is possible`) };
     }
@@ -862,6 +877,7 @@ async function correct(context, options) {
       answer: options.feedback ?? "pending", note: options.note, hostCapability: options.hostCapability,
     }) : undefined;
     if (sameStage) {
+      if (episode.assessment?.disposition !== "resume") throw new Error("same-stage return requires a digested resume assessment");
       const current = await loadState(context.journalPath);
       const key = actionKey(context, "return-activity", identity);
       const returnActivityId = prospectiveActivityId(context, { canonicalStage: source.canonicalStage,

@@ -3,6 +3,8 @@ import { isAbsolute, posix } from "node:path";
 
 export const LIFECYCLE_SCHEMA_VERSION = "myflow-lifecycle/v1";
 export const LIFECYCLE_SCHEMA_VERSION_2 = "myflow-lifecycle/v2";
+export const LIFECYCLE_SCHEMA_VERSION_3 = "myflow-lifecycle/v3";
+export const LINKED_OBSERVATION_KINDS = Object.freeze(["correction.opened", "action.resolved", "close.audit-gap-approved"]);
 const V2_KINDS = Object.freeze([
   "action.observed", "action.resolved", "revision.opened", "attempt.suspended",
   "attempt.assessed", "attempt.resumed", "attempt.superseded",
@@ -174,6 +176,10 @@ export function lifecycleEventId(event) {
     const { eventId, observationId, occurredAt, previousEventId, ...intent } = event;
     return `evt_${digest(intent).slice(0, 32)}`;
   }
+  if (event.schemaVersion === LIFECYCLE_SCHEMA_VERSION_3) {
+    const { eventId, occurredAt, previousEventId, ...intent } = event;
+    return `evt_${digest(intent).slice(0, 32)}`;
+  }
   return `evt_${digest({ repository, workstreamId, kind, source, idempotencyKey }).slice(0, 32)}`;
 }
 
@@ -208,7 +214,8 @@ function requireString(event, field) {
 export function validateLifecycleEvent(event) {
   if (!event || typeof event !== "object" || Array.isArray(event)) throw new Error("event must be an object");
   const closeCompletion = event.kind === "stage.completed" && event.terminalReason === "workstream-closed";
-  if (event.schemaVersion !== (V2_KINDS.includes(event.kind) ||
+  if (!(LINKED_OBSERVATION_KINDS.includes(event.kind) && event.schemaVersion === LIFECYCLE_SCHEMA_VERSION_3) &&
+      event.schemaVersion !== (V2_KINDS.includes(event.kind) ||
       (closeCompletion && event.schemaVersion === LIFECYCLE_SCHEMA_VERSION_2)
       ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION)) {
     throw new Error(`schemaVersion does not match event kind: ${event.kind}`);
@@ -325,7 +332,7 @@ export function validateLifecycleEvent(event) {
   }
   if (event.kind === "correction.validated") requireString(event, "episodeId");
   if (event.kind === "correction.opened") {
-    if (event.observationId !== undefined) requireString(event, "observationId");
+    if (event.schemaVersion === LIFECYCLE_SCHEMA_VERSION_3 || event.observationId !== undefined) requireString(event, "observationId");
     if (event.parentEpisodeId !== null) requireString(event, "parentEpisodeId");
     requireString(event, "episodeId");
   }

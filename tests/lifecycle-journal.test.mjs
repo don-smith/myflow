@@ -784,6 +784,13 @@ test("an observation after a terminal attempt remains unresolved until later act
     linkedEventIds: [entry.event.eventId], linkedAttemptIds: [entry.event.attemptId],
     linkedArtifactEventIds: [accepted.event.eventId] });
   assert.equal(resolution.event.attemptId, null);
+  assert.equal(resolution.event.schemaVersion, "myflow-lifecycle/v3");
+  const intact = await readFile(context.journalPath);
+  const altered = (await readLifecycleJournal(context.journalPath)).events;
+  altered.at(-1).observationId = "observation_altered";
+  await writeFile(context.journalPath, altered.map((event) => JSON.stringify(event)).join("\n") + "\n");
+  assert.match((await validateLifecycleJournal(context.journalPath)).errors.join(" "), /eventId integrity mismatch/);
+  await writeFile(context.journalPath, intact);
   const state = (await validateLifecycleJournal(context.journalPath)).state;
   assert.equal(state.unresolvedObservations.length, 0);
   assert.deepEqual(state.observations[0].resolution.linkedAttemptIds, [entry.event.attemptId]);
@@ -847,6 +854,13 @@ test("Close keeps named approved audit gaps unresolved and rejects incomplete or
     await assert.rejects(c.append("close.audit-gap-approved", { ...approval, ...changes }), /requires|unknown|accepted/i);
   }
   const first = await c.append("close.audit-gap-approved", approval);
+  assert.equal(first.event.schemaVersion, "myflow-lifecycle/v3");
+  const intact = await readFile(c.journalPath);
+  const altered = (await readLifecycleJournal(c.journalPath)).events;
+  altered.at(-1).observationId = "observation_altered";
+  await writeFile(c.journalPath, altered.map((event) => JSON.stringify(event)).join("\n") + "\n");
+  assert.match((await validateLifecycleJournal(c.journalPath)).errors.join(" "), /eventId integrity mismatch/);
+  await writeFile(c.journalPath, intact);
   assert.equal((await c.append("close.audit-gap-approved", { ...approval, idempotencyKey: first.event.idempotencyKey })).duplicate, true);
   await assert.rejects(c.append("close.audit-gap-approved", { ...approval, approvedBy: "other", idempotencyKey: first.event.idempotencyKey }), /rewrite/);
   await c.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout", terminalReason: "workstream-closed" });
@@ -1291,4 +1305,25 @@ test("correction identity, parent linkage, and changed retries are rejected with
   assert.equal(retry.duplicate, true);
   await assert.rejects(c.append("correction.opened", { ...input, idempotencyKey: first.event.idempotencyKey }),
     /rewrite a historical event/);
+});
+
+test("new linked event identities bind observation IDs while historical v2 links replay", async () => {
+  const c = await fixture(); await reachVerify(c);
+  const source = (await validateLifecycleJournal(c.journalPath)).state.currentAttemptId;
+  const first = await observed(c, { canonicalStage: "Verify", owningActivity: "verification", sourceAttemptId: source, findingSelector: "first" });
+  const second = await observed(c, { canonicalStage: "Verify", owningActivity: "verification", sourceAttemptId: source, findingSelector: "second" });
+  const link = await c.append("correction.opened", { canonicalStage: "Verify", owningActivity: "verification",
+    episodeId: "linked", observationId: first.event.observationId, parentEpisodeId: null,
+    detectingStage: "Verify", detectingActivity: "verification", initialOwningStage: "Implement",
+    initialOwningActivity: "phase", originAttemptId: source, triggerSource: "verification-evidence",
+    changeKind: "implementation", evidenceRefs: [first.event.artifactRef.path] });
+  assert.equal(link.event.schemaVersion, "myflow-lifecycle/v3");
+  const events = (await readLifecycleJournal(c.journalPath)).events;
+  events.at(-1).observationId = second.event.observationId;
+  await writeFile(c.journalPath, events.map((event) => JSON.stringify(event)).join("\n") + "\n");
+  assert.match((await validateLifecycleJournal(c.journalPath)).errors.join(" "), /eventId integrity mismatch/);
+  events.at(-1).schemaVersion = "myflow-lifecycle/v2";
+  events.at(-1).eventId = lifecycleEventId(events.at(-1));
+  await writeFile(c.journalPath, events.map((event) => JSON.stringify(event)).join("\n") + "\n");
+  assert.equal((await validateLifecycleJournal(c.journalPath)).valid, true, "historical v2 replay does not prove its original attribution");
 });

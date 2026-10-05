@@ -13,6 +13,8 @@ import { dirname, resolve, sep } from "node:path";
 import {
   LIFECYCLE_SCHEMA_VERSION,
   LIFECYCLE_SCHEMA_VERSION_2,
+  LIFECYCLE_SCHEMA_VERSION_3,
+  LINKED_OBSERVATION_KINDS,
   assertRepositoryRelativePath,
   canonicalJson,
   comparableLifecycleIntent,
@@ -108,7 +110,9 @@ async function buildEvent(input, state, previousEventId, existing) {
   } = input;
   const event = {
     ...semanticInput,
-    schemaVersion: existing?.schemaVersion ?? (["action.observed", "action.resolved", "revision.opened", "attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded", "correction.opened", "correction.validated", "slice.started", "close.audit-gap-approved"].includes(semanticInput.kind) ||
+    schemaVersion: existing?.schemaVersion ?? ((LINKED_OBSERVATION_KINDS.includes(semanticInput.kind) &&
+      (semanticInput.kind !== "correction.opened" || semanticInput.observationId !== undefined))
+      ? LIFECYCLE_SCHEMA_VERSION_3 : ["action.observed", "action.resolved", "revision.opened", "attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded", "correction.opened", "correction.validated", "slice.started", "close.audit-gap-approved"].includes(semanticInput.kind) ||
       (semanticInput.kind === "stage.completed" && semanticInput.terminalReason === "workstream-closed")
       ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION),
     occurredAt: existing?.occurredAt ?? semanticInput.occurredAt ?? new Date().toISOString(),

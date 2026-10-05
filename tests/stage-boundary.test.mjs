@@ -594,7 +594,7 @@ test("record-only provisional correction reconciles later truthful attempts, not
   t.after(() => rm(c.root, { recursive: true, force: true }));
   await journeyToVerify(c);
   await evidence(c);
-  const provisional = await run(c, "correct", "--action", "route", "--stage", "Verify", "--activity", "verification", "--artifact", "finding.md", "--finding", "uncertain owner", "--owner", "researcher", "--owning-stage", "Scope", "--owning-activity", "scope", "--trigger-source", "developer-report", "--change-kind", "implementation");
+  const provisional = await run(c, "correct", "--action", "observe", "--stage", "Verify", "--activity", "verification", "--artifact", "finding.md", "--finding", "uncertain owner", "--owner", "researcher", "--owning-stage", "Scope", "--owning-activity", "scope");
   assert.equal(provisional.disposition, "provisional");
   assert.deepEqual(kinds(provisional), ["action.observed"]);
   assert.equal(provisional.currentAttempt.canonicalStage, "Verify");
@@ -890,6 +890,9 @@ test("same-stage Plan correction returns to design within the original attempt",
   assert.equal((await run(c, ...flags)).observationId, first.observationId);
   const accepted = await run(c, "accept", "--stage", "Plan", "--activity", "design", "--artifact", "finding.md");
   await run(c, "correct", "--action", "ready", "--stage", "Plan", "--activity", "design", "--episode-id", first.episodeId);
+  await assert.rejects(run(c, "enter", "--stage", "Plan", "--activity", "planning", "--label", "replanned"), /same-stage return requires a digested resume assessment/);
+  await run(c, "correct", "--action", "assess", "--stage", "Plan", "--activity", "design", "--episode-id", first.episodeId,
+    "--artifact", "finding.md", "--disposition", "resume", "--reusable-evidence", "accepted design", "--invalidated-evidence", "old plan", "--rerun-check", "plan review");
   await run(c, "enter", "--stage", "Plan", "--activity", "planning", "--label", "replanned");
   const resumeFlags = ["correct", "--action", "resume", "--stage", "Plan", "--activity", "planning", "--episode-id", first.episodeId];
   const resumed = await run(c, ...resumeFlags);
@@ -940,4 +943,37 @@ test("observation remains local and reports remote sync failure", async (t) => {
   const validation = await validateLifecycleJournal(c.journalPath);
   assert.equal(validation.valid, true);
   assert.deepEqual(validation.state.unresolvedObservations.map(({ observationId }) => observationId), [observed.observationId]);
+});
+
+test("semantic Plan design entry switches to planning without a second stage entry", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c); await evidence(c);
+  const route = await run(c, "correct", "--action", "route", "--stage", "Verify", "--activity", "verification",
+    "--artifact", "finding.md", "--finding", "design defect", "--owner", "designer", "--owning-stage", "Plan",
+    "--owning-activity", "design", "--trigger-source", "verification-evidence", "--change-kind", "architecture");
+  assert.equal(route.disposition, "canonical");
+  await run(c, "accept", "--stage", "Plan", "--activity", "design", "--artifact", "finding.md");
+  const planning = await run(c, "enter", "--stage", "Plan", "--activity", "planning");
+  assert.deepEqual(kinds(planning), ["activity.completed", "activity.entered"]);
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.attempts.filter(({ canonicalStage }) => canonicalStage === "Plan").length, 2);
+  assert.equal(state.activities.at(-1).owningActivity, "planning");
+});
+
+test("invalid change-kind owner rejects before observation; authorized blocked route remains provisional", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c); await evidence(c);
+  const flags = ["correct", "--action", "route", "--stage", "Verify", "--activity", "verification", "--artifact", "finding.md",
+    "--finding", "invalid owner", "--owner", "researcher", "--owning-stage", "Scope", "--owning-activity", "scope",
+    "--trigger-source", "developer-report", "--change-kind", "implementation"];
+  const before = await readFile(c.journalPath, "utf8");
+  await assert.rejects(run(c, ...flags), /implementation corrections route to Implement\/phase/);
+  assert.equal(await readFile(c.journalPath, "utf8"), before);
+  const first = await run(c, ...flags.map((value) => value === "Scope" ? "Implement" : value === "scope" ? "phase" : value));
+  assert.equal(first.disposition, "canonical");
+  const blocked = await run(c, ...flags.map((value) => value === "Scope" ? "Implement" : value === "scope" ? "phase" : value === "invalid owner" ? "another finding" : value), "--finding-selector", "other", "--source-attempt-id", first.sourceAttempt.attemptId);
+  assert.equal(blocked.disposition, "provisional");
+  assert.deepEqual(kinds(blocked), ["action.observed"]);
 });

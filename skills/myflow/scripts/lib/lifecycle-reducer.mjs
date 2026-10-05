@@ -59,7 +59,7 @@ function findEpisode(state, episodeId) {
   return episode;
 }
 
-function assertRoute(changeKind, stage, activity) {
+export function assertRoute(changeKind, stage, activity) {
   const expected = ROUTE_BY_CHANGE_KIND[changeKind];
   if (expected && (stage !== expected.stage || activity !== expected.activity)) {
     throw new Error(`${changeKind} corrections route to ${expected.stage}/${expected.activity}`);
@@ -354,11 +354,15 @@ export function applyLifecycleEvent(previousState, event) {
     case "attempt.assessed": {
       const episode = findEpisode(state, event.episodeId);
       const attempt = state.attempts.find(({ attemptId }) => attemptId === event.attemptId);
-      if (state.activeRouteEpisodeId !== episode.episodeId || !episode.suspendedAt || !episode.ownerReadyAt || episode.assessment || attempt.status !== "suspended" ||
-          state.currentAttemptId || event.owningActivity !== episode.detectingActivity) {
-        throw new Error("assessment requires completed owner work and a suspended detecting attempt");
+      const sameStage = episode.owner.stage === episode.detectingStage && !episode.suspendedAt;
+      if (state.activeRouteEpisodeId !== episode.episodeId || !episode.ownerReadyAt || episode.assessment ||
+          event.owningActivity !== episode.detectingActivity ||
+          (sameStage ? (attempt.status !== "open" || state.currentAttemptId !== attempt.attemptId ||
+            state.activities.find(({ activityId }) => activityId === state.currentActivityId)?.owningActivity !== episode.owner.activity)
+            : (attempt.status !== "suspended" || !!state.currentAttemptId))) {
+        throw new Error("assessment requires completed owner work and a suspended detecting attempt, or an active same-stage owner");
       }
-      if (!completedCorrectionPath(state, episode)) {
+      if (!sameStage && !completedCorrectionPath(state, episode)) {
         throw new Error("assessment requires completed downstream stages in order after owner readiness");
       }
       episode.assessment = { eventId: event.eventId, disposition: event.disposition,
@@ -495,6 +499,12 @@ export function applyLifecycleEvent(previousState, event) {
     }
     case "activity.entered": {
       if (state.currentActivityId) throw new Error("overlapping activities are not allowed");
+      const route = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
+      if (route?.ownerReadyAt && route.owner.stage === route.detectingStage && !route.suspendedAt &&
+          event.attemptId === route.originAttemptId && event.owningActivity === route.detectingActivity &&
+          route.assessment?.disposition !== "resume") {
+        throw new Error("same-stage return requires a digested resume assessment before detecting activity entry");
+      }
       const activityId = `activity_${event.eventId.slice(4)}`;
       state.activities.push({
         activityId,
@@ -757,6 +767,9 @@ export function applyLifecycleEvent(previousState, event) {
           !(episode.suspendedAt && event.canonicalStage === episode.detectingStage &&
             state.currentAttemptId === episode.originAttemptId)) {
         throw new Error("downstream resumption must start at the next affected stage");
+      }
+      if (sameStageReturn && !episode.suspendedAt && (episode.assessment?.disposition !== "resume" || !episode.assessment.artifactRef)) {
+        throw new Error("same-stage return requires a digested resume assessment");
       }
       if (sameStageReturn && (state.currentAttemptId !== episode.originAttemptId ||
           !state.activities.some(({ activityId, owningActivity }) => activityId === state.currentActivityId && owningActivity === episode.detectingActivity) ||
