@@ -788,6 +788,49 @@ test("an observation after a terminal attempt remains unresolved until later act
   assert.deepEqual((await readFile(context.journalPath)).subarray(0, before.length), before);
 });
 
+test("a named audit-gap exception cannot waive passing Verify", async () => {
+  const c = await fixture(); await reachVerify(c);
+  const verify = (await validateLifecycleJournal(c.journalPath)).state.currentAttemptId;
+  const observation = await observed(c, { canonicalStage: "Verify", owningActivity: "verification", sourceAttemptId: verify });
+  await c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
+  await c.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" });
+  const accepted = await c.append("artifact.accepted", { canonicalStage: "Close", owningActivity: "closeout",
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
+  await c.append("close.audit-gap-approved", { canonicalStage: "Close", owningActivity: "closeout",
+    observationId: observation.event.observationId, gapName: "missing planning entry", approvedBy: "Don Smith",
+    followUpDestination: "scope/next-workstream.md", closeArtifactEventId: accepted.event.eventId });
+  await assert.rejects(c.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout",
+    terminalReason: "workstream-closed" }), /passing Verify/);
+});
+
+test("Close keeps named approved audit gaps unresolved and rejects incomplete or unrelated approvals", async () => {
+  const c = await fixture(); await reachVerify(c);
+  const verify = (await validateLifecycleJournal(c.journalPath)).state.currentAttemptId;
+  const observation = await observed(c, { canonicalStage: "Verify", owningActivity: "verification", sourceAttemptId: verify });
+  await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
+  await c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
+  await c.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" });
+  const accepted = await c.append("artifact.accepted", { canonicalStage: "Close", owningActivity: "closeout",
+    artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
+  const approval = { schemaVersion: "myflow-lifecycle/v2", canonicalStage: "Close", owningActivity: "closeout",
+    observationId: observation.event.observationId, gapName: "missing planning entry", approvedBy: "Don Smith",
+    followUpDestination: "scope/next-workstream.md", closeArtifactEventId: accepted.event.eventId };
+  await assert.rejects(c.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout", terminalReason: "workstream-closed" }), /unresolved observation/);
+  for (const changes of [{ approvedBy: "" }, { followUpDestination: "" }, { observationId: "observation_missing" },
+    { closeArtifactEventId: "evt_missing" }]) {
+    await assert.rejects(c.append("close.audit-gap-approved", { ...approval, ...changes }), /requires|unknown|accepted/i);
+  }
+  const first = await c.append("close.audit-gap-approved", approval);
+  assert.equal((await c.append("close.audit-gap-approved", { ...approval, idempotencyKey: first.event.idempotencyKey })).duplicate, true);
+  await assert.rejects(c.append("close.audit-gap-approved", { ...approval, approvedBy: "other", idempotencyKey: first.event.idempotencyKey }), /rewrite/);
+  await c.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout", terminalReason: "workstream-closed" });
+  await c.append("workstream.closed", { canonicalStage: "Close", owningActivity: "closeout" });
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.closed, true);
+  assert.equal(state.unresolvedObservations.length, 1);
+  assert.equal(state.approvedAuditGaps[0].observationId, observation.event.observationId);
+});
+
 test("observations reject invalid sources, evidence, false completion, and conflicting retries", async () => {
   const context = await fixture(); await createAndEnterScope(context);
   await assert.rejects(observed(context, { sourceAttemptId: "attempt_missing" }), /unknown source attempt/);

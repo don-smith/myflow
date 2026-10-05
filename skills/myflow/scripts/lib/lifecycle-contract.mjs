@@ -6,7 +6,7 @@ export const LIFECYCLE_SCHEMA_VERSION_2 = "myflow-lifecycle/v2";
 const V2_KINDS = Object.freeze([
   "action.observed", "action.resolved", "revision.opened", "attempt.suspended",
   "attempt.assessed", "attempt.resumed", "attempt.superseded",
-  "correction.opened", "correction.validated", "slice.started",
+  "correction.opened", "correction.validated", "slice.started", "close.audit-gap-approved",
 ]);
 export const CANONICAL_STAGES = Object.freeze(["Scope", "Plan", "Implement", "Verify", "Close"]);
 export const TERMINAL_REASONS = Object.freeze([
@@ -115,6 +115,7 @@ const FIELDS_BY_KIND = Object.freeze({
   "correction.opened": ["episodeId", "parentEpisodeId", "detectingStage", "detectingActivity", "initialOwningStage", "initialOwningActivity", "originAttemptId", "triggerSource", "changeKind", "evidenceRefs"],
   "correction.validated": ["episodeId"],
   "slice.started": ["sliceName", "precedingVerifyAttemptId", "planningBasisEventId", "scopeArtifactEventId", "designArtifactEventId"],
+  "close.audit-gap-approved": ["observationId", "gapName", "approvedBy", "followUpDestination", "closeArtifactEventId"],
 });
 
 const REQUIRED_BY_KIND = Object.freeze({
@@ -149,6 +150,7 @@ const REQUIRED_BY_KIND = Object.freeze({
   "correction.opened": ["episodeId", "detectingStage", "detectingActivity", "initialOwningStage", "initialOwningActivity", "originAttemptId", "triggerSource", "changeKind", "evidenceRefs"],
   "correction.validated": ["episodeId", "artifactRef"],
   "slice.started": ["sliceName", "precedingVerifyAttemptId", "planningBasisEventId", "scopeArtifactEventId", "designArtifactEventId"],
+  "close.audit-gap-approved": ["observationId", "gapName", "approvedBy", "followUpDestination", "closeArtifactEventId"],
 });
 
 export function canonicalJson(value) {
@@ -312,6 +314,10 @@ export function validateLifecycleEvent(event) {
     for (const field of ["sliceName", "precedingVerifyAttemptId", "planningBasisEventId", "scopeArtifactEventId", "designArtifactEventId"]) requireString(event, field);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.sliceName)) throw new Error("slice name must be kebab-case");
     if (event.canonicalStage !== "Plan" || event.owningActivity !== "planning") throw new Error("slice start belongs to Plan/planning");
+  }
+  if (event.kind === "close.audit-gap-approved") {
+    for (const field of ["observationId", "gapName", "approvedBy", "followUpDestination", "closeArtifactEventId"]) requireString(event, field);
+    if (event.canonicalStage !== "Close" || event.owningActivity !== "closeout") throw new Error("audit gap approval belongs to Close/closeout");
   }
   if (event.kind === "correction.validated") requireString(event, "episodeId");
   if (event.kind === "correction.opened") {

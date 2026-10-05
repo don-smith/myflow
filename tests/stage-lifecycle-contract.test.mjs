@@ -103,6 +103,30 @@ test("the boundary command owns the derived keys, and the journal CLI keeps the 
   assert.match(boundary, /lifecycle-journal\.mjs[^.]*stage-blocked[^.]*stage-unblocked[^.]*verification-completed/s);
 });
 
+test("stage guidance distinguishes provisional work, slices, and approved unresolved audit gaps", async () => {
+  const [reference, router, checkpoint, workstream, close, verify] = await Promise.all([
+    read("skills/myflow/references/stage-boundary.md"), read("skills/myflow/SKILL.md"),
+    read("skills/myflow/templates/stage-context-checkpoint.md"), read("skills/myflow/templates/workstream.md"),
+    read("skills/close/SKILL.md"), read("skills/verify/SKILL.md"),
+  ]);
+  for (const document of [reference, router, checkpoint, workstream]) {
+    assert.match(document, /provisional/i);
+    assert.match(document, /unresolved observation/i);
+    assert.match(document, /canonical/i);
+  }
+  assert.match(reference, /correct --action observe/);
+  assert.match(reference, /correct --action resolve/);
+  assert.match(reference, /slice --stage Plan/);
+  assert.match(reference, /never backdat/i);
+  assert.match(verify, /each planned slice/i);
+  assert.match(close, /applicable cumulative checks/i);
+  assert.match(close, /approve-audit-gap/);
+  assert.match(close, /named owner approval/i);
+  assert.match(close, /follow-up destination/i);
+  assert.match(close, /unresolved observation/i);
+  assert.match(close, /passing review evidence/i);
+});
+
 test("stage contracts preserve correction ownership and immutable history", async () => {
   const skills = await readSkills();
   const joined = Object.values(skills).join("\n");

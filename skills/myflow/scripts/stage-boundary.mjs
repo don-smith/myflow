@@ -484,6 +484,11 @@ async function exit(context, options) {
     throw usageError(`--terminal-reason must be one of ${TERMINAL_REASONS.join(", ")}`);
   }
   const state = await loadState(context.journalPath);
+  if (canonicalStage === "Close" && terminalReason === "workstream-closed" && state.currentAttemptId &&
+      state.unresolvedObservations.some(({ observationId }) =>
+        !state.approvedAuditGaps.some((gap) => gap.observationId === observationId))) {
+    throw new Error("Close requires an approved named gap for every unresolved observation");
+  }
   const attempt = state.currentAttemptId ? attemptFor(state, canonicalStage) :
     state.attempts.filter(({ canonicalStage: stage }) => stage === canonicalStage).at(-1);
   if (!attempt || (!state.currentAttemptId && state.lastTerminalAttemptId !== attempt.attemptId)) {
@@ -858,6 +863,21 @@ async function correct(context, options) {
   return { episodeId: identity, ...await finishSemantic(context, observation, "canonical") };
 }
 
+async function approveAuditGap(context, options) {
+  if (options.canonicalStage !== "Close" || options.owningActivity !== "closeout") {
+    throw usageError("audit-gap approval belongs to Close/closeout");
+  }
+  for (const field of ["observationId", "gapName", "approvedBy", "followUpDestination", "closeArtifactEventId"]) {
+    if (!options[field]) throw usageError(`audit-gap approval requires ${field}`);
+  }
+  await semanticRecord(context, { kind: "close.audit-gap-approved", canonicalStage: "Close", owningActivity: "closeout",
+    observationId: options.observationId, gapName: options.gapName, approvedBy: options.approvedBy,
+    followUpDestination: options.followUpDestination, closeArtifactEventId: options.closeArtifactEventId,
+  }, "audit-gap-approved", options.observationId);
+  return { unresolvedIds: (await loadState(context.journalPath)).unresolvedObservations.map(({ observationId }) => observationId),
+    sync: await syncWorkstream(context) };
+}
+
 async function slice(context, options) {
   if (options.canonicalStage !== "Plan" || options.owningActivity !== "planning") {
     throw usageError("slice starts at Plan/planning");
@@ -882,7 +902,7 @@ async function slice(context, options) {
   }
 }
 
-const COMMANDS = { enter, accept, exit, return: returnEvent, correct, slice };
+const COMMANDS = { enter, accept, exit, return: returnEvent, correct, slice, "approve-audit-gap": approveAuditGap };
 
 /**
  * Run one stage-boundary command.
@@ -933,6 +953,10 @@ const VALUE_FLAGS = new Map([
   ["--action", "action"],
   ["--source-attempt-id", "sourceAttemptId"],
   ["--observation-id", "observationId"],
+  ["--gap-name", "gapName"],
+  ["--approved-by", "approvedBy"],
+  ["--follow-up", "followUpDestination"],
+  ["--close-artifact-event", "closeArtifactEventId"],
   ["--finding", "finding"],
   ["--owner", "owner"],
   ["--disposition", "disposition"],
@@ -942,7 +966,7 @@ const VALUE_FLAGS = new Map([
   ["--design-basis", "designArtifactEventId"],
 ]);
 
-const usage = `usage: stage-boundary.mjs <enter|accept|exit|return|correct|slice> --workstream <id> --stage <stage> --activity <activity> --repository-root <git-root> [options]
+const usage = `usage: stage-boundary.mjs <enter|accept|exit|return|correct|slice|approve-audit-gap> --workstream <id> --stage <stage> --activity <activity> --repository-root <git-root> [options]
   enter  [--label <activity label>] [--feedback <answer> [--note <sentence>]]
   accept --artifact <repository-relative path>
   exit   --feedback <${FEEDBACK_ANSWERS.join("|")}> [--note <sentence>] [--terminal-reason <${TERMINAL_REASONS.join("|")}>]
@@ -954,7 +978,9 @@ const usage = `usage: stage-boundary.mjs <enter|accept|exit|return|correct|slice
           [--rerun-check <check>]... [--linked-event <ID>]... [--linked-attempt <ID>]...
           [--linked-artifact-event <ID>]...
   slice   --stage Plan --activity planning --slice <name> --artifact <evidence>
-          --planning-basis <accepted event ID> --scope-basis <accepted event ID> --design-basis <accepted event ID>`;
+          --planning-basis <accepted event ID> --scope-basis <accepted event ID> --design-basis <accepted event ID>
+  approve-audit-gap --stage Close --activity closeout --observation-id <ID> --gap-name <name>
+          --approved-by <named owner> --follow-up <destination> --close-artifact-event <accepted Close event ID>`;
 
 export function parseArguments(arguments_) {
   const [command, ...rest] = arguments_;

@@ -17,7 +17,9 @@
 - Current artifact: `{path}`
 - Relevant files / sources: `{paths and why they matter}`
 - Evidence and verification state: {checks run, results, manual checks pending, or explicit exclusions}
-- Lifecycle receipt: `{event ID and attempt ID for the latest real state change}`
+- Lifecycle receipt: `{canonical event and attempt ID, or provisional observation ID, cause, and next safe action; never claim a provisional entry}`
+- Unresolved observations and pending Verify obligations: `{IDs, owner, evidence, and next action | none}`
+- Planned slices: `{name and separate Plan, Implement, Verify evidence; applicable cumulative checks | none}`
 - Feedback coverage: `{missing | pending | skipped | recorded}`; private reference: `{reference or none}`
 
 ### Open Questions or Blockers
@@ -54,6 +56,6 @@
 
 Record every stage boundary with the MyFlow stage-boundary command (`stage-boundary.mjs` in the installed `myflow` skill): `enter` on entry, `accept` for each artifact the developer accepts, `exit` with the answer to the stage question before leaving, and `return` for a correction. The command derives every idempotency key and writes the private stage feedback; never invent a key, and never append to or edit `lifecycle/events.jsonl` directly. Keep the returned event and attempt IDs in the checkpoint.
 
-Record blocks with `stage-blocked` and `stage-unblocked`, and re-verification with `verification-completed`, through the lifecycle journal CLI (`lifecycle-journal.mjs` in the installed `myflow` skill). Preserve earlier attempts and accepted artifact events as history.
+Record blocks with `stage-blocked` and `stage-unblocked`, and re-verification with `verification-completed`, through the lifecycle journal CLI (`lifecycle-journal.mjs` in the installed `myflow` skill). Preserve earlier attempts and accepted artifact events as history. For an unsupported correction, retain the provisional observation in this checkpoint and the workstream manifest. Reconcile with `correct --action resolve` only after later real transitions and accepted evidence exist; do not backdate an attempt. At Close, report each unresolved observation and any explicit named owner-approved audit gap with its follow-up destination.
 
 The question wording, its four choices, the Implement deferral to Verify entry, what the private record captures, and the failure rules are stated once, in `stage-boundary.md` in the installed `myflow` skill's references folder.

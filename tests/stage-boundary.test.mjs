@@ -377,6 +377,41 @@ test("a Close exit ends the workstream in one command", async (t) => {
   assert.equal(validation.state.feedback.filter(({ status }) => status === "recorded").length, 5);
 });
 
+test("Close command requires explicit approved gap and retains the observation", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
+  await writeFile(join(c.workstreamDirectory, "close.md"), "# Approved gap evidence\n");
+  for (const [stage, activity] of [["Scope", "scope"], ["Plan", "planning"], ["Implement", "phase"]]) {
+    await run(c, "enter", "--stage", stage, "--activity", activity);
+    await run(c, "exit", "--stage", stage, "--activity", activity, "--feedback", "skipped");
+  }
+  await run(c, "enter", "--stage", "Verify", "--activity", "verification");
+  const observed = await run(c, "correct", "--action", "observe", "--stage", "Verify", "--activity", "verification",
+    "--finding", "missing stage history", "--owner", "Plan/planning", "--artifact", "workstream.md",
+    "--owning-stage", "Plan", "--owning-activity", "planning");
+  const journal = new URL("../skills/myflow/scripts/lifecycle-journal.mjs", import.meta.url).pathname;
+  await execFile(process.execPath, [journal, "verification-completed", "--workstream-id", WORKSTREAM,
+    "--repository-root", c.repo, "--stage", "Verify", "--activity", "verification", "--source", "verify",
+    "--idempotency-key", "close-pass", "--verification-status", "passed"], { env: c.env });
+  await run(c, "exit", "--stage", "Verify", "--activity", "verification", "--feedback", "skipped");
+  await run(c, "enter", "--stage", "Close", "--activity", "closeout");
+  const accepted = await run(c, "accept", "--stage", "Close", "--activity", "closeout", "--artifact", "close.md");
+  await assert.rejects(run(c, "exit", "--stage", "Close", "--activity", "closeout", "--feedback", "skipped",
+    "--terminal-reason", "workstream-closed"), /approved named gap/);
+  assert.equal((await validateLifecycleJournal(c.journalPath)).state.feedback.filter(({ status }) => status === "skipped").length, 4);
+  const flags = ["approve-audit-gap", "--stage", "Close", "--activity", "closeout", "--observation-id", observed.observationId,
+    "--gap-name", "missing stage history", "--approved-by", "Owner", "--follow-up", "scope/next-workstream.md",
+    "--close-artifact-event", accepted.events[0].eventId];
+  const approved = await run(c, ...flags);
+  assert.deepEqual(kinds(approved), ["close.audit-gap-approved"]);
+  assert.equal((await run(c, ...flags)).events[0].duplicate, true);
+  await assert.rejects(run(c, ...flags.map((flag) => flag === "Owner" ? "Other" : flag)), /rewrite/);
+  await run(c, "exit", "--stage", "Close", "--activity", "closeout", "--feedback", "skipped", "--terminal-reason", "workstream-closed");
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.closed, true);
+  assert.deepEqual(state.unresolvedObservations.map(({ observationId }) => observationId), [observed.observationId]);
+});
+
 test("one stage attempt takes a second activity, in Plan and in Verify", async (t) => {
   const context = await fixture();
   t.after(() => rm(context.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));

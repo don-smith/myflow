@@ -14,14 +14,15 @@ Close consumes Verify evidence; it does not repeat validation or force ceremonia
 1. Run the resolver from the installed MyFlow package: `node ../myflow/scripts/resolve-repository-map.mjs discover --cwd <git-root>`, resolving the script path relative to this installed `skills/close/SKILL.md`. Read its selected map when found.
 2. Read `workstream.md`, the validation report, accepted plan, and current Git state. Do not trust only the validation report's top-level verdict. Follow its linked review artifact and read the review artifact before entering Close.
 3. Confirm the linked review artifact exists, names the same accepted plan and implementation range or exact implementation scope as the validation report/checkpoint, contains the required review evidence, and has a passing review verdict. For commit-list review, require the exact scope spec and resolved commit set to match; range base/head alone is insufficient. Missing, failing, blocked, or mismatched review evidence prevents Close and returns to Verify or the recorded corrective owner.
-4. Determine the closeout path: `<workstream-root>/<workstream-id>/close/<timestamp>_<topic>.md`.
+4. Check every accepted planned slice for its own Plan, Implement, and passing Verify evidence, and record applicable cumulative checks for the accepted outcome. List every unresolved observation from the journal projection. Resolve one only with later real event, attempt, and accepted artifact links. Otherwise require a named audit gap, explicit named owner approval, and a follow-up destination in the Close artifact; acceptance of the artifact alone does not imply approval. This exception leaves the observation unresolved and never waives passing Verify or linked passing review evidence.
+5. Determine the closeout path: `<workstream-root>/<workstream-id>/close/<timestamp>_<topic>.md`.
 
 ## Stage boundary
 
 Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from this skill's folder. Pass `--repository-root <git-root>` on every subcommand — the same `<git-root>` resolved in step 1 — because the command otherwise records against its own working directory, which on an install is the skill folder rather than the target repository. It derives every idempotency key, writes the private stage feedback, and syncs the workstream; never write lifecycle JSONL directly.
 
 - After the passing Verify handoff: `enter --stage Close --activity closeout --workstream <workstream-id> --repository-root <git-root>`.
-- When the closeout summary is accepted: `accept --artifact <path>`.
+- When the closeout summary is accepted: `accept --artifact <path>`. For each unresolved observation with a separately granted named owner approval, use `approve-audit-gap --stage Close --activity closeout --observation-id <ID> --gap-name <name> --approved-by <named owner> --follow-up <destination> --close-artifact-event <accepted Close event ID>`. Do not infer approval from artifact acceptance.
 - To end the workstream: ask the stage question, then `exit --feedback <answer> --terminal-reason workstream-closed`. That one call records the private stage pulse, `activity-completed`, `stage-completed`, and `workstream-closed` in order. Feedback failure blocks none of them.
 - If Close discovers new evidence: `return` to the owning stage and exit with `--terminal-reason superseded` instead. Do not close the workstream with an open correction.
 
@@ -40,7 +41,7 @@ Do not force a retro, memory edit, status rewrite, AGENTS edit, empty tabled fil
 
 ## Closeout and delivery
 
-Write/update the closeout summary with Verify verdict, what shipped, applicable documentation/learning actions, outstanding manual evidence, final commit state, integration decision, and every follow-up destination. Update `workstream.md` with the summary and next action.
+Write/update the closeout summary with Verify verdict, per-slice and applicable cumulative checks, what shipped, applicable documentation/learning actions, outstanding manual evidence, final commit state, integration decision, and every follow-up destination. Report unresolved observations separately from approved named audit gaps; do not claim a complete audit trail while one remains. Update `workstream.md` with the summary and next action.
 
 If closeout changes exist, use `commit` for one distinct final closeout commit after developer approval. Phase commits are never folded into it. Ask the developer whether to push, merge, create a PR, keep the branch, or defer delivery; follow mapped policy when it exists. Do not infer an integration policy.
 

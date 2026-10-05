@@ -67,7 +67,7 @@ Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from thi
 - Before planning work: `enter --stage Plan --activity planning --workstream <workstream-id> --repository-root <git-root>`. This opens the Plan attempt when design did not, and completes an open design activity.
 - When the developer accepts the ready plan: `accept --artifact <path>`.
 - Before leaving Plan: ask the stage question, then `exit --feedback <answer>`.
-- When planning detects that architecture or outcome ownership changed: `return`, before completing the current attempt. Record `--event owner-ready` when this Plan attempt owns an active correction.
+- When planning detects changed architecture or outcome: use intent-first `correct` before leaving the current attempt. Record owner readiness only after corrective work. A provisional observation is not a completed Plan transition. After passing Verify, `slice` starts a named next Plan under the same accepted outcome and reused Scope and Design; accept its detailed plan before Implement. Changed outcomes or architecture require correction, not a planned slice.
 
 Read `../myflow/references/stage-boundary.md` for the question wording and choices, the correction options, and what happens when a step fails. Preserve all earlier attempts and accepted artifacts as history.
 

@@ -37,9 +37,12 @@ flow_item_type: unknown # feature | defect | debt | risk | unknown
 - Current attempt: `{attempt ID and ordinal | not started | closed}`
 - Open correction episode: `{episode ID | none}`
 - Return counts: `returnEpisodeCount={n}`, `stageReturnCount={n}`, `activityReturnCount={n}`
-- Last receipt: `{event ID | none}`
+- Last receipt: `{canonical event ID | provisional observation ID | none}`
+- Unresolved observations: `{observation ID, source attempt, finding, owner, evidence path and digest, cause, next safe action | none}`
+- Pending Verify obligations: `{episode IDs and required fresh checks | none}`
+- Planned slices: `{name, Plan, Implement, Verify evidence and status | none}`
 
-The journal is the append-only lifecycle authority. This manifest is its current-state projection. Stage artifacts remain the decision and evidence records.
+The journal is the append-only lifecycle authority. This manifest is its current-state projection. A provisional receipt records an observation, not a canonical stage entry. Keep unresolved observations visible even when a named audit gap is approved at Close. Stage artifacts remain the decision and evidence records.
 
 ## Worktree and Delivery Context
 

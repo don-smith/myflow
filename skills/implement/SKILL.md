@@ -35,7 +35,7 @@ Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from thi
 - On entry and at the start of every phase: `enter --stage Implement --activity phase --workstream <workstream-id> --repository-root <git-root> --label <phase>`. The first call opens the attempt; each later call completes the previous phase's activity and opens the next.
 - For an accepted checkpoint artifact: `accept --artifact <path>`.
 - After the last phase: `exit --feedback pending`. Implement runs without live developer interaction, so it shows no question and records coverage as pending; Verify asks it once at entry. When live interaction is already available, pass the developer's answer instead.
-- When a correction routes work back: `return`. The detecting stage opens the episode; Implement records `--event owner-ready` only after the corrective phase is green.
+- When a correction routes work back: use intent-first `correct` with the real finding, source attempt, owner, and evidence. Keep a provisional observation in the checkpoint and workstream manifest without claiming stage entry. Implement records owner readiness only after corrective work is green. Record checks to rerun in the impact assessment; a passing earlier Verify is not a waiver.
 
 Read `../myflow/references/stage-boundary.md` for the deferral rule, the question wording and choices, and what happens when a step fails: feedback failure never blocks the stage transition or entry to Verify. Preserve completed attempts, phase commits, and accepted artifacts as history.
 

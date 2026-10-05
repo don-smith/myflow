@@ -34,6 +34,7 @@ export function initialLifecycleState() {
     feedback: [],
     observations: [],
     unresolvedObservations: [],
+    approvedAuditGaps: [],
     revision: null,
     activeRouteEpisodeId: null,
     pendingVerificationEpisodeIds: [],
@@ -252,6 +253,19 @@ export function applyLifecycleEvent(previousState, event) {
       }
       observation.resolution = { eventId: event.eventId, linkedEventIds: event.linkedEventIds,
         linkedAttemptIds: event.linkedAttemptIds, linkedArtifactEventIds: event.linkedArtifactEventIds };
+      break;
+    }
+    case "close.audit-gap-approved": {
+      const observation = state.observations.find(({ observationId }) => observationId === event.observationId);
+      if (!observation || observation.resolution || state.approvedAuditGaps.some(({ observationId }) => observationId === event.observationId)) {
+        throw new Error("unknown, resolved, or already approved audit-gap observation");
+      }
+      const artifact = state.acceptedArtifacts.find(({ eventId }) => eventId === event.closeArtifactEventId);
+      if (!artifact || artifact.attemptId !== state.currentAttemptId || artifact.canonicalStage !== "Close" ||
+          artifact.owningActivity !== "closeout") throw new Error("audit gap requires an accepted Close artifact");
+      state.approvedAuditGaps.push({ observationId: event.observationId, gapName: event.gapName,
+        approvedBy: event.approvedBy, followUpDestination: event.followUpDestination,
+        closeArtifactEventId: event.closeArtifactEventId, eventId: event.eventId });
       break;
     }
     case "revision.opened": {
@@ -481,8 +495,15 @@ export function applyLifecycleEvent(previousState, event) {
     case "stage.completed": {
       if (state.currentActivityId) throw new Error("open activity must complete before its stage attempt");
       if (state.currentBlockId) throw new Error("blocked stage must resume before completion");
-      if (event.terminalReason === "workstream-closed" && event.canonicalStage !== "Close") {
-        throw new Error("only a Close attempt may end with workstream-closed");
+      if (event.terminalReason === "workstream-closed") {
+        if (event.canonicalStage !== "Close") throw new Error("only a Close attempt may end with workstream-closed");
+        if (state.approvedAuditGaps.length && !state.attempts.findLast(({ canonicalStage }) => canonicalStage === "Verify")?.passingVerificationAt) {
+          throw new Error("approved audit gaps do not waive passing Verify");
+        }
+        if (state.observations.some(({ observationId, resolution }) => !resolution &&
+            !state.approvedAuditGaps.some((gap) => gap.observationId === observationId))) {
+          throw new Error("Close requires an approved named gap for every unresolved observation");
+        }
       }
       const attempt = currentAttempt(state);
       const slice = state.slices.at(-1);

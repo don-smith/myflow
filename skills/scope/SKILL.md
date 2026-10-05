@@ -132,7 +132,7 @@ Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from thi
 - After creating `workstream.md`: `enter --stage Scope --activity scope --workstream <workstream-id> --repository-root <git-root>`. The first entry creates the workstream. Enter a selected research or prototype interval with the same full command and `--activity research` or `--activity prototype` in place of `--activity scope`; it completes the open activity and reuses the open Scope attempt.
 - When the developer accepts the alignment artifact: `accept --artifact <path>`.
 - Before leaving Scope: ask the stage question, then `exit --feedback <answer>`.
-- When Scope owns a correction that downstream work has already started: `return`. Record `return --event owner-ready` only when the outcome and acceptance criteria are ready for downstream work.
+- When Scope owns a correction that downstream work has already started: follow the intent-first `correct` route in the boundary reference. A completed Scope attempt starts a linked revision, never a fabricated Plan visit. Record owner readiness only when the outcome and acceptance criteria are ready; retain a provisional observation in the manifest until real events support resolution.
 
 Read `../myflow/references/stage-boundary.md` for the question wording and choices, the correction options, and what happens when a step fails. Preserve earlier attempts and accepted artifacts as history.
 
