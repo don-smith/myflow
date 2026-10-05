@@ -640,15 +640,18 @@ function sourceFor(state, options) {
   const id = options.sourceAttemptId ?? state.currentAttemptId ?? state.lastTerminalAttemptId;
   const source = state.attempts.find(({ attemptId }) => attemptId === id);
   if (!source) throw new Error("no current or last completed source attempt");
-  if (id !== state.currentAttemptId && id !== state.lastTerminalAttemptId) {
-    throw new Error("source must be the current or last completed attempt");
+  if (id !== state.currentAttemptId && id !== state.lastTerminalAttemptId &&
+      !(source.status === "suspended" && state.returns.some(({ originAttemptId, status }) =>
+        originAttemptId === id && status !== "closed"))) {
+    throw new Error("source must be the current, suspended detecting, or last completed attempt");
   }
   return source;
 }
 
-function intentKey(context, source, action, artifact) {
+function intentKey(context, source, action, artifact, selector) {
   return stageBoundaryKey({ workstreamId: context.workstreamId, canonicalStage: source.canonicalStage,
-    attemptOrdinal: source.ordinal, owningActivity: source.openingActivity, action, detail: artifact });
+    attemptOrdinal: source.ordinal, owningActivity: source.openingActivity, action,
+    detail: selector === undefined ? artifact : `${artifact}\n${selector}` });
 }
 
 function actionKey(context, action, identity) {
@@ -678,7 +681,8 @@ async function intentObservation(context, options, intendedAction, intendedStage
         !(previous.intendedAction === "observe" && intendedAction === "route")) ||
         previous.sourceAttemptId !== (options.sourceAttemptId ?? previous.sourceAttemptId) ||
         (options.artifactPath && previous.artifactRef.path !== options.artifactPath) ||
-        (options.finding && previous.actualFinding !== options.finding)) {
+        (options.finding && previous.actualFinding !== options.finding) ||
+        (options.findingSelector !== undefined && previous.findingSelector !== options.findingSelector)) {
       throw new Error("unknown or conflicting observation ID");
     }
     return previous;
@@ -686,14 +690,15 @@ async function intentObservation(context, options, intendedAction, intendedStage
   if (!options.artifactPath) throw usageError(`${intendedAction} requires --artifact <evidence path>`);
   if (!options.finding || !options.owner) throw usageError(`${intendedAction} requires --finding and --owner`);
   const activeSource = options.sourceAttemptId ?? state.currentAttemptId ?? state.lastTerminalAttemptId;
-  const matches = ({ kind, artifactRef, intendedAction: intended, canonicalStage }) =>
+  const matches = ({ kind, artifactRef, intendedAction: intended, canonicalStage, findingSelector }) =>
     kind === "action.observed" && artifactRef.path === options.artifactPath && intended === intendedAction &&
+    findingSelector === options.findingSelector &&
     canonicalStage === (intendedAction === "start-slice" ? "Verify" : options.canonicalStage);
   const previous = events.findLast((event) => matches(event) && event.sourceAttemptId === activeSource) ??
     (state.currentStage !== (intendedAction === "start-slice" ? "Verify" : options.canonicalStage) ? events.findLast(matches) : undefined);
   const source = previous ? state.attempts.find(({ attemptId }) => attemptId === previous.sourceAttemptId) : sourceFor(state, options);
   if (!source || (options.sourceAttemptId && options.sourceAttemptId !== source.attemptId)) throw new Error("conflicting source attempt");
-  const key = intentKey(context, source, intendedAction, options.artifactPath);
+  const key = intentKey(context, source, intendedAction, options.artifactPath, options.findingSelector);
   // The key is based on the source and evidence path, so changing a finding, owner,
   // or evidence bytes on retry is a historical-intent conflict in the locked store.
   if (source.canonicalStage !== options.canonicalStage && intendedAction !== "start-slice") {
@@ -702,6 +707,7 @@ async function intentObservation(context, options, intendedAction, intendedStage
   return semanticRecord(context, { kind: "action.observed", canonicalStage: source.canonicalStage,
     owningActivity: intendedAction === "start-slice" ? source.openingActivity : options.owningActivity,
     sourceAttemptId: source.attemptId,
+    ...(options.findingSelector !== undefined ? { findingSelector: options.findingSelector } : {}),
     actualFinding: options.finding, intendedAction, intendedStage, intendedActivity,
     intendedOwner: options.owner, unresolvedReason: "awaiting canonical route", artifactPath: options.artifactPath,
   }, "intent", key);
@@ -775,7 +781,7 @@ async function correct(context, options) {
           state.currentAttemptId !== state.returns.find(({ episodeId: id }) => id === state.activeRouteEpisodeId)?.originAttemptId
           ? state.activeRouteEpisodeId : null;
         await semanticRecord(context, { kind: "correction.opened", canonicalStage: source.canonicalStage,
-          owningActivity: observation.owningActivity, episodeId, parentEpisodeId,
+          owningActivity: observation.owningActivity, episodeId, observationId: identity, parentEpisodeId,
           detectingStage: source.canonicalStage, detectingActivity: observation.owningActivity,
           initialOwningStage: stage, initialOwningActivity: activity, originAttemptId: source.attemptId,
           triggerSource: options.triggerSource, changeKind: options.changeKind,
@@ -788,8 +794,10 @@ async function correct(context, options) {
           throw new Error("conflicting correction route for observation");
         }
         const routeIndex = state.eventLinks.findIndex(({ eventId }) => eventId === episode.routes[0].eventId);
-        if (state.attempts.some(({ canonicalStage: enteredStage, enteredEventId }) =>
-          enteredStage === stage && state.eventLinks.findIndex(({ eventId }) => eventId === enteredEventId) > routeIndex)) {
+        if ((episode.owner.stage === source.canonicalStage && state.activities.some(({ attemptId, owningActivity, enteredAt }) =>
+          attemptId === source.attemptId && owningActivity === activity && enteredAt >= episode.openedAt)) ||
+          state.attempts.some(({ canonicalStage: enteredStage, enteredEventId }) =>
+            enteredStage === stage && state.eventLinks.findIndex(({ eventId }) => eventId === enteredEventId) > routeIndex)) {
           return { episodeId, ...await finishSemantic(context, observation, "canonical", undefined, "record owner readiness after corrective work") };
         }
       }
@@ -797,8 +805,10 @@ async function correct(context, options) {
       episode = state.returns.find(({ episodeId: id }) => id === episodeId);
       if (!episode.postTerminal && !episode.suspendedAt) {
         if (state.currentActivityId) await completeOpenActivity(context, state);
-        await semanticRecord(context, { kind: "attempt.suspended", canonicalStage: source.canonicalStage,
-          owningActivity: episode.detectingActivity, episodeId }, "suspend", identity);
+        if (stage !== source.canonicalStage) {
+          await semanticRecord(context, { kind: "attempt.suspended", canonicalStage: source.canonicalStage,
+            owningActivity: episode.detectingActivity, episodeId }, "suspend", identity);
+        }
       }
       await enterSemanticAttempt(context, stage, activity, identity);
       return { episodeId, ...await finishSemantic(context, observation, "canonical", undefined, "record owner readiness after corrective work") };
@@ -833,10 +843,12 @@ async function correct(context, options) {
       reusableEvidence: options.reusableEvidence ?? [], invalidatedEvidence: options.invalidatedEvidence ?? [],
       rerunChecks: options.rerunChecks, artifactPath: options.artifactPath }, "assess", identity);
   } else if (["resume", "supersede"].includes(action)) {
+    const sameStage = episode.owner.stage === episode.detectingStage && !episode.suspendedAt;
+    if (sameStage && action === "supersede") throw new Error("same-stage correction requires a suspended attempt to supersede");
     if (action === "supersede" && options.feedback !== undefined && !FEEDBACK_ANSWERS.includes(options.feedback)) {
       throw usageError(`--feedback must be one of ${FEEDBACK_ANSWERS.join(", ")}`);
     }
-    await semanticRecord(context, { kind: `attempt.${action === "resume" ? "resumed" : "superseded"}`,
+    if (!sameStage) await semanticRecord(context, { kind: `attempt.${action === "resume" ? "resumed" : "superseded"}`,
       canonicalStage: source.canonicalStage, owningActivity: episode.detectingActivity,
       episodeId: identity }, "disposition", identity);
     const feedback = action === "supersede" ? await recordFeedback(context, {
@@ -844,7 +856,19 @@ async function correct(context, options) {
         canonicalStage: source.canonicalStage, owningActivity: episode.detectingActivity },
       answer: options.feedback ?? "pending", note: options.note, hostCapability: options.hostCapability,
     }) : undefined;
-    await enterSemanticAttempt(context, source.canonicalStage, episode.detectingActivity, identity);
+    if (sameStage) {
+      const current = await loadState(context.journalPath);
+      const key = actionKey(context, "return-activity", identity);
+      const returnActivityId = prospectiveActivityId(context, { canonicalStage: source.canonicalStage,
+        owningActivity: episode.detectingActivity, idempotencyKey: key });
+      if (current.currentActivityId && current.currentActivityId !== returnActivityId) {
+        await completeOpenActivity(context, current);
+      }
+      await semanticRecord(context, { kind: "activity.entered", canonicalStage: source.canonicalStage,
+        owningActivity: episode.detectingActivity }, "return-activity", identity);
+    } else {
+      await enterSemanticAttempt(context, source.canonicalStage, episode.detectingActivity, identity);
+    }
     await semanticRecord(context, { kind: "return.resumed", canonicalStage: source.canonicalStage,
       owningActivity: episode.detectingActivity, episodeId: identity }, "return-resumed", identity);
     return { episodeId: identity, ...(feedback ? { feedback } : {}),
@@ -958,6 +982,7 @@ const VALUE_FLAGS = new Map([
   ["--follow-up", "followUpDestination"],
   ["--close-artifact-event", "closeArtifactEventId"],
   ["--finding", "finding"],
+  ["--finding-selector", "findingSelector"],
   ["--owner", "owner"],
   ["--disposition", "disposition"],
   ["--slice", "sliceName"],
@@ -973,7 +998,7 @@ const usage = `usage: stage-boundary.mjs <enter|accept|exit|return|correct|slice
   return [--event <${RETURN_EVENTS.join("|")}>] [--owning-stage <stage> --owning-activity <activity>]
          [--trigger-source <source>] [--change-kind <kind>] [--evidence-ref <ref>]... [--episode-id <id>]
   correct --action <observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve>
-          [--finding <actual finding> --owner <owner> --artifact <evidence>]
+          [--finding <actual finding> --finding-selector <stable ID> --owner <owner> --artifact <evidence>]
           [--observation-id <receipt ID>] [--episode-id <receipt ID>] [--disposition <resume|supersede>]
           [--rerun-check <check>]... [--linked-event <ID>]... [--linked-attempt <ID>]...
           [--linked-artifact-event <ID>]...

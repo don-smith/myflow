@@ -65,6 +65,19 @@ function assertRoute(changeKind, stage, activity) {
   }
 }
 
+function completedCorrectionPath(state, episode) {
+  let cursor = state.eventLinks.findIndex(({ eventId }) => eventId === episode.ownerReadyEventId);
+  if (cursor < 0) return false;
+  for (let index = stageIndex(episode.owner.stage); index < stageIndex(episode.detectingStage); index++) {
+    const next = state.attempts.find(({ canonicalStage, status, completedEventId }) =>
+      canonicalStage === CANONICAL_STAGES[index] && status === "advanced" &&
+      state.eventLinks.findIndex(({ eventId }) => eventId === completedEventId) > cursor);
+    if (!next) return false;
+    cursor = state.eventLinks.findIndex(({ eventId }) => eventId === next.completedEventId);
+  }
+  return true;
+}
+
 function classifyBackwardEdge(fromStage, fromActivity, toStage, toActivity) {
   const fromIndex = stageIndex(fromStage);
   const toIndex = stageIndex(toStage);
@@ -214,8 +227,10 @@ export function applyLifecycleEvent(previousState, event) {
       if (!state.created) throw new Error("observation requires a workstream");
       const source = state.attempts.find(({ attemptId }) => attemptId === event.sourceAttemptId);
       if (!source) throw new Error("unknown source attempt");
-      if (event.sourceAttemptId !== (state.currentAttemptId ?? state.lastTerminalAttemptId)) {
-        throw new Error("observation must identify the current or last completed attempt");
+      if (event.sourceAttemptId !== (state.currentAttemptId ?? state.lastTerminalAttemptId) &&
+          !(source.status === "suspended" && state.returns.some(({ originAttemptId, status }) =>
+            originAttemptId === source.attemptId && status !== "closed"))) {
+        throw new Error("observation must identify the current, suspended detecting, or last completed attempt");
       }
       if (event.canonicalStage !== source.canonicalStage) throw new Error("observation source stage mismatch");
       state.observations.push({ observationId: event.observationId, eventId: event.eventId,
@@ -237,7 +252,7 @@ export function applyLifecycleEvent(previousState, event) {
         return link;
       };
       const transitions = event.linkedEventIds.map(findLink);
-      if (transitions.some(({ kind }) => !["stage.entered", "attempt.resumed", "attempt.superseded"].includes(kind))) {
+      if (transitions.some(({ kind }) => !["stage.entered", "activity.entered", "attempt.resumed", "attempt.superseded", "return.resumed"].includes(kind))) {
         throw new Error("resolution links must name actual attempt transitions");
       }
       const artifacts = event.linkedArtifactEventIds.map(findLink);
@@ -250,6 +265,38 @@ export function applyLifecycleEvent(previousState, event) {
       }
       if ([...transitions, ...artifacts].some(({ attemptId }) => !event.linkedAttemptIds.includes(attemptId))) {
         throw new Error("resolution must identify every linked attempt");
+      }
+      const source = state.attempts.find(({ attemptId }) => attemptId === observation.sourceAttemptId);
+      const linkedAttempts = state.attempts.filter(({ attemptId }) => event.linkedAttemptIds.includes(attemptId));
+      const matchesOwner = (attempt) => attempt.canonicalStage === observation.intendedStage &&
+        artifacts.some(({ attemptId }) => attemptId === attempt.attemptId) &&
+        state.acceptedArtifacts.some(({ eventId, attemptId, owningActivity }) =>
+          attemptId === attempt.attemptId && owningActivity === observation.intendedActivity &&
+          event.linkedArtifactEventIds.includes(eventId));
+      if (observation.intendedAction === "revise") {
+        if (!linkedAttempts.some((attempt) => attempt.revisionSourceAttemptId === source.attemptId &&
+            matchesOwner(attempt) && transitions.some(({ kind, attemptId }) => kind === "stage.entered" && attemptId === attempt.attemptId))) {
+          throw new Error("resolution requires the observed revision and accepted owner evidence");
+        }
+      } else if (["route", "observe"].includes(observation.intendedAction)) {
+        const episode = state.returns.find(({ originAttemptId, observationId, owner, evidenceRefs, resumedAt }) =>
+          originAttemptId === source.attemptId && observationId === observation.observationId &&
+          owner.stage === observation.intendedStage &&
+          owner.activity === observation.intendedActivity && evidenceRefs.includes(observation.evidence.path) && resumedAt);
+        if (!episode || !linkedAttempts.some((attempt) => matchesOwner(attempt) &&
+            transitions.some(({ attemptId, kind }) => attemptId === attempt.attemptId &&
+              ["stage.entered", "activity.entered"].includes(kind))) ||
+            !transitions.some(({ kind, episodeId }) => kind === "return.resumed" && episodeId === episode.episodeId)) {
+          throw new Error("resolution requires the observed correction route, disposition and accepted owner evidence");
+        }
+      } else if (observation.intendedAction === "start-slice") {
+        if (!state.slices.some(({ precedingVerifyAttemptId, planAttemptId }) =>
+          precedingVerifyAttemptId === source.attemptId && linkedAttempts.some(({ attemptId }) =>
+            attemptId === planAttemptId && matchesOwner(state.attempts.find(({ attemptId: id }) => id === attemptId))))) {
+          throw new Error("resolution requires the observed slice and accepted planning evidence");
+        }
+      } else {
+        throw new Error("resolution requires a recognized intended route");
       }
       observation.resolution = { eventId: event.eventId, linkedEventIds: event.linkedEventIds,
         linkedAttemptIds: event.linkedAttemptIds, linkedArtifactEventIds: event.linkedArtifactEventIds };
@@ -300,6 +347,9 @@ export function applyLifecycleEvent(previousState, event) {
       if (state.activeRouteEpisodeId !== episode.episodeId || !episode.suspendedAt || !episode.ownerReadyAt || episode.assessment || attempt.status !== "suspended" ||
           state.currentAttemptId || event.owningActivity !== episode.detectingActivity) {
         throw new Error("assessment requires completed owner work and a suspended detecting attempt");
+      }
+      if (!completedCorrectionPath(state, episode)) {
+        throw new Error("assessment requires completed downstream stages in order after owner readiness");
       }
       episode.assessment = { eventId: event.eventId, disposition: event.disposition,
         artifactRef: event.artifactRef, reusableEvidence: event.reusableEvidence,
@@ -379,8 +429,7 @@ export function applyLifecycleEvent(previousState, event) {
         const replacesSuspendedDetector = activeEpisode.disposedAt &&
           detector.status === "superseded" && (routePrior.status === "advanced" || routePrior.attemptId === detector.attemptId) &&
           event.canonicalStage === activeEpisode.detectingStage &&
-          state.attempts.slice(state.attempts.findIndex(({ attemptId }) => attemptId === activeEpisode.originAttemptId) + 1)
-            .some(({ canonicalStage, status }) => canonicalStage === activeEpisode.owner.stage && status === "advanced");
+          completedCorrectionPath(state, activeEpisode);
         if (
           enteredIndex < ownerIndex ||
           enteredIndex > stageIndex("Verify") ||
@@ -497,8 +546,8 @@ export function applyLifecycleEvent(previousState, event) {
       if (state.currentBlockId) throw new Error("blocked stage must resume before completion");
       if (event.terminalReason === "workstream-closed") {
         if (event.canonicalStage !== "Close") throw new Error("only a Close attempt may end with workstream-closed");
-        if (state.approvedAuditGaps.length && !state.attempts.findLast(({ canonicalStage }) => canonicalStage === "Verify")?.passingVerificationAt) {
-          throw new Error("approved audit gaps do not waive passing Verify");
+        if (!state.attempts.findLast(({ canonicalStage }) => canonicalStage === "Verify")?.passingVerificationAt) {
+          throw new Error("Close requires a passing Verify; approved audit gaps do not waive it");
         }
         if (state.observations.some(({ observationId, resolution }) => !resolution &&
             !state.approvedAuditGaps.some((gap) => gap.observationId === observationId))) {
@@ -556,9 +605,16 @@ export function applyLifecycleEvent(previousState, event) {
         throw new Error("only the top correction route may open a child");
       }
       const origin = state.attempts.find(({ attemptId }) => attemptId === event.originAttemptId);
+      if (event.observationId) {
+        const observation = state.observations.find(({ observationId }) => observationId === event.observationId);
+        if (!observation || observation.sourceAttemptId !== event.originAttemptId ||
+            !event.evidenceRefs.includes(observation.evidence.path)) {
+          throw new Error("correction observation must match its source, route and evidence");
+        }
+      }
       const postTerminal = event.kind === "correction.opened" && !state.currentAttemptId;
       if (!origin || event.originAttemptId !== (postTerminal ? state.lastTerminalAttemptId : state.currentAttemptId) ||
-          (postTerminal && origin.status !== "superseded") ||
+          (postTerminal && !["superseded", "advanced"].includes(origin.status)) ||
           event.attemptId !== (postTerminal ? null : origin.attemptId)) {
         throw new Error("correction source must be the current or last superseded terminal attempt");
       }
@@ -590,8 +646,15 @@ export function applyLifecycleEvent(previousState, event) {
       );
       state.activeRouteEpisodeId = event.episodeId;
       if (origin.canonicalStage === "Verify") origin.passingVerificationAt = null;
+      // A later change to verified work invalidates every earlier still-pending pass.
+      for (const pendingId of state.pendingVerificationEpisodeIds) {
+        const pending = findEpisode(state, pendingId);
+        pending.reverifiedAt = null;
+        pending.verificationAttemptId = null;
+      }
       state.returns.push({
         episodeId: event.episodeId,
+        observationId: event.observationId ?? null,
         originAttemptId: event.originAttemptId,
         parentEpisodeId: event.kind === "correction.opened" ? event.parentEpisodeId : null,
         postTerminal,
@@ -660,6 +723,7 @@ export function applyLifecycleEvent(previousState, event) {
         throw new Error("owner readiness must be recorded by the current correction owner");
       }
       episode.ownerReadyAt = event.occurredAt;
+      episode.ownerReadyEventId = event.eventId;
       episode.status = "owner-ready";
       break;
     }
@@ -668,7 +732,7 @@ export function applyLifecycleEvent(previousState, event) {
       if (state.activeRouteEpisodeId !== episode.episodeId) throw new Error("only the active correction route may resume");
       if (!episode.ownerReadyAt) throw new Error("return resumption requires owner readiness");
       if (episode.resumedAt) throw new Error("downstream resumption has already been recorded");
-      if (episode.suspendedAt && (!episode.disposedAt ||
+      if (episode.suspendedAt && (!completedCorrectionPath(state, episode) || !episode.disposedAt ||
           state.attempts.find(({ attemptId }) => attemptId === episode.originAttemptId)?.status === "suspended")) {
         throw new Error("suspended return requires an assessed attempt disposition");
       }
@@ -681,7 +745,9 @@ export function applyLifecycleEvent(previousState, event) {
             state.currentAttemptId === episode.originAttemptId)) {
         throw new Error("downstream resumption must start at the next affected stage");
       }
-      if (sameStageReturn && event.owningActivity !== episode.detectingActivity) {
+      if (sameStageReturn && (state.currentAttemptId !== episode.originAttemptId ||
+          !state.activities.some(({ activityId, owningActivity }) => activityId === state.currentActivityId && owningActivity === episode.detectingActivity) ||
+          event.owningActivity !== episode.detectingActivity)) {
         throw new Error("same-stage resumption must return to the detecting activity");
       }
       episode.resumedAt = event.occurredAt;
@@ -703,6 +769,14 @@ export function applyLifecycleEvent(previousState, event) {
     }
     case "verification.completed": {
       if (event.canonicalStage !== "Verify") throw new Error("verification.completed belongs to Verify");
+      if (event.verificationStatus !== "passed" && event.verificationStatus !== "pass") {
+        currentAttempt(state).passingVerificationAt = null;
+        for (const pendingId of state.pendingVerificationEpisodeIds) {
+          const pending = findEpisode(state, pendingId);
+          pending.reverifiedAt = null;
+          pending.verificationAttemptId = null;
+        }
+      }
       if (!event.episodeId) {
         if (event.verificationStatus === "passed" || event.verificationStatus === "pass") {
           currentAttempt(state).passingVerificationAt = event.occurredAt;
@@ -728,7 +802,7 @@ export function applyLifecycleEvent(previousState, event) {
         throw new Error("correction episode closure must be recorded in Verify");
       }
       if (!episode.ownerReadyAt || !episode.resumedAt || !episode.reverifiedAt ||
-          episode.verificationAttemptId !== event.attemptId) {
+          !currentAttempt(state).passingVerificationAt || episode.verificationAttemptId !== event.attemptId) {
         throw new Error(
           "return closure requires owner readiness, downstream resumption, and passing re-verification",
         );
@@ -803,7 +877,8 @@ export function applyLifecycleEvent(previousState, event) {
     });
   }
   state.lastEventId = event.eventId;
-  state.eventLinks.push({ eventId: event.eventId, kind: event.kind, attemptId: event.attemptId });
+  state.eventLinks.push({ eventId: event.eventId, kind: event.kind, attemptId: event.attemptId,
+    ...(event.episodeId ? { episodeId: event.episodeId } : {}) });
   state.unresolvedObservations = state.observations.filter(({ resolution }) => !resolution);
   const activeRoute = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
   const latestTerminal = state.attempts.find(({ attemptId }) => attemptId === state.lastTerminalAttemptId);

@@ -105,14 +105,14 @@ const FIELDS_BY_KIND = Object.freeze({
   "workstream.closed": [],
   "feedback.requested": [],
   "feedback.recorded": ["feedbackStatus", "privateRef"],
-  "action.observed": ["observationId", "sourceAttemptId", "actualFinding", "intendedAction", "intendedStage", "intendedActivity", "intendedOwner", "unresolvedReason"],
+  "action.observed": ["observationId", "findingSelector", "sourceAttemptId", "actualFinding", "intendedAction", "intendedStage", "intendedActivity", "intendedOwner", "unresolvedReason"],
   "action.resolved": ["observationId", "linkedEventIds", "linkedAttemptIds", "linkedArtifactEventIds"],
   "revision.opened": ["revisionSourceAttemptId", "reason"],
   "attempt.suspended": ["episodeId"],
   "attempt.assessed": ["episodeId", "disposition", "reusableEvidence", "invalidatedEvidence", "rerunChecks"],
   "attempt.resumed": ["episodeId"],
   "attempt.superseded": ["episodeId"],
-  "correction.opened": ["episodeId", "parentEpisodeId", "detectingStage", "detectingActivity", "initialOwningStage", "initialOwningActivity", "originAttemptId", "triggerSource", "changeKind", "evidenceRefs"],
+  "correction.opened": ["episodeId", "observationId", "parentEpisodeId", "detectingStage", "detectingActivity", "initialOwningStage", "initialOwningActivity", "originAttemptId", "triggerSource", "changeKind", "evidenceRefs"],
   "correction.validated": ["episodeId"],
   "slice.started": ["sliceName", "precedingVerifyAttemptId", "planningBasisEventId", "scopeArtifactEventId", "designArtifactEventId"],
   "close.audit-gap-approved": ["observationId", "gapName", "approvedBy", "followUpDestination", "closeArtifactEventId"],
@@ -285,6 +285,7 @@ export function validateLifecycleEvent(event) {
   if (event.kind === "action.observed") {
     if (event.observationId !== `observation_${event.eventId.slice(4)}`) throw new Error("observation identity mismatch");
     for (const field of ["sourceAttemptId", "actualFinding", "intendedAction", "intendedOwner", "unresolvedReason"]) requireString(event, field);
+    if (event.findingSelector !== undefined) requireString(event, "findingSelector");
     if (["stage.completed", "verification.passed", "workstream.closed"].includes(event.intendedAction) ||
         /completed|passed/.test(event.intendedAction)) throw new Error("observation cannot make a completion claim");
     if (!/^[a-z]+(?:-[a-z]+)*$/.test(event.intendedAction)) throw new Error("invalid intended action");
@@ -321,6 +322,7 @@ export function validateLifecycleEvent(event) {
   }
   if (event.kind === "correction.validated") requireString(event, "episodeId");
   if (event.kind === "correction.opened") {
+    if (event.observationId !== undefined) requireString(event, "observationId");
     if (event.parentEpisodeId !== null) requireString(event, "parentEpisodeId");
     requireString(event, "episodeId");
   }

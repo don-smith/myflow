@@ -562,6 +562,7 @@ test("workstream closure requires a terminal Close attempt and private feedback 
   await advance(context, "Scope", "scope", "Plan", "planning");
   await advance(context, "Plan", "planning", "Implement", "phase");
   await advance(context, "Implement", "phase", "Verify", "verification");
+  await context.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
   await advance(context, "Verify", "verification", "Close", "closeout");
   await context.append("stage.completed", {
     canonicalStage: "Close",
@@ -1052,6 +1053,9 @@ test("two named planned slices require accepted basis, per-slice plan, implement
     await assert.rejects(c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" }), /passing|Verify evidence/);
     await accepted(c, "Verify", "verification");
     await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
+    await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "failed" });
+    await assert.rejects(c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" }), /passing verification/);
+    await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
     await c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
   }
   const state = (await validateLifecycleJournal(c.journalPath)).state;
@@ -1141,6 +1145,103 @@ test("superseded child validates its replacement Implement attempt before parent
   assert.equal(state.returns[1].replacementAttemptId, replacement);
   assert.equal(state.attempts.find(({ attemptId }) => attemptId === prior).status, "superseded");
   assert.deepEqual(state.pendingVerificationEpisodeIds, ["child", "outer"]);
+});
+
+test("a Verify to Plan correction must complete affected Implement before disposition", async () => {
+  const c = await fixture(); await reachVerify(c);
+  await correction(c, "plan-fix", "Plan", "planning", "plan");
+  await c.append("attempt.suspended", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "plan-fix" });
+  await c.append("stage.entered", { canonicalStage: "Plan", owningActivity: "planning" });
+  await c.append("return.owner-ready", { canonicalStage: "Plan", owningActivity: "planning", episodeId: "plan-fix" });
+  await c.append("stage.completed", { canonicalStage: "Plan", owningActivity: "planning", terminalReason: "advanced" });
+  await assert.rejects(assessed(c, "plan-fix", "Verify", "verification"), /downstream|Implement/);
+  await c.append("stage.entered", { canonicalStage: "Implement", owningActivity: "phase" });
+  await assert.rejects(assessed(c, "plan-fix", "Verify", "verification"), /downstream|Implement|suspended detecting attempt/);
+  await c.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" });
+  await assessed(c, "plan-fix", "Verify", "verification");
+  await c.append("return.resumed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "plan-fix" });
+});
+
+test("resolution requires the observed source, corrective route and owner evidence, not unrelated Close evidence", async () => {
+  const c = await fixture(); await reachVerify(c);
+  const verify = (await validateLifecycleJournal(c.journalPath)).state.currentAttemptId;
+  const observation = await observed(c, { canonicalStage: "Verify", owningActivity: "verification",
+    sourceAttemptId: verify, intendedAction: "route", intendedStage: "Implement", intendedActivity: "phase" });
+  await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
+  await c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
+  const close = await c.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" });
+  const artifact = await accepted(c, "Close", "closeout");
+  await assert.rejects(c.append("action.resolved", { canonicalStage: "Close", owningActivity: "closeout",
+    observationId: observation.event.observationId, linkedEventIds: [close.event.eventId],
+    linkedAttemptIds: [close.event.attemptId], linkedArtifactEventIds: [artifact] }), /route|source|owner|correction/);
+});
+
+test("latest advanced Verify can originate a post-terminal correction without rewriting exit", async () => {
+  const c = await fixture(); await reachVerify(c);
+  const verify = (await validateLifecycleJournal(c.journalPath)).state.currentAttemptId;
+  await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
+  await c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
+  const bytes = await readFile(c.journalPath);
+  await correction(c, "late-finding", "Implement", "phase", "implementation");
+  await c.append("stage.entered", { canonicalStage: "Implement", owningActivity: "phase" });
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.returns[0].originAttemptId, verify);
+  assert.equal(state.returns[0].postTerminal, true);
+  assert.deepEqual((await readFile(c.journalPath)).subarray(0, bytes.length), bytes);
+});
+
+test("latest failed Verify blocks slice and Close even with an approved gap", async () => {
+  const d = await fixture(); await reachVerify(d);
+  const id = (await validateLifecycleJournal(d.journalPath)).state.currentAttemptId;
+  const observation = await observed(d, { canonicalStage: "Verify", owningActivity: "verification", sourceAttemptId: id });
+  await d.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
+  await d.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "failed" });
+  await d.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
+  await d.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" });
+  const closeEvidence = await accepted(d, "Close", "closeout");
+  await d.append("close.audit-gap-approved", { canonicalStage: "Close", owningActivity: "closeout",
+    observationId: observation.event.observationId, gapName: "audit debt", approvedBy: "Owner",
+    followUpDestination: "scope/next.md", closeArtifactEventId: closeEvidence });
+  await assert.rejects(d.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout",
+    terminalReason: "workstream-closed" }), /passing Verify/);
+  // In a separate slice-capable history, the failed result also blocks slice start.
+  // Failed status before terminal advancement in the slice-capable fixture.
+  const f = await fixture(); await createAndEnterScope(f);
+  const scope = await accepted(f, "Scope", "scope");
+  await advance(f, "Scope", "scope", "Plan", "design");
+  const design = await accepted(f, "Plan", "design"); const plan = await accepted(f, "Plan", "planning");
+  await advance(f, "Plan", "design", "Implement", "phase");
+  await advance(f, "Implement", "phase", "Verify", "verification");
+  await f.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
+  await f.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "failed" });
+  await f.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
+  await assert.rejects(f.append("slice.started", { canonicalStage: "Plan", owningActivity: "planning", sliceName: "second",
+    precedingVerifyAttemptId: (await validateLifecycleJournal(f.journalPath)).state.lastTerminalAttemptId,
+    planningBasisEventId: plan, scopeArtifactEventId: scope, designArtifactEventId: design }), /passing Verify/);
+});
+
+test("later correction invalidates older pending verification until fresh pass", async () => {
+  const c = await fixture(); await reachVerify(c);
+  await correction(c, "older-pass", "Implement", "phase", "implementation");
+  await c.append("attempt.suspended", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "older-pass" });
+  await c.append("stage.entered", { canonicalStage: "Implement", owningActivity: "phase" });
+  await c.append("return.owner-ready", { canonicalStage: "Implement", owningActivity: "phase", episodeId: "older-pass" });
+  await c.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" });
+  await assessed(c, "older-pass", "Verify", "verification");
+  await c.append("return.resumed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "older-pass" });
+  await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "older-pass", verificationStatus: "passed" });
+  await correction(c, "new-change", "Implement", "phase", "implementation");
+  await c.append("attempt.suspended", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "new-change" });
+  await c.append("stage.entered", { canonicalStage: "Implement", owningActivity: "phase" });
+  await c.append("return.owner-ready", { canonicalStage: "Implement", owningActivity: "phase", episodeId: "new-change" });
+  await c.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" });
+  await assessed(c, "new-change", "Verify", "verification");
+  await c.append("return.resumed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "new-change" });
+  await assert.rejects(c.append("return.closed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "older-pass" }), /passing re-verification/);
+  await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "older-pass", verificationStatus: "passed" });
+  await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "new-change", verificationStatus: "passed" });
+  await c.append("return.closed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "new-change" });
+  await c.append("return.closed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "older-pass" });
 });
 
 test("correction identity, parent linkage, and changed retries are rejected without appending", async () => {
