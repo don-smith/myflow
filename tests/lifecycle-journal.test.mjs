@@ -12,6 +12,7 @@ import {
   EVENT_KINDS,
   LIFECYCLE_SCHEMA_VERSION,
   TERMINAL_REASONS,
+  lifecycleEventId,
 } from "../skills/myflow/scripts/lib/lifecycle-contract.mjs";
 import { reduceLifecycle } from "../skills/myflow/scripts/lib/lifecycle-reducer.mjs";
 import {
@@ -787,6 +788,30 @@ test("an observation after a terminal attempt remains unresolved until later act
   assert.equal(state.unresolvedObservations.length, 0);
   assert.deepEqual(state.observations[0].resolution.linkedAttemptIds, [entry.event.attemptId]);
   assert.deepEqual((await readFile(context.journalPath)).subarray(0, before.length), before);
+});
+
+test("historical v1 Close without a Verify pass replays unchanged, but a new Close requires the latest pass", async () => {
+  const c = await fixture(); await reachVerify(c);
+  await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
+  await advance(c, "Verify", "verification", "Close", "closeout");
+  await c.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout", terminalReason: "workstream-closed" });
+  await c.append("workstream.closed", { canonicalStage: "Close", owningActivity: "closeout" });
+  const events = (await readLifecycleJournal(c.journalPath)).events.filter(({ kind }) => kind !== "verification.completed");
+  // Convert the disposable new Close to its pre-v2 wire shape; no live journal is touched.
+  const legacyClose = events.find(({ kind, canonicalStage }) => kind === "stage.completed" && canonicalStage === "Close");
+  legacyClose.schemaVersion = "myflow-lifecycle/v1";
+  legacyClose.eventId = lifecycleEventId(legacyClose);
+  for (let i = 0; i < events.length; i++) events[i].previousEventId = events[i - 1]?.eventId ?? null;
+  await writeFile(c.journalPath, events.map((event) => JSON.stringify(event)).join("\n") + "\n");
+  const bytes = await readFile(c.journalPath);
+  assert.equal((await validateLifecycleJournal(c.journalPath)).valid, true);
+  assert.deepEqual(await readFile(c.journalPath), bytes);
+  assert.equal(events.find(({ kind, canonicalStage }) => kind === "stage.completed" && canonicalStage === "Close").schemaVersion, "myflow-lifecycle/v1");
+
+  const fresh = await fixture(); await reachVerify(fresh);
+  await advance(fresh, "Verify", "verification", "Close", "closeout");
+  await assert.rejects(fresh.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout",
+    terminalReason: "workstream-closed", schemaVersion: "myflow-lifecycle/v1" }), /passing Verify/);
 });
 
 test("a named audit-gap exception cannot waive passing Verify", async () => {

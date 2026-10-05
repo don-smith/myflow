@@ -45,7 +45,7 @@ import {
   lifecycleEventId,
 } from "./lib/lifecycle-contract.mjs";
 import { reduceLifecycle } from "./lib/lifecycle-reducer.mjs";
-import { appendLifecycleEvent, readLifecycleJournal } from "./lib/lifecycle-store.mjs";
+import { appendLifecycleEvent, artifactReference, readLifecycleJournal } from "./lib/lifecycle-store.mjs";
 import { resolveRepositoryContext } from "./lib/repository-context.mjs";
 import { SKILL_BY_STAGE, recordStageFeedback } from "./record-stage-feedback.mjs";
 
@@ -684,6 +684,11 @@ async function intentObservation(context, options, intendedAction, intendedStage
         (options.finding && previous.actualFinding !== options.finding) ||
         (options.findingSelector !== undefined && previous.findingSelector !== options.findingSelector)) {
       throw new Error("unknown or conflicting observation ID");
+    }
+    const currentEvidence = await artifactReference(context.repositoryRoot, previous.artifactRef.path,
+      [context.workstreamDirectory]);
+    if (currentEvidence.digest !== previous.artifactRef.digest) {
+      throw new Error("conflicting observation ID: evidence digest changed");
     }
     return previous;
   }

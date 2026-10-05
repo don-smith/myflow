@@ -207,7 +207,10 @@ function requireString(event, field) {
 
 export function validateLifecycleEvent(event) {
   if (!event || typeof event !== "object" || Array.isArray(event)) throw new Error("event must be an object");
-  if (event.schemaVersion !== (V2_KINDS.includes(event.kind) ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION)) {
+  const closeCompletion = event.kind === "stage.completed" && event.terminalReason === "workstream-closed";
+  if (event.schemaVersion !== (V2_KINDS.includes(event.kind) ||
+      (closeCompletion && event.schemaVersion === LIFECYCLE_SCHEMA_VERSION_2)
+      ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION)) {
     throw new Error(`schemaVersion does not match event kind: ${event.kind}`);
   }
   // `source` names the skill that recorded the event. It is deliberately not checked

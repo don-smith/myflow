@@ -1,6 +1,7 @@
 import {
   ACTIVITY_BY_STAGE,
   CANONICAL_STAGES,
+  LIFECYCLE_SCHEMA_VERSION,
   lifecycleAttemptId,
   stageIndex,
   validateLifecycleEvent,
@@ -279,13 +280,22 @@ export function applyLifecycleEvent(previousState, event) {
           throw new Error("resolution requires the observed revision and accepted owner evidence");
         }
       } else if (["route", "observe"].includes(observation.intendedAction)) {
-        const episode = state.returns.find(({ originAttemptId, observationId, owner, evidenceRefs, resumedAt }) =>
+        const episode = state.returns.find(({ originAttemptId, observationId, routes, evidenceRefs, resumedAt }) =>
           originAttemptId === source.attemptId && observationId === observation.observationId &&
-          owner.stage === observation.intendedStage &&
-          owner.activity === observation.intendedActivity && evidenceRefs.includes(observation.evidence.path) && resumedAt);
-        if (!episode || !linkedAttempts.some((attempt) => matchesOwner(attempt) &&
-            transitions.some(({ attemptId, kind }) => attemptId === attempt.attemptId &&
-              ["stage.entered", "activity.entered"].includes(kind))) ||
+          routes.length > 0 && state.eventLinks.findIndex(({ eventId }) => eventId === routes[0].eventId) >
+            state.eventLinks.findIndex(({ eventId }) => eventId === observation.eventId) &&
+          evidenceRefs.includes(observation.evidence.path) && resumedAt);
+        // The observed owner can be provisional; the linked correction's route chain
+        // names the actual owner, including any reroutes before owner readiness.
+        const actualOwner = episode?.owner;
+        if (!episode || !linkedAttempts.some((attempt) =>
+          attempt.canonicalStage === actualOwner.stage &&
+          artifacts.some(({ attemptId }) => attemptId === attempt.attemptId) &&
+          state.acceptedArtifacts.some(({ eventId, attemptId, owningActivity }) =>
+            attemptId === attempt.attemptId && owningActivity === actualOwner.activity &&
+            event.linkedArtifactEventIds.includes(eventId)) &&
+          transitions.some(({ attemptId, kind }) => attemptId === attempt.attemptId &&
+            ["stage.entered", "activity.entered"].includes(kind))) ||
             !transitions.some(({ kind, episodeId }) => kind === "return.resumed" && episodeId === episode.episodeId)) {
           throw new Error("resolution requires the observed correction route, disposition and accepted owner evidence");
         }
@@ -546,7 +556,10 @@ export function applyLifecycleEvent(previousState, event) {
       if (state.currentBlockId) throw new Error("blocked stage must resume before completion");
       if (event.terminalReason === "workstream-closed") {
         if (event.canonicalStage !== "Close") throw new Error("only a Close attempt may end with workstream-closed");
-        if (!state.attempts.findLast(({ canonicalStage }) => canonicalStage === "Verify")?.passingVerificationAt) {
+        // Pre-v2 Close records had no passing-Verify gate. New Close completions
+        // persist as v2, so the old v1 chain replays without waiving new writes.
+        if (event.schemaVersion !== LIFECYCLE_SCHEMA_VERSION &&
+            !state.attempts.findLast(({ canonicalStage }) => canonicalStage === "Verify")?.passingVerificationAt) {
           throw new Error("Close requires a passing Verify; approved audit gaps do not waive it");
         }
         if (state.observations.some(({ observationId, resolution }) => !resolution &&

@@ -69,7 +69,7 @@ export async function readLifecycleJournal(journalPath, { allowCrashTail = false
  * each additional root (the workstream directory when it lives outside the
  * checkout). The path must stay inside the root it resolved against.
  */
-async function artifactReference(repositoryRoot, artifactPath, artifactRoots = []) {
+export async function artifactReference(repositoryRoot, artifactPath, artifactRoots = []) {
   assertRepositoryRelativePath(artifactPath);
   let canonicalArtifact;
   for (const root of [repositoryRoot, ...artifactRoots]) {
@@ -107,9 +107,10 @@ async function buildEvent(input, state, previousEventId, existing) {
     ...semanticInput
   } = input;
   const event = {
-    schemaVersion: ["action.observed", "action.resolved", "revision.opened", "attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded", "correction.opened", "correction.validated", "slice.started", "close.audit-gap-approved"].includes(semanticInput.kind)
-      ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION,
     ...semanticInput,
+    schemaVersion: existing?.schemaVersion ?? (["action.observed", "action.resolved", "revision.opened", "attempt.suspended", "attempt.assessed", "attempt.resumed", "attempt.superseded", "correction.opened", "correction.validated", "slice.started", "close.audit-gap-approved"].includes(semanticInput.kind) ||
+      (semanticInput.kind === "stage.completed" && semanticInput.terminalReason === "workstream-closed")
+      ? LIFECYCLE_SCHEMA_VERSION_2 : LIFECYCLE_SCHEMA_VERSION),
     occurredAt: existing?.occurredAt ?? semanticInput.occurredAt ?? new Date().toISOString(),
     previousEventId: existing?.previousEventId ?? previousEventId,
   };

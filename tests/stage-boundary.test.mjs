@@ -605,7 +605,78 @@ test("record-only provisional correction reconciles later truthful attempts, not
     "--owning-stage", "Implement", "--owning-activity", "phase", "--trigger-source", "developer-report", "--change-kind", "implementation");
   assert.equal(routed.disposition, "canonical");
   assert.ok((await readFile(c.journalPath, "utf8")).startsWith(original));
-  assert.equal((await validateLifecycleJournal(c.journalPath)).state.unresolvedObservations.length, 1);
+  const ownerEvidence = await run(c, "accept", "--stage", "Implement", "--activity", "phase", "--artifact", "finding.md");
+  await run(c, "correct", "--action", "ready", "--stage", "Implement", "--activity", "phase", "--episode-id", routed.episodeId);
+  await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped");
+  await run(c, "correct", "--action", "assess", "--stage", "Verify", "--activity", "verification", "--episode-id", routed.episodeId,
+    "--artifact", "finding.md", "--disposition", "resume", "--rerun-check", "review");
+  const resumed = await run(c, "correct", "--action", "resume", "--stage", "Verify", "--activity", "verification", "--episode-id", routed.episodeId);
+  const resolved = await run(c, "correct", "--action", "resolve", "--stage", "Verify", "--activity", "verification",
+    "--observation-id", provisional.observationId,
+    "--linked-event", routed.events.find(({ kind }) => kind === "stage.entered").eventId,
+    "--linked-event", resumed.events.find(({ kind }) => kind === "return.resumed").eventId,
+    "--linked-attempt", routed.currentAttempt.attemptId, "--linked-attempt", provisional.sourceAttempt.attemptId,
+    "--linked-artifact-event", ownerEvidence.events[0].eventId);
+  assert.deepEqual(resolved.unresolvedIds, []);
+  assert.ok((await readFile(c.journalPath, "utf8")).startsWith(original));
+});
+
+test("observation ID retries check evidence bytes even when --artifact is omitted", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c); await evidence(c);
+  const original = await run(c, "correct", "--action", "observe", "--stage", "Verify", "--activity", "verification",
+    "--artifact", "finding.md", "--finding", "new defect", "--owner", "tentative", "--owning-stage", "Implement", "--owning-activity", "phase");
+  const flags = ["correct", "--action", "route", "--stage", "Verify", "--activity", "verification",
+    "--observation-id", original.observationId, "--owning-stage", "Implement", "--owning-activity", "phase",
+    "--trigger-source", "verification-evidence", "--change-kind", "implementation"];
+  await writeFile(join(c.workstreamDirectory, "finding.md"), "changed evidence\n");
+  const bytes = await readFile(c.journalPath, "utf8");
+  await assert.rejects(run(c, ...flags), /conflict|digest|evidence/);
+  await assert.rejects(run(c, ...flags, "--artifact", "finding.md"), /conflict|digest|evidence/);
+  assert.equal(await readFile(c.journalPath, "utf8"), bytes);
+  await evidence(c);
+  const routed = await run(c, ...flags);
+  assert.equal(routed.observationId, original.observationId);
+  assert.equal(routed.disposition, "canonical");
+  assert.equal((await run(c, ...flags)).observationId, original.observationId);
+});
+
+test("same-episode reroute resolves only with initial route and final owner's accepted evidence", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true }));
+  await journeyToVerify(c); await evidence(c);
+  const initial = await run(c, "correct", "--action", "route", "--stage", "Verify", "--activity", "verification",
+    "--artifact", "finding.md", "--finding", "implementation diagnosis", "--owner", "implementer",
+    "--owning-stage", "Implement", "--owning-activity", "phase", "--trigger-source", "verification-evidence", "--change-kind", "implementation");
+  const initialEvidence = await run(c, "accept", "--stage", "Implement", "--activity", "phase", "--artifact", "finding.md");
+  const reroute = await run(c, "return", "--event", "rerouted", "--stage", "Implement", "--activity", "phase",
+    "--episode-id", initial.episodeId, "--owning-stage", "Plan", "--owning-activity", "planning", "--change-kind", "plan");
+  await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped", "--terminal-reason", "abandoned");
+  const plan = await run(c, "enter", "--stage", "Plan", "--activity", "planning");
+  const planAttemptId = (await validateLifecycleJournal(c.journalPath)).state.currentAttemptId;
+  const accepted = await run(c, "accept", "--stage", "Plan", "--activity", "planning", "--artifact", "finding.md");
+  await run(c, "correct", "--action", "ready", "--stage", "Plan", "--activity", "planning", "--episode-id", initial.episodeId);
+  await run(c, "exit", "--stage", "Plan", "--activity", "planning", "--feedback", "skipped");
+  await run(c, "enter", "--stage", "Implement", "--activity", "phase");
+  await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped");
+  await run(c, "correct", "--action", "assess", "--stage", "Verify", "--activity", "verification", "--episode-id", initial.episodeId,
+    "--artifact", "finding.md", "--disposition", "resume", "--rerun-check", "review");
+  const resumed = await run(c, "correct", "--action", "resume", "--stage", "Verify", "--activity", "verification", "--episode-id", initial.episodeId);
+  const links = ["correct", "--action", "resolve", "--stage", "Verify", "--activity", "verification",
+    "--observation-id", initial.observationId, "--linked-event", plan.events.find(({ kind }) => kind === "stage.entered").eventId,
+    "--linked-event", resumed.events.find(({ kind }) => kind === "return.resumed").eventId,
+    "--linked-attempt", planAttemptId,
+    "--linked-attempt", initial.sourceAttempt.attemptId, "--linked-artifact-event", accepted.events[0].eventId];
+  await assert.rejects(run(c, ...links.map((value) => value === accepted.events[0].eventId
+    ? initialEvidence.events[0].eventId : value),
+    "--linked-event", initial.events.find(({ kind }) => kind === "stage.entered").eventId,
+    "--linked-attempt", initial.currentAttempt.attemptId), /accepted owner evidence/);
+  const resolved = await run(c, ...links);
+  assert.deepEqual(resolved.unresolvedIds, []);
+  const episode = (await validateLifecycleJournal(c.journalPath)).state.returns[0];
+  assert.deepEqual(episode.routes.map(({ stage }) => stage), ["Implement", "Plan"]);
+  assert.equal(episode.routes[1].eventId, reroute.events[0].eventId);
 });
 
 test("named next slice starts Plan without correction or invented acceptance", async (t) => {
