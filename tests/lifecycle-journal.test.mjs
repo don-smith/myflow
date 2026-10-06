@@ -797,7 +797,7 @@ test("an observation after a terminal attempt remains unresolved until later act
   assert.deepEqual((await readFile(context.journalPath)).subarray(0, before.length), before);
 });
 
-test("historical v1 Close without a Verify pass replays unchanged, but a new Close requires the latest pass", async () => {
+test("historical v1 Close replays unchanged and the journal does not grant Close permission", async () => {
   const c = await fixture(); await reachVerify(c);
   await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
   await advance(c, "Verify", "verification", "Close", "closeout");
@@ -817,11 +817,13 @@ test("historical v1 Close without a Verify pass replays unchanged, but a new Clo
 
   const fresh = await fixture(); await reachVerify(fresh);
   await advance(fresh, "Verify", "verification", "Close", "closeout");
-  await assert.rejects(fresh.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout",
-    terminalReason: "workstream-closed", schemaVersion: "myflow-lifecycle/v1" }), /passing Verify/);
+  await fresh.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout",
+    terminalReason: "workstream-closed", schemaVersion: "myflow-lifecycle/v1" });
+  assert.equal((await validateLifecycleJournal(fresh.journalPath)).state.attempts.findLast(
+    ({ canonicalStage }) => canonicalStage === "Verify").passingVerificationAt, undefined);
 });
 
-test("a named audit-gap exception cannot waive passing Verify", async () => {
+test("a named audit gap does not create passing Verify evidence", async () => {
   const c = await fixture(); await reachVerify(c);
   const verify = (await validateLifecycleJournal(c.journalPath)).state.currentAttemptId;
   const observation = await observed(c, { canonicalStage: "Verify", owningActivity: "verification", sourceAttemptId: verify });
@@ -832,8 +834,8 @@ test("a named audit-gap exception cannot waive passing Verify", async () => {
   await c.append("close.audit-gap-approved", { canonicalStage: "Close", owningActivity: "closeout",
     observationId: observation.event.observationId, gapName: "missing planning entry", approvedBy: "Don Smith",
     followUpDestination: "scope/next-workstream.md", closeArtifactEventId: accepted.event.eventId });
-  await assert.rejects(c.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout",
-    terminalReason: "workstream-closed" }), /passing Verify/);
+  assert.equal((await validateLifecycleJournal(c.journalPath)).state.attempts.findLast(
+    ({ canonicalStage }) => canonicalStage === "Verify").passingVerificationAt, undefined);
 });
 
 test("Close keeps named approved audit gaps unresolved and rejects incomplete or unrelated approvals", async () => {
@@ -848,7 +850,7 @@ test("Close keeps named approved audit gaps unresolved and rejects incomplete or
   const approval = { schemaVersion: "myflow-lifecycle/v2", canonicalStage: "Close", owningActivity: "closeout",
     observationId: observation.event.observationId, gapName: "missing planning entry", approvedBy: "Don Smith",
     followUpDestination: "scope/next-workstream.md", closeArtifactEventId: accepted.event.eventId };
-  await assert.rejects(c.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout", terminalReason: "workstream-closed" }), /unresolved observation/);
+  // An unresolved observation remains visible; it cannot veto otherwise verified work.
   for (const changes of [{ approvedBy: "" }, { followUpDestination: "" }, { observationId: "observation_missing" },
     { closeArtifactEventId: "evt_missing" }]) {
     await assert.rejects(c.append("close.audit-gap-approved", { ...approval, ...changes }), /requires|unknown|accepted/i);
@@ -914,7 +916,7 @@ test("a suspended detecting attempt resumes only after a digested impact assessm
   assert.equal(state.attempts.filter(({ canonicalStage }) => canonicalStage === "Verify").length, 1);
   assert.equal(state.activeRouteEpisodeId, null);
   assert.deepEqual(state.pendingVerificationEpisodeIds, ["return-1"]);
-  assert.deepEqual(state.nextLegalActions, ["verification.completed"]);
+  assert.deepEqual(state.nextLegalActions, [], "journal projections must not prescribe permitted actions");
   await assert.rejects(context.append("return.closed", { canonicalStage: "Verify", owningActivity: "verification",
     episodeId: "return-1" }), /passing re-verification/);
   await context.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification",
@@ -1026,7 +1028,6 @@ test("nested Plan finding validates locally before outer Verify resumes and clos
   await c.append("stage.completed", { canonicalStage: "Plan", owningActivity: "planning", terminalReason: "advanced" });
   await assessed(c, "child", "Implement", "phase");
   await c.append("return.resumed", { canonicalStage: "Implement", owningActivity: "phase", episodeId: "child" });
-  await assert.rejects(c.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" }), /local validation/);
   await c.append("correction.validated", { canonicalStage: "Implement", owningActivity: "phase", episodeId: "child",
     artifactPath: ".myflow/workstreams/journal-fixture/workstream.md" });
   await c.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" });
@@ -1083,17 +1084,13 @@ test("two named planned slices require accepted basis, per-slice plan, implement
       precedingVerifyAttemptId: prior, planningBasisEventId: basis.plan,
       scopeArtifactEventId: basis.scope, designArtifactEventId: basis.design });
     await c.append("stage.entered", { canonicalStage: "Plan", owningActivity: "planning" });
-    await assert.rejects(c.append("stage.completed", { canonicalStage: "Plan", owningActivity: "planning", terminalReason: "advanced" }), /plan artifact/);
     await accepted(c, "Plan", "planning");
     await advance(c, "Plan", "planning", "Implement", "phase");
-    await assert.rejects(c.append("stage.completed", { canonicalStage: "Implement", owningActivity: "phase", terminalReason: "advanced" }), /Implement evidence/);
     await accepted(c, "Implement", "phase");
     await advance(c, "Implement", "phase", "Verify", "verification");
-    await assert.rejects(c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" }), /passing|Verify evidence/);
     await accepted(c, "Verify", "verification");
     await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
     await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "failed" });
-    await assert.rejects(c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" }), /passing verification/);
     await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
     await c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
   }
@@ -1111,7 +1108,8 @@ test("planned slice rejects stale Verify, invalid basis, duplicate name, and pre
   await assert.rejects(c.append("slice.started", { ...start, planningBasisEventId: basis.scope }), /planning basis/);
   await c.append("slice.started", start);
   await assert.rejects(c.append("slice.started", start), /slice|pending/);
-  await assert.rejects(c.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" }), /slice|Plan/);
+  // The journal does not decide whether an agent may revisit Plan. The skill
+  // still requires per-slice evidence before declaring the work complete.
   await c.append("stage.entered", { canonicalStage: "Plan", owningActivity: "planning" });
   await accepted(c, "Plan", "planning"); await advance(c, "Plan", "planning", "Implement", "phase");
   await accepted(c, "Implement", "phase"); await advance(c, "Implement", "phase", "Verify", "verification");
@@ -1150,7 +1148,7 @@ test("a pending verification obligation blocks Close even if another Verify repo
   await c.append("return.resumed", { canonicalStage: "Verify", owningActivity: "verification", episodeId: "old" });
   await c.append("verification.completed", { canonicalStage: "Verify", owningActivity: "verification", verificationStatus: "passed" });
   await c.append("stage.completed", { canonicalStage: "Verify", owningActivity: "verification", terminalReason: "advanced" });
-  await assert.rejects(c.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" }), /correction obligations/);
+  await c.append("stage.entered", { canonicalStage: "Close", owningActivity: "closeout" });
   const state = (await validateLifecycleJournal(c.journalPath)).state;
   assert.equal(state.returns[0].originAttemptId, verify);
   assert.deepEqual(state.pendingVerificationEpisodeIds, ["old"]);
@@ -1229,7 +1227,7 @@ test("latest advanced Verify can originate a post-terminal correction without re
   assert.deepEqual((await readFile(c.journalPath)).subarray(0, bytes.length), bytes);
 });
 
-test("latest failed Verify blocks slice and Close even with an approved gap", async () => {
+test("latest failed Verify stays visible even with an approved gap", async () => {
   const d = await fixture(); await reachVerify(d);
   const id = (await validateLifecycleJournal(d.journalPath)).state.currentAttemptId;
   const observation = await observed(d, { canonicalStage: "Verify", owningActivity: "verification", sourceAttemptId: id });
@@ -1241,8 +1239,8 @@ test("latest failed Verify blocks slice and Close even with an approved gap", as
   await d.append("close.audit-gap-approved", { canonicalStage: "Close", owningActivity: "closeout",
     observationId: observation.event.observationId, gapName: "audit debt", approvedBy: "Owner",
     followUpDestination: "scope/next.md", closeArtifactEventId: closeEvidence });
-  await assert.rejects(d.append("stage.completed", { canonicalStage: "Close", owningActivity: "closeout",
-    terminalReason: "workstream-closed" }), /passing Verify/);
+  assert.equal((await validateLifecycleJournal(d.journalPath)).state.attempts.findLast(
+    ({ canonicalStage }) => canonicalStage === "Verify").passingVerificationAt, null);
   // In a separate slice-capable history, the failed result also blocks slice start.
   // Failed status before terminal advancement in the slice-capable fixture.
   const f = await fixture(); await createAndEnterScope(f);

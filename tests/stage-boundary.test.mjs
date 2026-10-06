@@ -93,6 +93,77 @@ async function remoteFiles(context) {
   return output.split("\n").filter(Boolean);
 }
 
+test("corrections revisit stages and record fresh Verify evidence without journal gates", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
+  const enter = (stage, activity) => run(c, "enter", "--stage", stage, "--activity", activity);
+  const exit = (stage, activity) => run(c, "exit", "--stage", stage, "--activity", activity, "--feedback", "skipped");
+  await enter("Scope", "scope"); await exit("Scope", "scope");
+  await enter("Plan", "planning"); await exit("Plan", "planning");
+  await enter("Implement", "phase"); await exit("Implement", "phase");
+  await enter("Verify", "verification");
+  await exit("Verify", "verification");
+  // A failed journal write does not lock out the subsequent real correction.
+  await assert.rejects(run(c, "correct", "--action", "note", "--stage", "Verify", "--activity", "verification",
+    "--finding", "Plan is wrong", "--owner", "Plan", "--owning-stage", "Plan", "--owning-activity", "planning",
+    "--artifact", "missing.md"), /artifact does not exist/);
+  // A finding after Verify ended needs no episode, assessment, or invented stage.
+  await writeFile(join(c.workstreamDirectory, "finding.md"), "Plan is wrong\n");
+  const noteFlags = ["correct", "--action", "note", "--stage", "Verify", "--activity", "verification",
+    "--finding", "Plan is wrong", "--owner", "Plan", "--owning-stage", "Plan", "--owning-activity", "planning", "--artifact", "finding.md"];
+  const noted = await run(c, ...noteFlags);
+  assert.equal(noted.disposition, "recorded");
+  assert.ok((await run(c, ...noteFlags)).events.every(({ duplicate }) => duplicate));
+  await assert.rejects(run(c, ...noteFlags.map((value) => value === "Plan is wrong" ? "different finding" : value)), /rewrite/);
+  assert.equal(noted.unresolvedIds.length, 0, "a recorded finding is not bookkeeping debt");
+  const secondNote = await run(c, "correct", "--action", "note", "--stage", "Verify", "--activity", "verification",
+    "--finding", "Architecture also changed", "--finding-selector", "VR-2", "--owner", "designer",
+    "--owning-stage", "Plan", "--owning-activity", "design", "--artifact", "finding.md");
+  assert.notEqual(secondNote.observationId, noted.observationId);
+  await enter("Plan", "planning");
+  // Even an open attempt can change owner without being used as a permission gate.
+  await enter("Scope", "scope");
+  const once = await readFile(c.journalPath, "utf8");
+  assert.ok((await enter("Scope", "scope")).events.every(({ duplicate }) => duplicate));
+  assert.equal(await readFile(c.journalPath, "utf8"), once);
+  await exit("Scope", "scope");
+  await enter("Plan", "design"); await enter("Plan", "planning"); await exit("Plan", "planning");
+  await enter("Implement", "phase"); await exit("Implement", "phase");
+  await enter("Close", "closeout");
+  // Close guidance, not the journal, requires a fresh passing report. An agent
+  // that notices missing evidence can go straight back to Verify.
+  await enter("Verify", "verification");
+  const { stdout } = await execFile(process.execPath, [new URL("../skills/myflow/scripts/lifecycle-journal.mjs", import.meta.url).pathname,
+    "verification-completed", "--workstream-id", WORKSTREAM, "--repository-root", c.repo,
+    "--stage", "Verify", "--activity", "verification", "--source", "verify",
+    "--idempotency-key", "fresh-verify", "--verification-status", "pass"], { env: c.env });
+  assert.equal(JSON.parse(stdout).event.kind, "verification.completed");
+  await exit("Verify", "verification");
+  await enter("Close", "closeout"); await run(c, "exit", "--stage", "Close", "--activity", "closeout",
+    "--feedback", "skipped", "--terminal-reason", "workstream-closed");
+  const result = await validateLifecycleJournal(c.journalPath);
+  assert.equal(result.valid, true, JSON.stringify(result.errors));
+  assert.equal(result.state.closed, true);
+  assert.equal(result.state.unresolvedObservations.length, 0);
+  assert.equal(result.state.observations.filter(({ intendedAction }) => intendedAction === "note").length, 2);
+});
+
+test("a new attempt in the same stage is explicit and keeps the earlier attempt intact", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
+  await run(c, "enter", "--stage", "Scope", "--activity", "scope");
+  await run(c, "exit", "--stage", "Scope", "--activity", "scope", "--feedback", "skipped");
+  const prior = (await validateLifecycleJournal(c.journalPath)).state.attempts[0];
+  await assert.rejects(run(c, "exit", "--stage", "Scope", "--activity", "scope",
+    "--feedback", "skipped", "--new-attempt"), /new-attempt belongs to enter/);
+  await assert.rejects(run(c, "enter", "--stage", "Scope", "--activity", "scope"), /new-attempt/);
+  await run(c, "enter", "--stage", "Scope", "--activity", "scope", "--new-attempt");
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.attempts.length, 2);
+  assert.equal(state.attempts[0].attemptId, prior.attemptId);
+  assert.notEqual(state.attempts[1].attemptId, prior.attemptId);
+});
+
 test("enter, accept, and exit produce a valid journal", async (t) => {
   const context = await fixture();
   t.after(() => rm(context.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
@@ -402,8 +473,6 @@ test("Close command requires explicit approved gap and retains the observation",
   await run(c, "exit", "--stage", "Verify", "--activity", "verification", "--feedback", "skipped");
   await run(c, "enter", "--stage", "Close", "--activity", "closeout");
   const accepted = await run(c, "accept", "--stage", "Close", "--activity", "closeout", "--artifact", "close.md");
-  await assert.rejects(run(c, "exit", "--stage", "Close", "--activity", "closeout", "--feedback", "skipped",
-    "--terminal-reason", "workstream-closed"), /approved named gap/);
   assert.equal((await validateLifecycleJournal(c.journalPath)).state.feedback.filter(({ status }) => status === "skipped").length, 4);
   const flags = ["approve-audit-gap", "--stage", "Close", "--activity", "closeout", "--observation-id", observed.observationId,
     "--gap-name", "missing stage history", "--approved-by", "Owner", "--follow-up", "scope/next-workstream.md",
@@ -766,13 +835,13 @@ test("nested child validates locally before parent resumes and closes child-firs
     "--artifact", "child.md", "--disposition", "resume", "--rerun-check", "local test");
   await run(c, "correct", "--action", "resume", "--stage", "Implement", "--activity", "phase", "--episode-id", child.episodeId);
   await run(c, "correct", "--action", "ready", "--stage", "Implement", "--activity", "phase", "--episode-id", parent.episodeId);
-  await assert.rejects(run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped"), /local validation|child/);
-  // The child is validated in its resumed detecting attempt before that attempt advances.
+  // Legacy episode events can still record local validation, but new guidance
+  // does not make them a prerequisite for an ordinary stage transition.
   await run(c, "correct", "--action", "validate", "--stage", "Implement", "--activity", "phase", "--episode-id", child.episodeId, "--artifact", "child.md");
   await run(c, "exit", "--stage", "Implement", "--activity", "phase", "--feedback", "skipped");
   const feedback = (await readFile(c.feedbackPath, "utf8")).trim().split("\n").map(JSON.parse);
   assert.equal(feedback.filter(({ canonicalStage }) => canonicalStage === "Implement").length, 2,
-    "each terminal Implement attempt has one private response, including after a failed exit retry");
+    "each terminal Implement attempt has one private response");
   await run(c, "correct", "--action", "assess", "--stage", "Verify", "--activity", "verification", "--episode-id", parent.episodeId,
     "--artifact", "finding.md", "--disposition", "resume", "--rerun-check", "full review");
   await run(c, "correct", "--action", "resume", "--stage", "Verify", "--activity", "verification", "--episode-id", parent.episodeId);
@@ -890,7 +959,6 @@ test("same-stage Plan correction returns to design within the original attempt",
   assert.equal((await run(c, ...flags)).observationId, first.observationId);
   const accepted = await run(c, "accept", "--stage", "Plan", "--activity", "design", "--artifact", "finding.md");
   await run(c, "correct", "--action", "ready", "--stage", "Plan", "--activity", "design", "--episode-id", first.episodeId);
-  await assert.rejects(run(c, "enter", "--stage", "Plan", "--activity", "planning", "--label", "replanned"), /same-stage return requires a digested resume assessment/);
   await run(c, "correct", "--action", "assess", "--stage", "Plan", "--activity", "design", "--episode-id", first.episodeId,
     "--artifact", "finding.md", "--disposition", "resume", "--reusable-evidence", "accepted design", "--invalidated-evidence", "old plan", "--rerun-check", "plan review");
   await run(c, "enter", "--stage", "Plan", "--activity", "planning", "--label", "replanned");

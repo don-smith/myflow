@@ -46,7 +46,7 @@ Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from thi
 - On entry: `enter --stage Plan --activity design --workstream <workstream-id> --repository-root <git-root>`. A resumed design activity in the same Plan attempt does not create another stage attempt.
 - When the developer accepts the design: `accept --artifact <path>`.
 - Design does not exit the Plan stage. Planning owns `exit` and the stage question; entering the planning activity completes the design activity.
-- When Design owns a correction: use intent-first `correct` and record owner readiness when the architecture is ready. If Design proves the outcome changed, reroute to Scope rather than changing ownership silently. A provisional observation is not a Plan entry; preserve its ID and the real evidence for later reconciliation.
+- When architecture changes, record the finding and affected evidence in the design artifact and manifest. Use `correct --action note` when available, then enter Plan/design. If the outcome changed, record why and enter Scope instead. A journal error does not prevent the return. Re-run downstream work affected by the change.
 
 Read `../myflow/references/stage-boundary.md` for the question wording and choices, the correction options, and what happens when a step fails. Keep earlier attempts and accepted artifacts as history.
 

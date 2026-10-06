@@ -14,7 +14,7 @@ test("artifact contract defines common stage handoffs and right-sized planning",
     "Trivial, in-session",
     "Lightweight",
     "Structural design required",
-    "Route corrections to their owner",
+    "Return to the owner when needed",
     "workstream ID",
     ".myflow/workstreams/<workstream-id>/",
     "repository-map resolver",
@@ -23,14 +23,12 @@ test("artifact contract defines common stage handoffs and right-sized planning",
     "common Git directory",
     "explicit map override",
     "personal global",
-    "authoritative lifecycle journal",
+    "Lifecycle journal",
     "lifecycle/events.jsonl",
     "append-only",
     "canonical stage attempt",
-    "correction episode",
-    "returnEpisodeCount",
-    "stageReturnCount",
-    "activityReturnCount",
+    "journal never grants permission",
+    "fresh passing verification",
   ]) {
     assert.match(contract, new RegExp(requirement, "i"));
   }
@@ -60,9 +58,8 @@ test("shared templates support resumable stage state and lightweight plans", asy
   assert.match(workstream, /Current State/);
   assert.match(workstream, /Lifecycle Journal/);
   assert.match(workstream, /lifecycle\/events\.jsonl/);
-  assert.match(workstream, /returnEpisodeCount/);
-  assert.match(workstream, /stageReturnCount/);
-  assert.match(workstream, /activityReturnCount/);
+  assert.match(workstream, /Journal debt/);
+  assert.match(workstream, /Corrections/);
 });
 
 test("scope establishes a workstream and selects rather than forces specialists", async () => {

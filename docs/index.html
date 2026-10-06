@@ -441,7 +441,7 @@
 <header class="masthead">
   <div class="eyebrow">
     <span class="label">Artifact-led development workflow</span>
-    <span class="version">v4.0.0</span>
+    <span class="version">v4.0.1</span>
   </div>
   <h1>MyFlow</h1>
   <p class="standfirst">
@@ -716,7 +716,7 @@
         <h4>workstream.md is an index, not a second spec</h4>
         <p>
           It names the ID, the current stage, the authoritative current artifact and the related ones. It
-          is a projection of the journal — the stage artifacts remain authoritative for decisions.
+          stays current even when a journal write fails. Stage artifacts remain authoritative for decisions.
         </p>
       </div>
       <div class="note-item">
@@ -743,20 +743,20 @@
     <h2>One seam for every stage edge</h2>
     <p>
       No skill assembles journal events or invents an idempotency key. Every boundary goes through
-      <code>stage-boundary.mjs</code>, which validates the transition, digests the artifact, links the
-      previous event, takes an append lock and returns a receipt.
+      <code>stage-boundary.mjs</code>, which records the transition, digests the artifact, links the
+      previous event, takes an append lock and returns a receipt. The journal never decides whether the work may return to an earlier stage.
     </p>
   </div>
 
   <div class="practices">
     <div class="practice">
-      <h3>Four verbs</h3>
+      <h3>Record the work</h3>
       <p style="margin-bottom:.75rem">Each stage runs the same edge commands, so the journal reads the same way whichever stage wrote it.</p>
       <div class="vocab">
         <span class="pill">enter</span>
         <span class="pill">accept</span>
         <span class="pill">exit</span>
-        <span class="pill">return</span>
+        <span class="pill">note</span>
       </div>
     </div>
     <div class="practice">
@@ -774,7 +774,7 @@
       <p>
         Sometimes something unexpected surfaces in a later stage and the work has to return to an earlier
         one to adjust. This is expected, and it often points to an opportunity for improvement. So the
-        owner, the stages involved, the fix and the evidence are captured for learning.
+        owner, the stages involved, the fix and the evidence are captured for learning. A journal error is recorded for repair, not used to stop the correction.
       </p>
     </div>
     <div class="practice">
@@ -870,7 +870,7 @@
 </section>
 
 <footer>
-  <span>MyFlow v4.0.0 — artifact-led development workflow</span>
+  <span>MyFlow v4.0.1 — artifact-led development workflow</span>
   <span class="mono">docs/index.html</span>
 </footer>
 

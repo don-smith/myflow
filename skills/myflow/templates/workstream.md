@@ -33,16 +33,12 @@ flow_item_type: unknown # feature | defect | debt | risk | unknown
 ## Lifecycle Journal
 
 - Journal: `lifecycle/events.jsonl`
-- Schema: `myflow-lifecycle/v1`
-- Current attempt: `{attempt ID and ordinal | not started | closed}`
-- Open correction episode: `{episode ID | none}`
-- Return counts: `returnEpisodeCount={n}`, `stageReturnCount={n}`, `activityReturnCount={n}`
-- Last receipt: `{canonical event ID | provisional observation ID | none}`
-- Unresolved observations: `{observation ID, source attempt, finding, owner, evidence path and digest, cause, next safe action | none}`
-- Pending Verify obligations: `{episode IDs and required fresh checks | none}`
+- Current attempt and last receipt: `{attempt ID, event ID | recording pending with reason}`
+- Corrections: `{finding, owning stage, evidence, affected checks, next action | none}`
+- Journal debt: `{failed command, error, actual work, retry owner | none}`
 - Planned slices: `{name, Plan, Implement, Verify evidence and status | none}`
 
-The journal is the append-only lifecycle authority. This manifest is its current-state projection. A provisional receipt records an observation, not a canonical stage entry. Keep unresolved observations visible even when a named audit gap is approved at Close. Stage artifacts remain the decision and evidence records.
+The journal is append-only history, not a permission system. Keep this manifest current even when a journal write fails; never claim the missing event exists. Earlier episodes and unresolved observations remain in old journals. Stage artifacts contain decisions and verification evidence.
 
 ## Worktree and Delivery Context
 

@@ -18,7 +18,7 @@
  *   exit   --feedback <smooth|some-friction|rough|skipped|pending>
  *         [--note <sentence>] [--terminal-reason <reason>]
  *   return [--event <opened|rerouted|owner-ready|resumed|closed>] ...
- *   correct --action <observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve> ...
+ *   correct --action <note|observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve> ...
  *   slice --slice <name> --artifact <evidence> --planning-basis <accepted event ID>
  *         --scope-basis <accepted event ID> --design-basis <accepted event ID>
  *
@@ -367,6 +367,9 @@ async function enter(context, options) {
   const { canonicalStage, owningActivity } = options;
   assertStageAndActivity(canonicalStage, owningActivity);
   let state = await loadState(context.journalPath);
+  if (options.newAttempt && state.currentAttemptId) {
+    throw usageError("--new-attempt is only for a completed stage; enter the open attempt normally");
+  }
 
   if (!state.created) {
     if (canonicalStage !== "Scope" || owningActivity !== "scope") {
@@ -388,8 +391,22 @@ async function enter(context, options) {
   // which is what made the documented mid-stage activity switch impossible.
   if (!state.currentAttemptId && state.attempts.at(-1)?.canonicalStage === canonicalStage &&
       state.attempts.at(-1)?.status !== "abandoned" && !state.revision && !state.pendingSlice &&
-      !state.activeRouteEpisodeId) {
-    throw new Error(`${canonicalStage} attempt has ended; use correct or slice for a new attempt`);
+      !options.newAttempt) {
+    throw new Error(`${canonicalStage} attempt has ended; pass --new-attempt to start another`);
+  }
+  // A change of owner must never wait for journal routing machinery. Finish the
+  // interrupted attempt truthfully, including pending feedback, then record the new
+  // stage. The old attempt and its accepted artifacts remain immutable.
+  const interrupted = state.attempts.find(({ attemptId }) => attemptId === state.currentAttemptId);
+  if (interrupted && interrupted.canonicalStage !== canonicalStage) {
+    await recordFeedback(context, { attempt: { attemptId: interrupted.attemptId,
+      attemptOrdinal: interrupted.ordinal, canonicalStage: interrupted.canonicalStage,
+      owningActivity: interrupted.openingActivity }, answer: "pending" });
+    await completeOpenActivity(context, state);
+    await record(context, { kind: "stage.completed", canonicalStage: interrupted.canonicalStage,
+      owningActivity: interrupted.openingActivity, attemptOrdinal: interrupted.ordinal,
+      action: "stage-completed", terminalReason: "superseded" });
+    state = await loadState(context.journalPath);
   }
   const openAttempt = state.attempts.find(
     ({ attemptId, canonicalStage: stage }) => attemptId === state.currentAttemptId && stage === canonicalStage,
@@ -430,12 +447,6 @@ async function enter(context, options) {
     action: "activity-entered",
     detail: options.label,
   });
-  const sameStageRoute = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
-  if (sameStageRoute?.ownerReadyAt && sameStageRoute.owner.stage === sameStageRoute.detectingStage &&
-      !sameStageRoute.suspendedAt && state.currentAttemptId === sameStageRoute.originAttemptId &&
-      owningActivity === sameStageRoute.detectingActivity && sameStageRoute.assessment?.disposition !== "resume") {
-    throw new Error("same-stage return requires a digested resume assessment before detecting activity entry");
-  }
   if (
     state.currentActivityId &&
     state.currentActivityId !== prospectiveActivityId(context, { canonicalStage, owningActivity, idempotencyKey: activityKey })
@@ -494,11 +505,6 @@ async function exit(context, options) {
     throw usageError(`--terminal-reason must be one of ${TERMINAL_REASONS.join(", ")}`);
   }
   const state = await loadState(context.journalPath);
-  if (canonicalStage === "Close" && terminalReason === "workstream-closed" && state.currentAttemptId &&
-      state.unresolvedObservations.some(({ observationId }) =>
-        !state.approvedAuditGaps.some((gap) => gap.observationId === observationId))) {
-    throw new Error("Close requires an approved named gap for every unresolved observation");
-  }
   const attempt = state.currentAttemptId ? attemptFor(state, canonicalStage) :
     state.attempts.filter(({ canonicalStage: stage }) => stage === canonicalStage).at(-1);
   if (!attempt || (!state.currentAttemptId && state.lastTerminalAttemptId !== attempt.attemptId)) {
@@ -724,7 +730,9 @@ async function intentObservation(context, options, intendedAction, intendedStage
     sourceAttemptId: source.attemptId,
     ...(options.findingSelector !== undefined ? { findingSelector: options.findingSelector } : {}),
     actualFinding: options.finding, intendedAction, intendedStage, intendedActivity,
-    intendedOwner: options.owner, unresolvedReason: "awaiting canonical route", artifactPath: options.artifactPath,
+    intendedOwner: options.owner,
+    unresolvedReason: intendedAction === "note" ? "not applicable: recorded finding" : "awaiting canonical route",
+    artifactPath: options.artifactPath,
   }, "intent", key);
 }
 
@@ -762,12 +770,12 @@ async function enterSemanticAttempt(context, stage, activity, identity) {
 
 async function correct(context, options) {
   const action = options.action;
-  if (!["observe", "route", "revise", "ready", "assess", "resume", "supersede", "validate", "pass", "close", "resolve"].includes(action)) {
-    throw usageError("correct requires --action observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve");
+  if (!["note", "observe", "route", "revise", "ready", "assess", "resume", "supersede", "validate", "pass", "close", "resolve"].includes(action)) {
+    throw usageError("correct requires --action note|observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve");
   }
   const { canonicalStage, owningActivity } = options;
   assertStageAndActivity(canonicalStage, owningActivity);
-  if (["observe", "route", "revise"].includes(action)) {
+  if (["note", "observe", "route", "revise"].includes(action)) {
     const stage = options.owningStage ?? canonicalStage;
     const activity = options.routeActivity ?? owningActivity;
     assertStageAndActivity(stage, activity);
@@ -776,6 +784,7 @@ async function correct(context, options) {
     }
     if (action === "route") assertRoute(options.changeKind, stage, activity);
     const observation = await intentObservation(context, options, action, stage, activity);
+    if (action === "note") return finishSemantic(context, observation, "recorded", undefined, "enter the owning stage; update the artifact and rerun affected checks");
     if (action === "observe") return finishSemantic(context, observation, "provisional", "record-only observation", "route with --observation-id after owner is known");
     const identity = observation.observationId;
     const episodeId = `episode_${digest(identity).slice(0, 24)}`;
@@ -1013,12 +1022,12 @@ const VALUE_FLAGS = new Map([
 ]);
 
 const usage = `usage: stage-boundary.mjs <enter|accept|exit|return|correct|slice|approve-audit-gap> --workstream <id> --stage <stage> --activity <activity> --repository-root <git-root> [options]
-  enter  [--label <activity label>] [--feedback <answer> [--note <sentence>]]
+  enter  [--label <activity label>] [--new-attempt] [--feedback <answer> [--note <sentence>]]
   accept --artifact <repository-relative path>
   exit   --feedback <${FEEDBACK_ANSWERS.join("|")}> [--note <sentence>] [--terminal-reason <${TERMINAL_REASONS.join("|")}>]
   return [--event <${RETURN_EVENTS.join("|")}>] [--owning-stage <stage> --owning-activity <activity>]
          [--trigger-source <source>] [--change-kind <kind>] [--evidence-ref <ref>]... [--episode-id <id>]
-  correct --action <observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve>
+  correct --action <note|observe|route|revise|ready|assess|resume|supersede|validate|pass|close|resolve>
           [--finding <actual finding> --finding-selector <stable ID> --owner <owner> --artifact <evidence>]
           [--observation-id <receipt ID>] [--episode-id <receipt ID>] [--disposition <resume|supersede>]
           [--rerun-check <check>]... [--linked-event <ID>]... [--linked-attempt <ID>]...
@@ -1033,9 +1042,13 @@ export function parseArguments(arguments_) {
   if (!COMMANDS[command]) throw usageError(usage);
   const options = { command, evidenceRefs: [], linkedEventIds: [], linkedAttemptIds: [],
     linkedArtifactEventIds: [], reusableEvidence: [], invalidatedEvidence: [], rerunChecks: [] };
-  for (let index = 0; index < rest.length; index += 2) {
+  for (let index = 0; index < rest.length; index += 1) {
     const flag = rest[index];
-    const value = rest[index + 1];
+    if (flag === "--new-attempt") {
+      options.newAttempt = true;
+      continue;
+    }
+    const value = rest[++index];
     if (value === undefined) throw usageError(usage);
     const repeatable = { "--evidence-ref": "evidenceRefs", "--linked-event": "linkedEventIds",
       "--linked-attempt": "linkedAttemptIds", "--linked-artifact-event": "linkedArtifactEventIds",
@@ -1046,6 +1059,7 @@ export function parseArguments(arguments_) {
     if (!name) throw usageError(`unknown option: ${flag}`);
     options[name] = value;
   }
+  if (options.newAttempt && command !== "enter") throw usageError("--new-attempt belongs to enter");
   return options;
 }
 

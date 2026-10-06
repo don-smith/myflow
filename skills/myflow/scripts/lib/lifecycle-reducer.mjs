@@ -1,7 +1,6 @@
 import {
   ACTIVITY_BY_STAGE,
   CANONICAL_STAGES,
-  LIFECYCLE_SCHEMA_VERSION,
   lifecycleAttemptId,
   stageIndex,
   validateLifecycleEvent,
@@ -418,51 +417,10 @@ export function applyLifecycleEvent(previousState, event) {
         throw new Error("the first canonical stage attempt must be Scope");
       }
       const activeEpisode = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
-      const prior = state.attempts.find(({ attemptId }) => attemptId === state.lastTerminalAttemptId) ?? state.attempts.at(-1);
       const detector = state.attempts.find(({ attemptId }) => attemptId === activeEpisode?.originAttemptId);
-      const routePrior = detector?.status === "suspended" && !activeEpisode.disposedAt && !activeEpisode.ownerReadyAt ? detector : prior;
-      if (state.pendingSlice) {
-        if (event.canonicalStage !== "Plan" || event.owningActivity !== "planning") {
-          throw new Error("planned slice must enter Plan/planning");
-        }
-      } else if (state.revision) {
-        if (prior?.attemptId !== state.revision.sourceAttemptId || event.canonicalStage !== prior.canonicalStage ||
-            event.owningActivity !== prior.openingActivity) throw new Error("revision must enter its source stage");
-      } else if (activeEpisode) {
-        const ownerIndex = stageIndex(activeEpisode.owner.stage);
-        const enteredIndex = stageIndex(event.canonicalStage);
-        const priorIndex = stageIndex(routePrior.canonicalStage);
-        const entersOwner =
-          enteredIndex < priorIndex &&
-          enteredIndex === ownerIndex &&
-          (routePrior.status === "superseded" || routePrior.status === "suspended");
-        const advancesDownstream = enteredIndex === priorIndex + 1 && routePrior.status === "advanced";
-        const postTerminalOwner = activeEpisode.postTerminal && !activeEpisode.disposedAt &&
-          routePrior.attemptId === activeEpisode.originAttemptId &&
-          enteredIndex === ownerIndex && enteredIndex < priorIndex;
-        const replacesSuspendedDetector = activeEpisode.disposedAt &&
-          detector.status === "superseded" && (routePrior.status === "advanced" || routePrior.attemptId === detector.attemptId) &&
-          event.canonicalStage === activeEpisode.detectingStage &&
-          completedCorrectionPath(state, activeEpisode);
-        if (
-          enteredIndex < ownerIndex ||
-          enteredIndex > stageIndex("Verify") ||
-          (!entersOwner && !advancesDownstream && !replacesSuspendedDetector && !postTerminalOwner)
-        ) {
-          throw new Error("stage entry must follow the active correction route one canonical stage at a time");
-        }
-      } else if (prior) {
-        if (event.canonicalStage === "Close" && state.returns.some(({ status }) => status !== "closed")) {
-          throw new Error("Close requires all correction obligations resolved");
-        }
-        const sameAbandonedStage =
-          prior.status === "abandoned" && prior.canonicalStage === event.canonicalStage;
-        const normalAdvance =
-          prior.status === "advanced" && stageIndex(event.canonicalStage) === stageIndex(prior.canonicalStage) + 1;
-        if (!sameAbandonedStage && !normalAdvance) {
-          throw new Error("stage entry must advance normally or follow an active correction route");
-        }
-      }
+      // Stage order is guidance, not a journal permission check. Previous attempts and
+      // correction episodes remain in the log; an agent can revisit any owning stage.
+      // The Close skill checks a fresh passing Verify report before completion.
       state.attempts.push({
         attemptId: event.attemptId,
         canonicalStage: event.canonicalStage,
@@ -564,45 +522,15 @@ export function applyLifecycleEvent(previousState, event) {
     case "stage.completed": {
       if (state.currentActivityId) throw new Error("open activity must complete before its stage attempt");
       if (state.currentBlockId) throw new Error("blocked stage must resume before completion");
-      if (event.terminalReason === "workstream-closed") {
-        if (event.canonicalStage !== "Close") throw new Error("only a Close attempt may end with workstream-closed");
-        // Pre-v2 Close records had no passing-Verify gate. New Close completions
-        // persist as v2, so the old v1 chain replays without waiving new writes.
-        if (event.schemaVersion !== LIFECYCLE_SCHEMA_VERSION &&
-            !state.attempts.findLast(({ canonicalStage }) => canonicalStage === "Verify")?.passingVerificationAt) {
-          throw new Error("Close requires a passing Verify; approved audit gaps do not waive it");
-        }
-        if (state.observations.some(({ observationId, resolution }) => !resolution &&
-            !state.approvedAuditGaps.some((gap) => gap.observationId === observationId))) {
-          throw new Error("Close requires an approved named gap for every unresolved observation");
-        }
+      if (event.terminalReason === "workstream-closed" && event.canonicalStage !== "Close") {
+        throw new Error("only a Close attempt may end with workstream-closed");
       }
+      // Verify and review evidence are gates in the Close skill, not in the log.
+      // A missing journal pass must not veto a real, documented passing report.
       const attempt = currentAttempt(state);
       const slice = state.slices.at(-1);
-      if (event.terminalReason === "advanced" && slice) {
-        const evidence = state.acceptedArtifacts.some(({ attemptId }) => attemptId === attempt.attemptId);
-        const detailedPlan = state.acceptedArtifacts.some(({ attemptId, owningActivity }) =>
-          attemptId === attempt.attemptId && owningActivity === "planning");
-        if (slice.planAttemptId === attempt.attemptId && !detailedPlan) throw new Error("slice requires accepted plan artifact");
-        if (slice.implementAttemptId === attempt.attemptId && !evidence) throw new Error("slice requires accepted Implement evidence");
-        if (slice.verifyAttemptId === attempt.attemptId && (!evidence || !attempt.passingVerificationAt)) {
-          throw new Error("slice requires Verify evidence and passing verification");
-        }
-      }
-      if (state.returns.some(({ parentEpisodeId, localValidation, originAttemptId }) =>
-        parentEpisodeId !== null && (originAttemptId === attempt.attemptId ||
-          state.returns.some(({ replacementAttemptId }) => replacementAttemptId === attempt.attemptId)) && !localValidation)) {
-        throw new Error("child correction requires local validation before its detecting attempt advances");
-      }
-      const activeEpisode = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
-      if (
-        activeEpisode &&
-        event.canonicalStage === activeEpisode.owner.stage &&
-        event.terminalReason === "advanced" &&
-        !activeEpisode.ownerReadyAt
-      ) {
-        throw new Error("the correction owner must record readiness before advancing");
-      }
+      // The artifact and verification skills decide when work is ready. Unfinished
+      // historical episodes and observations are audit data, not transition locks.
       if (slice && event.terminalReason === "advanced") {
         if (slice.planAttemptId === attempt.attemptId) slice.status = "planned";
         if (slice.implementAttemptId === attempt.attemptId) slice.status = "implemented";
@@ -883,12 +811,8 @@ export function applyLifecycleEvent(previousState, event) {
       ) {
         throw new Error("workstream closure requires a Close attempt ending with workstream-closed");
       }
-      if (state.returns.some(({ status }) => status !== "closed")) {
-        throw new Error("workstream closure requires all correction episodes to close");
-      }
-      if (state.pendingSlice || state.slices.some(({ status }) => status !== "verified")) {
-        throw new Error("workstream closure requires passing evidence for every planned slice");
-      }
+      // Historical episodes and planned slices remain queryable even if the newer
+      // artifact-led path never used their bookkeeping commands.
       state.closed = true;
       state.currentStage = "Close";
       break;
@@ -905,28 +829,10 @@ export function applyLifecycleEvent(previousState, event) {
   state.lastEventId = event.eventId;
   state.eventLinks.push({ eventId: event.eventId, kind: event.kind, attemptId: event.attemptId,
     ...(event.episodeId ? { episodeId: event.episodeId } : {}) });
-  state.unresolvedObservations = state.observations.filter(({ resolution }) => !resolution);
-  const activeRoute = state.returns.find(({ episodeId }) => episodeId === state.activeRouteEpisodeId);
-  const latestTerminal = state.attempts.find(({ attemptId }) => attemptId === state.lastTerminalAttemptId);
-  state.nextLegalActions = state.currentAttemptId
-    ? activeRoute && !activeRoute.suspendedAt && activeRoute.originAttemptId === state.currentAttemptId
-      ? ["attempt.suspended", "stage.completed"]
-      : activeRoute?.ownerReadyAt && !activeRoute.resumedAt &&
-      state.currentStage !== activeRoute.owner.stage ? ["return.resumed"]
-      : activeRoute && state.currentStage === activeRoute.owner.stage ? ["return.owner-ready", "stage.completed"]
-      : state.pendingVerificationEpisodeIds.length && state.currentStage === "Verify"
-      ? state.pendingVerificationEpisodeIds.every((id) => state.returns.find(({ episodeId }) => episodeId === id)?.reverifiedAt)
-        ? ["return.closed"] : ["verification.completed"]
-      : ["activity.entered", "stage.completed", "action.observed"]
-    : state.revision ? ["stage.entered"]
-      : activeRoute?.assessment ? [activeRoute.assessment.disposition === "resume" ? "attempt.resumed" : "attempt.superseded"]
-        : activeRoute?.suspendedAt && activeRoute.ownerReadyAt ? ["attempt.assessed"]
-          : activeRoute ? ["stage.entered"]
-            : latestTerminal?.canonicalStage === "Verify" && latestTerminal.status === "advanced" &&
-              latestTerminal.passingVerificationAt &&
-              !state.pendingVerificationEpisodeIds.length
-              ? ["stage.entered", "slice.started", "action.observed"]
-              : ["stage.entered", "revision.opened", "action.observed"];
+  state.unresolvedObservations = state.observations.filter(({ intendedAction, resolution }) =>
+    intendedAction !== "note" && !resolution);
+  // Retained for older projections; it is no longer a list of permissions.
+  state.nextLegalActions = [];
   return state;
 }
 

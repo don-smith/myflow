@@ -29,7 +29,7 @@ Onboard repository (when needed)
 | Verify | `verify` | Load and execute `code-review` with the exact implementation scope and accepted plan, then prepare human manual verification. |
 | Close | `close` | Require linked passing review evidence, then complete applicable documentation, learning, delivery, and final-closeout work collaboratively. |
 
-After the final green phase, Implement reads the installed `verify` skill and executes it immediately in the same parent session. Invoking `verify` by hand is recovery/rehydration guidance only, not a user-operated gate. Verify runs fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity lanes. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and its plan/scope provenance instead of trusting only a validation report's top-level verdict. Correction actions record intent first: canonical receipts report real transitions, while provisional receipts retain an unresolved observation and next safe action. Reconciliation links later real evidence without backdating. A named next Plan slice after passing Verify retains separate Implement and Verify evidence, plus applicable cumulative checks before Close. Unresolved observations remain visible; Close requires a named owner-approved gap and follow-up destination for each, without waiving passing verification or review provenance.
+After the final green phase, Implement reads the installed `verify` skill and executes it immediately in the same parent session. Invoking `verify` by hand is recovery/rehydration guidance only, not a user-operated gate. Verify runs fresh Correctness and Risk, Standards and Maintainability, and Spec Fidelity lanes. Confirmed P0/P1 findings block; P2 does not block. Close inspects linked passing review evidence and its plan/scope provenance instead of trusting only a validation report's top-level verdict. Corrections record the finding and enter the owning stage without an episode gate. Journal failures remain visible in artifacts but never stop legitimate work. A named next Plan slice after passing Verify retains separate Plan, Implement, and Verify evidence, plus applicable cumulative checks before Close. Unresolved observations stay visible without vetoing verified work. Close requires fresh passing verification and linked review evidence.
 
 `myflow` is the workflow map and navigation layer, not a competing stage.
 
@@ -53,7 +53,7 @@ After the final green phase, Implement reads the installed `verify` skill and ex
 ### Cross-cutting primitives
 
 - `handoff` is the canonical exceptional-handoff skill, in write and resume modes.
-- `stage-boundary.mjs` is the single lifecycle seam. Each stage runs `enter`, `accept`, `exit`, and `return`; no skill assembles journal events or idempotency keys.
+- `stage-boundary.mjs` records stage facts with `enter`, `accept`, `exit`, and optional `correct --action note`; no skill assembles journal events or keys. It records history, not permitted stage moves.
 - `technical-writing` is the cross-cutting documentation skill, used by Close.
 - `diagnosing-bugs` is the canonical evidence-first debugging skill; `systematic-debugging` is retired.
 - `tdd` is the canonical TDD skill. It primarily shapes Plan/design test seams and the verification map; implementation re-invokes it only for uncovered behavior or a revealed design gap.
