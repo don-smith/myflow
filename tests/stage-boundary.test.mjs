@@ -148,6 +148,43 @@ test("corrections revisit stages and record fresh Verify evidence without journa
   assert.equal(result.state.observations.filter(({ intendedAction }) => intendedAction === "note").length, 2);
 });
 
+test("documented Verify-to-Design commands have complete flags and run after Verify ends", async (t) => {
+  const c = await fixture({ remote: false });
+  t.after(() => rm(c.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
+  await journeyToVerify(c);
+  await run(c, "exit", "--stage", "Verify", "--activity", "verification", "--feedback", "skipped");
+  await mkdir(join(c.workstreamDirectory, "verify"), { recursive: true });
+  await writeFile(join(c.workstreamDirectory, "verify", "findings.md"), "Architecture assumption changed\n");
+
+  const reference = await readFile("skills/myflow/references/stage-boundary.md", "utf8");
+  const example = reference.match(/```sh\n(node scripts\/stage-boundary\.mjs correct[^\n]+\nnode scripts\/stage-boundary\.mjs enter[^\n]+)\n```/);
+  assert.ok(example, "the shared reference must contain the two complete commands");
+  const commands = example[1].split("\n").map((line) => {
+    const tokens = line.match(/"[^"]*"|\S+/g).map((token) => token.replace(/^"|"$/g, ""));
+    assert.deepEqual(tokens.splice(0, 2), ["node", "scripts/stage-boundary.mjs"]);
+    return tokens.map((token) => token === "traceable-corrections" ? WORKSTREAM : token === "/path/to/repo" ? c.repo : token);
+  });
+  const required = ["--stage", "--activity", "--workstream", "--repository-root"];
+  for (const flags of commands) {
+    for (const flag of required) assert.ok(flags.includes(flag), `${flag} missing from ${flags[0]} example`);
+    assert.notEqual(flags[flags.indexOf("--stage") + 1], "Design");
+  }
+  for (const flag of ["--action", "--finding", "--owner", "--owning-stage", "--owning-activity", "--artifact"]) {
+    assert.ok(commands[0].includes(flag), `${flag} missing from correction example`);
+  }
+  assert.equal(commands[0][commands[0].indexOf("--owning-stage") + 1], "Plan");
+  assert.equal(commands[0][commands[0].indexOf("--owning-activity") + 1], "design");
+  for (const flags of commands) {
+    const { stdout } = await execFile(process.execPath, [boundary, ...flags], { env: c.env, cwd: c.repo });
+    assert.ok(JSON.parse(stdout).sync, `${flags[0]} must produce a boundary receipt`);
+  }
+  const state = (await validateLifecycleJournal(c.journalPath)).state;
+  assert.equal(state.currentStage, "Plan");
+  assert.equal(state.observations.at(-1).intendedStage, "Plan");
+  assert.equal(state.observations.at(-1).intendedActivity, "design");
+  assert.equal(state.unresolvedObservations.length, 0);
+});
+
 test("a new attempt in the same stage is explicit and keeps the earlier attempt intact", async (t) => {
   const c = await fixture({ remote: false });
   t.after(() => rm(c.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));

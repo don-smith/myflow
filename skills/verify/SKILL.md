@@ -23,7 +23,7 @@ Record this stage with `node ../myflow/scripts/stage-boundary.mjs`, run from thi
 - Switching to review: `enter --stage Verify --activity review --workstream <workstream-id> --repository-root <git-root>`, which completes the verification activity and reuses the open Verify attempt.
 - When the validation report and the linked review artifact are accepted: `accept --artifact <path>` for each.
 - Before leaving Verify: ask the stage question, then `exit --feedback <answer>`. Use `--terminal-reason superseded` when evidence sends the work back instead of forward.
-- For a correction: record the finding and affected evidence in the report and manifest. Use `correct --action note` when the journal is available, then enter the owning stage. Do not wait for an episode or assessment. After the correction, run fresh Verify on the changed implementation and record the actual result. An unresolved observation is not a passing Verify report.
+- For a correction: record the finding and affected evidence in the report and manifest. Use `correct --action note` when the journal is available, then enter the owning stage. For an architecture correction, use `--owning-stage Plan --owning-activity design`, not `--owning-stage Design`. The complete Verify-to-Plan/design commands are in `../myflow/references/stage-boundary.md`. Do not wait for an episode or assessment. After the correction, run fresh Verify on the changed implementation and record the actual result. An unresolved observation is not a passing Verify report.
 
 Record `verification-completed` with its actual status, and any real wait with `stage-blocked` and `stage-unblocked`, through `node ../myflow/scripts/lifecycle-journal.mjs`. Read `../myflow/references/stage-boundary.md` for the question wording and choices, the deferral rule, and what happens when a step fails. Preserve prior attempts, accepted artifacts, and review reports as history.
 
@@ -39,7 +39,7 @@ Record `verification-completed` with its actual status, and any real wait with `
 
 ## Corrective loops
 
-An implementation defect returns to Implement. An incorrect or unexecutable plan returns to Plan. A changed architectural decision returns to Design. A changed outcome/acceptance criterion returns to Scope. Record the correction owner and re-run downstream verification after it is corrected.
+An implementation defect returns to Implement. An incorrect or unexecutable plan returns to Plan/planning. A changed architectural decision returns to Plan/design; Design is an activity within Plan, not a canonical stage. A changed outcome or acceptance criterion returns to Scope. Record the correction owner and re-run downstream verification after it is corrected.
 
 ## Completion
 

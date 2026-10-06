@@ -36,6 +36,16 @@ test("stage skills record facts without asking the journal for permission", asyn
   assert.match(router, /fresh Verify before Close/i);
 });
 
+test("Verify and Design name the canonical owner and link the executable correction example", async () => {
+  for (const skillPath of [skillPaths.Verify, skillPaths.Design]) {
+    const skill = await read(skillPath);
+    assert.match(skill, /--owning-stage Plan --owning-activity design/);
+    assert.match(skill, /\.\.\/myflow\/references\/stage-boundary\.md/);
+    assert.match(skill, /Design is (?:an activity within Plan|not a canonical stage)/);
+    assert.doesNotMatch(skill, /`(?:enter|correct)[^`]*--(?:owning-)?stage Design(?:\s|`)/);
+  }
+});
+
 test("correction guidance preserves owning stages and makes the artifact authoritative", async () => {
   const [router, contract, workstream, checkpoint, close] = await Promise.all([
     read("skills/myflow/SKILL.md"), read("docs/artifact-and-stage-boundary-contract.md"),
